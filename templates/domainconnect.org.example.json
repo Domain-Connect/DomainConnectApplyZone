@@ -1,0 +1,14 @@
+{
+ "records": [{
+    "type": "CNAME",
+    "host": "www",
+    "pointsTo": "@",
+    "ttl": 1800
+},
+{
+    "type": "A",
+    "host": "@",
+    "pointsTo": "1.1.1.1",
+    "ttl": 1800
+}]
+}
