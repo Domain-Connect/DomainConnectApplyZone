@@ -3,36 +3,72 @@
 This is a work in progress. 
 
 This module handles the logic for applying a template to a zone.
-There are two main entry points.
 
-## ReadTemplate
+## DomainConnect
 
-The first is a function that can read a template and return it
-as JSON.  All templates supported are in the templates sub-
-directory. 
+This is a Python module and corresponding class that can handle applying a
+template to a zone of records.
 
-Input to this function is the providerId and serviceId. This maps
-directly to the json file for the template in 
+The object is initialized with a providerId and serviceId. This maps
+directly to the json file for the template in:
+
 templates/<providerId>.<serviceId>
-  
-This function returns the json representing the template.
 
-## ApplyTemplate
+There are two methods available on the object.
 
-The second is a function that can apply changes to a zone on a 
+### Apply
+
+The fist (and more common) method is to apply changes to a zone based on the
 template.  
 
-Input this fuction includes the template (providerId and serviceId), 
-a list of the records that exist in the zone, the domain, the host, and
-input parameters.
+Input takes a list of records that exist in the zone, the domain, the host, and
+additional parameters for the template as a dictionary. It optionally takes a
+query string, sig, and key to verify the signature.
 
 The zone shoudl respresent the authoritative zone for the domain name, and is
 also the domain name where the template is being applied.
 
-This function returns three lists of zone records.
+This method returns three lists of zone records.
 
 The first is the new records being added
 
 Second are the records to be deleted
 
 The third is the list of final (complete) records that should be written to the zone.
+
+### Prompt
+
+This method is useful for testing. It will prompt the user for all values for all
+variables in the template. These are added as key/values in a dictionary
+suitable for passing into the Apply function.
+
+## qsutil
+
+This contains a couple of simple functions to help with handling query strings in web
+applications.
+
+### qs2dict
+
+This will convert a query string of the form a=1&b=2 to a dictionary of the form
+{'a': '1', 'b': '2'}. It also can filter out keys based on an input list.
+
+This is useful for converting a query string to a dictionary, filtering out the
+values not useful as parameters (e.g. domain, host, sig, key).
+
+### qsfilter
+
+This will filter out certain keys from a query string.
+
+## Test
+
+This contains a series of simple tests.
+
+## GDTest
+
+This will prompt the user for domain/host/providerId/serviceId and GoDaddy API Key. It will
+read the template, prompt for all variable values, and apply the changes to the zone.
+
+## Dependencies
+
+pip install PyCrypto
+pip install dnspython

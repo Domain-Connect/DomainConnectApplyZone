@@ -1,18 +1,5 @@
 import json
-
-##################################################################
-# DomainConnectApplyZone
-#
-# This module handles the logic for apply a template to a zone.
-# There are two main entry points.
-#
-# The first is a function that can read a template and return it
-# as JSON.  All templates supported are in the templates sub-
-# directory. This is called ReadTemplate
-#
-# The second is a function that can apply changes to a zone on a 
-# template.  This is called ApplyTemplate
-##################################################################
+import Signature
 
 #-------------------------------------------
 # Template Records
@@ -20,7 +7,7 @@ import json
 # From the specification. Records in a template have a type. Based on type additional
 # properties exist on the record.
 #
-# Most of these map to settings in the zone (exceptions are txtConflict*)
+# Most of these map to the zone values, with some naming differences (exceptions are txtConflict*)
 #
 # A host, pointsTo, ttl (int)
 # AAAA host, pointsTo, ttl (int)
@@ -48,18 +35,33 @@ import json
 # Similarly the value of pointsTo or target should not/does not have a trailing dot. This is 
 # assumed.
 #
-# A name, pointsTo, ttl (int)
-# AAAA name, pointsTo, ttl (int)
-# CNAME name, pointsTo, ttl (int)
+# A name, data, ttl (int)
+# AAAA name, data, ttl (int)
+# CNAME name, data, ttl (int)
 # TXT name, data, ttl (int)
-# MX name, pointsTo, priority (int), ttl (int)
-# SRV name, target, protocol, service, priority (int), weight (int), port (int), ttl (int)
+# MX name, data, ttl(int), priority (int)
+# SRV name, data, ttl(int), protocol, service, priority (int), weight (int), port (int)
 #
 
-#--------------------------------------------------
-# Handles replacing variables in an input string.
+#------------------------------------------------------------------------
+# Exceptions
 #
-# Variables in a domain connect template can be
+# These are exceptions that can be thrown when reading and applying templates
+#
+
+class InvalidTemplate(Exception):
+    pass
+
+class HostRequired(Exception):
+    pass
+
+class InvalidSignature(Exception):
+    pass
+
+#--------------------------------------------------
+# process_variables
+#
+# Handles replacing variables in an input string. Variables in a domain connect template can be:
 # 
 # -domain
 # -host
@@ -74,7 +76,7 @@ def process_variables(inputStr, domain, host, params, is_root=False):
         end = inputStr.find('%', start)
         varName = inputStr[start:end]
 
-        if varName == 'fqdn':
+        if varName == 'fqdn' or varName == '@':
             value = host + '.' + domain
         elif varName == 'domain':
             value = domain
@@ -113,7 +115,7 @@ def process_variables(inputStr, domain, host, params, is_root=False):
 #
 def process_txt(template_record, zone_records, new_records):	
 
-    new_records.append({'type': 'TXT', 'name': template_record['host'], 'data' : template_record['data'], 'ttl': template_record['ttl']})
+    new_records.append({'type': 'TXT', 'name': template_record['host'], 'data' : template_record['data'], 'ttl': int(template_record['ttl'])})
 
     for zone_record in zone_records:
         zone_record_type = zone_record['type'].upper()
@@ -194,7 +196,8 @@ def process_spfm(template_record, zone_records, new_records):
 #
 def process_srv(template_record, zone_records, new_records):
 
-    new_records.append(template_record)
+    new_record = {'type': 'SRV', 'name': template_record['host'], 'data': template_record['target'], 'ttl': int(template_record['ttl']), 'protocol': template_record['protocol'], 'service': template_record['service'], 'priority': int(template_record['priority']), 'weight': int(template_record['weight']), 'port': int(template_record['port'])}
+    new_records.append(new_record)
 
     for zone_record in zone_records:
         if zone_record['type'].upper() == 'SRV' and zone_record['name'].lower() == template_record['name'].lower():
@@ -223,81 +226,28 @@ def process_other(template_record, zone_records, new_records):
     record_type = template_record['type'].upper()
 
     # Add the new record
-    new_record = template_record.copy()
-    new_record['name'] = new_record['host']
-    del new_record['host']
-    new_records.append(template_record)
+    new_record = {'type': record_type, 'name': template_record['host'], 'data': template_record['pointsTo'], 'ttl': int(template_record['ttl'])}
+    
+    if record_type == 'MX':
+        new_record['priority'] = template_record['priority']
+
+    new_records.append(new_record)
 
     # Mark records in the zone for deletion
     for zone_record in zone_records:
 		
         zone_record_type = zone_record['type'].upper()
+        
         if zone_record_type in _delete_map[record_type] and \
             zone_record['name'].lower() == template_record['host'].lower():
             zone_record['_delete'] = 1
 
-#-------------------------------------------------------------
-# ReadTemplate
-#
-# Will read the template from the templates directory. The result is returned
-# as JSON data.
-#
-# The template is identified by the providerId and serviceId.
-#
-# If the template is not found, None is returned.
-#
-def ReadTemplate(providerId, serviceId):
-
-    # Read in the template
-    try:
-        fileName = 'templates/' + providerId + '.' + serviceId + '.json'
-        with open(fileName, 'r') as myFile:
-            jsonString = myFile.read()
-
-        jsonData = json.loads(jsonString)
-
-        return jsonData
-    except:
-        return None
-
-#------------------------------------------------------------------------
-# ApplyTemplate
-#
-# Will apply the template specified by providerId/serviceId to the zone using
-# the domain/host/params.
-#
-# The zone_records is a list of dictionary containing an copy of all the records in
-# the zone. Each dictionary adheres to the schema for a zone record described above.
-# Any additional fields added to these dictionaries will be preserved in the 
-# output for deleted_records and final_records. 
-#
-# This function will return three values as a tuple of:
-#
-# (new_records, deleted_records, final_records)
-#
-# new_records are the new records to be added to the zone
-#
-# deleted_records are the records that should be deleted from the zone
-#
-# final_records contains all records that would be in the zone (new_records plus records that weren't
-# deleted from the zone).
-#
-def ApplyTemplate(providerId, serviceId, zone_records, domain, host, params):
-    # Read in the template
-    jsonData = ReadTemplate(providerId, serviceId)
-
-    # If there is no template, simply return
-    if jsonData is None:
-        return None, None, None
-
-    return ProcessRecords(jsonData['records'], zone_records,  domain, host, params)
-
 #--------------------------------------------------
-# Process Records
+# process_records
 #
 # Will process the template records to the zone using the domain/host/params
 #
-def ProcessRecords(template_records, zone_records, domain, host, params):
+def process_records(template_records, zone_records, domain, host, params):
 
     # This will contain the new records
     new_records = []
@@ -310,7 +260,7 @@ def ProcessRecords(template_records, zone_records, domain, host, params):
 
         # We can only handle certain record types
         if template_record_type not in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'SPFM']:
-            raise TypeError()
+            raise TypeError('Unknown record type (' + template_record_type + ') in template')
 
         # Deal with the variables for each record type
 
@@ -340,6 +290,9 @@ def ProcessRecords(template_records, zone_records, domain, host, params):
         elif template_record_type in ['SRV']:
             process_srv(template_record, zone_records, new_records)
         else:
+            if template_record_type in ['CNAME'] and not host and template_record['host'] == '@':
+                raise HostRequired('Cannot have APEX CNAME without host')
+            
             process_other(template_record, zone_records, new_records)
 
     # Now compute the final list of records in the zone, and the records to be deleted
@@ -359,4 +312,142 @@ def ProcessRecords(template_records, zone_records, domain, host, params):
             deleted_records.append(zone_record)
 
     return new_records, deleted_records, final_records
+
+#--------------------------------------------------
+# prompt_variables
+#
+# Given an input string will prompt for a variable value, adding the key/value to the passed in dictionary
+#
+def prompt_variables(inputStr, params):
+    while inputStr.find('%') != -1:
+        start = inputStr.find('%') + 1
+        end = inputStr.find('%', start)
+        varName = inputStr[start:end]
+
+        if varName not in ['fqdn', 'domain', 'host', '@'] and varName not in params:
+            print('Enter value for ' + varName + ':')
+            v = raw_input()
+            params[varName] = v
+
+        inputStr = inputStr.replace('%' + varName + '%', '')
+
+#--------------------------------------------------------
+# prompt_records
+#
+# Will prompt for the variable values in each record in the template
+#
+def prompt_records(template_records):
+
+    params = {}
+                       
+    for template_record in template_records:
+        template_record_type = template_record['type']
+
+        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SPFM']:
+            prompt_variables(template_record['host'], params)
+                       
+
+        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME']:
+            prompt_variables(template_record['pointsTo'], params)
+
+        if template_record_type in ['TXT']:
+            prompt_variables(template_record['data'], params)
+
+        if template_record_type in ['SPFM']:
+            prompt_variables(template_record['spfRules'], params)
+
+        if template_record_type in ['SRV']:
+            prompt_variables(template_record['name'], params)
+            prompt_variables(template_record['target'], params)
+            prompt_variables(template_record['protocol'], params)
+            prompt_variables(template_record['service'], params)
+
+    return params
+
+
+#---------------------------------------------------------
+# DomainConnect
+#
+# Two main entry points.  One to apply a template. The other to prompt
+# for variables in a template
+#
+class DomainConnect:
+
+    def __init__(self, providerId, serviceId):
+        self.providerId = providerId
+        self.serviceId = serviceId
+        
+        # Read in the template
+        try:
+            fileName = 'templates/' + providerId + '.' + serviceId + '.json'
+            with open(fileName, 'r') as myFile:
+                jsonString = myFile.read()
+
+            self.jsonData = json.loads(jsonString)
+        except:
+            raise InvalidTemplate            
+
+    #----------------------------------------
+    # ApplyTemplate
+    #
+    # Will apply the template to the zone
+    #
+    # Input:
+    #
+    # The zone_records is a list of dictionary containing an copy of all the records in
+    # the zone for the domain. Each dictionary adheres to the schema for a zone record described above.
+    #
+    # domain/host describe the fqdn to apply.
+    #
+    # params contains the parameters for variable substitution.
+    #
+    # qs/sig/key are passed in if signature verification is required
+    #
+    # Output:
+    #
+    # This function will return three values as a tuple of:
+    #
+    # (new_records, deleted_records, final_records)
+    #
+    # new_records are the new records to be added to the zone
+    #
+    # deleted_records are the records that should be deleted from the zone
+    #
+    # final_records contains all records that would be in the zone (new_records plus records that weren't
+    # deleted from the zone).
+    #
+    def Apply(self, zone_records, domain, host, params, qs=None, sig=None, key=None):
+
+        # If the template requires a host, return
+        if 'hostRequired' in self.jsonData and self.jsonData['hostRequired'] and not host:
+            raise HostRequired('Template requires a host name')
+
+        # If the template requires a signature, validate it
+        if 'syncPubKeyDomain' in self.jsonData and self.jsonData['syncPubKeyDomain'] and qs and sig and key:
+
+            syncPubKeyDomain = self.jsonData['syncPubKeyDomain']
+            pubKey = Signature.getpublickey(key + '.' + syncPubKeyDomain)
+        
+            if not pubKey:
+                raise InvalidSignature('Unable to get public key for template/key')
+
+            if not Signature.verifysig(pubKey, sig, qs):
+                raise InvalidSignature('Signature not valid')
+
+        # Process the records in the template
+        return process_records(self.jsonData['records'], zone_records,  domain, host, params)
+
+    #-----------------------------------
+    # Prompt
+    #
+    # Will prompt for values for a template
+    #
+    def Prompt(self):
+
+        print('Getting parameters for ' + self.jsonData['providerName'] + ' to enable ' + self.jsonData['serviceName']) 
+        if 'variableDescription' in self.jsonData:
+            print(self.jsonData['variableDescription'])
+
+        # Prompt for records in the template
+        return prompt_records(self.jsonData['records'])
 
