@@ -12,6 +12,7 @@ import Signature
 # A host, pointsTo, ttl (int)
 # AAAA host, pointsTo, ttl (int)
 # CNAME host, pointsTo, ttl (int)
+# NS host, pointsTo, ttl (int)
 # TXT host, data, ttl (int), txtConflictMatchingMode, txtConflictMatchingPrefix
 # MX host, pointsTo, priority (int), ttl (int)
 # SRV name, target, protocol, service, priority (int), weight (int), port (int), ttl (int)
@@ -29,8 +30,10 @@ import Signature
 # Records input/output into a zone contain a type. Based on type, additional properties 
 # exist on the record.
 #
-# The name should be specified without the domain name.  For example, www.  A value of '' or @
-# maps to the root.
+# The name should be fully qualified but specified without the domain name.  For example, for a
+# zone file in the domain foo.com, www.bar.foo.com -> www.foo
+#
+# A value of '' or @ maps to the domain.
 #
 # Similarly the value of pointsTo or target should not/does not have a trailing dot. This is 
 # assumed.
@@ -38,6 +41,7 @@ import Signature
 # A name, data, ttl (int)
 # AAAA name, data, ttl (int)
 # CNAME name, data, ttl (int)
+# NS name, data, ttl (int)
 # TXT name, data, ttl (int)
 # MX name, data, ttl(int), priority (int)
 # SRV name, data, ttl(int), protocol, service, priority (int), weight (int), port (int)
@@ -48,7 +52,6 @@ import Signature
 #
 # These are exceptions that can be thrown when reading and applying templates
 #
-
 class InvalidTemplate(Exception):
     pass
 
@@ -203,6 +206,30 @@ def process_srv(template_record, zone_records, new_records):
         if zone_record['type'].upper() == 'SRV' and zone_record['name'].lower() == template_record['name'].lower():
             zone_record['_delete'] = 1
 
+#-------------------------------------------------------------------
+# process_ns
+#
+# Will process a NS template record. The host is always set for an NS record (it will not be @)
+#
+def process_ns(template_record, zone_records, new_records):
+
+    # Add the new record
+    new_record = {'type': template_record['type'].upper(), 'name': template_record['host'], 'data': template_record['pointsTo'], 'ttl': int(template_record['ttl'])}
+    new_records.append(new_record)
+
+    # Delete any record in the zone that conflicts with this new record.
+    #
+    # If the new record is at bar, delete bar, foo.bar, www.foo.bar, but not xbar
+    template_record_name = template_record['host'].lower()
+    
+    for zone_record in zone_records:
+
+        zone_record_name = zone_record['name'].lower()
+        
+        if zone_record_name == template_record_name or zone_record_name.endswith('.' + template_record_name):
+            zone_record['_delete'] = 1
+
+
 #-------------------------------------------------------------
 # process_other
 #
@@ -259,15 +286,15 @@ def process_records(template_records, zone_records, domain, host, params):
         template_record_type = template_record['type'].upper()
 
         # We can only handle certain record types
-        if template_record_type not in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'SPFM']:
+        if template_record_type not in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'SPFM', 'NS']:
             raise TypeError('Unknown record type (' + template_record_type + ') in template')
 
         # Deal with the variables for each record type
 
-        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SPFM']:
+        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SPFM', 'NS']:
             template_record['host'] = process_variables(template_record['host'], domain, host, params, True)
 
-        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME']:
+        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
             template_record['pointsTo'] = process_variables(template_record['pointsTo'], domain, host, params)
 
         if template_record_type in ['TXT']:
@@ -290,10 +317,29 @@ def process_records(template_records, zone_records, domain, host, params):
         elif template_record_type in ['SRV']:
             process_srv(template_record, zone_records, new_records)
         else:
-            if template_record_type in ['CNAME'] and not host and template_record['host'] == '@':
-                raise HostRequired('Cannot have APEX CNAME without host')
+            if template_record_type in ['CNAME', 'NS'] and template_record['host'] == '@':
+                raise HostRequired('Cannot have APEX CNAME or NS without host')
+
+            if template_record_type in ['NS']:
+                process_ns(template_record, zone_records, new_records)
+            else:
+                process_other(template_record, zone_records, new_records)
+
+        # Setting any record with a non root host should delete any NS records at the same host.
+        #
+        # So if we set bar, foo.bar, www.foo.bar it should delete NS records of bar. But not xbar
+        if template_record_type != 'NS' and template_record['host'] != '@':
+
+            template_record_name = template_record['host'].lower()
+
+            # Delete any records 
+            for zone_record in zone_records:
+                if zone_record['type'].upper() == 'NS':
+                    zone_record_name = zone_record['name'].lower()
+
+                    if  template_record_name == zone_record_name or template_record_name.endswith('.' + zone_record_name):
+                        zone_record['_delete'] = 1
             
-            process_other(template_record, zone_records, new_records)
 
     # Now compute the final list of records in the zone, and the records to be deleted
     deleted_records = []
@@ -343,11 +389,11 @@ def prompt_records(template_records):
     for template_record in template_records:
         template_record_type = template_record['type']
 
-        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SPFM']:
+        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS', 'TXT', 'SPFM']:
             prompt_variables(template_record['host'], params)
                        
 
-        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME']:
+        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
             prompt_variables(template_record['pointsTo'], params)
 
         if template_record_type in ['TXT']:
