@@ -14,7 +14,7 @@ directly to the json file for the template in:
 
 templates/<providerId>.<serviceId>
 
-There are two methods available on the object.
+There are several methods available on the object.
 
 ### Apply
 
@@ -36,13 +36,18 @@ Second are the records to be deleted
 
 The third is the list of final (complete) records that should be written to the zone.
 
+### VerifySig
+
+In addition to being used by the Apply method, this independent method will
+validate a query string against a signature and key.
+
 ### Prompt
 
 This method is useful for testing. It will prompt the user for all values for all
 variables in the template. These are added as key/values in a dictionary
 suitable for passing into the Apply function.
 
-## qsutil
+## QSUtil
 
 This contains a couple of simple functions to help with handling query strings in web
 applications.
@@ -57,11 +62,15 @@ values not useful as parameters (e.g. domain, host, sig, key).
 
 ### qsfilter
 
-This will filter out certain keys from a query string.
+This will filter out certain keys from a query string. This is useful when verifying a signature,
+when the query string needs to be preserved but stripped of the values sig and key.
 
 ## Test
 
-This contains a series of simple tests.
+This contains a series of simple tests.  Run them by:
+
+import Test
+Test.RunTests()
 
 ## GDTest
 

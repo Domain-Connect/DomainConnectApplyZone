@@ -61,6 +61,9 @@ class HostRequired(Exception):
 class InvalidSignature(Exception):
     pass
 
+class MissingParameter(Exception):
+    pass
+
 #--------------------------------------------------
 # process_variables
 #
@@ -88,7 +91,7 @@ def process_variables(inputStr, domain, host, params, is_root=False):
         elif varName in params:
             value = params[varName]
         else:
-            value = ''
+            raise MissingParameter("No value for parameter " + varName)
 
         inputStr = inputStr.replace('%' + varName + '%', value)
 
@@ -177,7 +180,7 @@ def process_spfm(template_record, zone_records, new_records):
                 spfData = 'v=spf1 ' + template_record['spfRules'] + ' ' + spfData
 
                 # Store the new record
-                new_records.append({'type': 'TXT', 'name': template_record['host'], 'data': spfData, 'ttl': zone_record['ttl']})
+                new_records.append({'type': 'TXT', 'name': template_record['host'], 'data': spfData, 'ttl': 6000})
                 
             found_spf = True
             break
@@ -431,7 +434,33 @@ class DomainConnect:
 
             self.jsonData = json.loads(jsonString)
         except:
-            raise InvalidTemplate            
+            raise InvalidTemplate
+
+    #-------------------------------------------------
+    # VerifySig
+    #
+    # This method will verify a signature of a query string.
+    #
+    # In Domain Connect a signed query string comes in with the domain, parameters, the signature
+    # (sig=) and a key to read the public key (key=).
+    #
+    # The signature is generated based on the qs without the sig= or key=. The sig is of course
+    # the signature. The key is used to fetch the public key from DNS.
+    #
+    # The public key is published in DNS in the zone specified in syncPubKeyDomain from the template
+    # at the host <key>.
+    #
+    # This method will raise an execption if the signature fails.  It will return if it suceeds.
+    #
+    def VerifySig(self, qs, sig, key):
+        syncPubKeyDomain = self.jsonData['syncPubKeyDomain']
+        pubKey = Signature.getpublickey(key + '.' + syncPubKeyDomain)
+        
+        if not pubKey:
+            raise InvalidSignature('Unable to get public key for template/key')
+
+        if not Signature.verifysig(pubKey, sig, qs):
+            raise InvalidSignature('Signature not valid')
 
     #----------------------------------------
     # ApplyTemplate
@@ -470,15 +499,7 @@ class DomainConnect:
 
         # If the template requires a signature, validate it
         if 'syncPubKeyDomain' in self.jsonData and self.jsonData['syncPubKeyDomain'] and qs and sig and key:
-
-            syncPubKeyDomain = self.jsonData['syncPubKeyDomain']
-            pubKey = Signature.getpublickey(key + '.' + syncPubKeyDomain)
-        
-            if not pubKey:
-                raise InvalidSignature('Unable to get public key for template/key')
-
-            if not Signature.verifysig(pubKey, sig, qs):
-                raise InvalidSignature('Signature not valid')
+            self.VerifySig(qs, sig, key)
 
         # Process the records in the template
         return process_records(self.jsonData['records'], zone_records,  domain, host, params)
