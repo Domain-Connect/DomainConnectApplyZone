@@ -60,10 +60,10 @@ def TestRecord(title, template_record, zone_records, domain='foo.com', host='', 
     print 'Domain = ' + domain
     print 'Host = ' + host
     print 'Template = ' + str(template_record)
+    print 'Params = ' + str(params)
 
     print 'Apply'
     new_records    = []
-    params = {}
     new_records, deleted_records, final_records = process_records([template_record,], zone_records, domain, host, params)
 
     if verbose:
@@ -95,7 +95,7 @@ def NSTests():
     zone_records = [{'type': 'NS', 'name':'foo', 'data': 'abc', 'ttl': 500}]
     template_record = {'type': 'A', 'host': 'foo', 'pointsTo': 'def', 'ttl': 300}
     expected_records = [{'type': 'A', 'name':'foo', 'data': 'def', 'ttl': 300}]
-    TestRecord('Delete NS with A Test', template_record, zone_records, 'foo.com', '', {}, 1, 1, 1, True, expected_records)
+    TestRecord('Delete NS with A Test', template_record, zone_records, 'foo.com', '', {}, 1, 1, 1, False, expected_records)
 
     zone_records = [{'type': 'NS', 'name':'foo.bar', 'data': 'abc', 'ttl': 500}]
     template_record = {'type': 'A', 'host': 'foo', 'pointsTo': 'def', 'ttl': 300}
@@ -196,30 +196,30 @@ def TXTTests():
 
 def CNAMETests():
     zone_records = [
-        {'type': 'A', 'name': 'foo', 'data':'abc', 'ttl': 400},
-        {'type': 'AAAA', 'name': 'foo', 'data':'abc', 'ttl': 400},
-        {'type': 'TXT', 'name': 'foo', 'data':'abc', 'ttl': 400},
-        {'type': 'MX', 'name': 'foo', 'data':'abc', 'ttl': 400, 'priority': 4}
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'AAAA', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'TXT', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'MX', 'name': 'bar', 'data':'abc', 'ttl': 400, 'priority': 4}
     ]
     template_record = {'type': 'CNAME', 'host': '@', 'pointsTo': 'abc', 'ttl': 600}
     expected_records = [
-        {'type': 'CNAME', 'name': 'foo', 'data': 'abc', 'ttl': 600}
+        {'type': 'CNAME', 'name': 'bar', 'data': 'abc', 'ttl': 600}
     ]
-    TestRecord('CNAME Delete', template_record, zone_records, 'foo.com', 'foo', {}, 1, 4, 1, False, expected_records)
+    TestRecord('CNAME Delete', template_record, zone_records, 'foo.com', 'bar', {}, 1, 4, 1, False, expected_records)
 
 def ATests():
     zone_records = [
-        {'type': 'A', 'name': 'foo', 'data':'abc', 'ttl': 400},
-        {'type': 'AAAA', 'name': 'foo', 'data':'abc', 'ttl': 400},
-        {'type': 'CNAME', 'name': 'foo', 'data':'abc', 'ttl': 400},
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'AAAA', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'CNAME', 'name': 'bar', 'data':'abc', 'ttl': 400},
         {'type': 'A', 'name': 'bar.foo', 'data':'abc', 'ttl': 400}
     ]
     template_record = {'type': 'A', 'host': '@', 'pointsTo': 'abc', 'ttl': 600}
     expected_records = [
-        {'type': 'A', 'name': 'foo', 'data':'abc', 'ttl': 600},
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 600},
         {'type': 'A', 'name': 'bar.foo', 'data':'abc', 'ttl': 400}
     ]
-    TestRecord('CNAME Delete', template_record, zone_records, 'foo.com', 'foo', {}, 1, 3, 2, False, expected_records)
+    TestRecord('CNAME Delete', template_record, zone_records, 'foo.com', 'bar', {}, 1, 3, 2, False, expected_records)
 
 def ExceptionTests():
     try:
@@ -233,7 +233,6 @@ def ExceptionTests():
 def SigTests():
     sig = 'LyCE+7H0zr/XHaxX36pdD1eSQENRiGTFxm79m7A5NLDPiUKLe71IrsEgnDLN76ndQcLTZlr4+HhpWzKZKyFl9ieEpNzZlDHRp35H83Erhm0eDctUmI1Zct51alZ8RuTL+aa29WC+AM7+gSpnL/AHl9mxckyeEuFFqXcl/3ShwK2F9x/7r+cICefiUEzsZN3EuqOvwqQkBSqcdVy/ohjNAG/InYAYSX+0fUK9UNQfQYkuPqOAptPRjX+hUnYsXUk/eQq16aX7TzhZm+eEq+En+oiEgh7qps1yvGbJm6QXKovan/sqng40R6FBP3R3dvfZC6QrfCUtGpQ8c0D0S5oLBw=='
 
-
     key = '_dck1'
     qs = 'domain=arnoldblinn.com&RANDOMTEXT=shm%3A1551036164%3Ahello&IP=132.148.25.185&host=bar'
     TestSig('Passed Sig', 'exampleservice.domainconnect.org', 'template2', qs, sig, key, True)
@@ -242,7 +241,48 @@ def SigTests():
     TestSig('Failed Sig', 'exampleservice.domainconnect.org', 'template2', qs, sig, key, False)
 
 def ParameterTests():
-    print("Bad parameter test")
+    zone_records = []
+    template_record = {'type': 'A', 'host': '@', 'pointsTo': 'abc', 'ttl': 400}
+    expected_records = [{'type': 'A', 'name': 'bar', 'data': 'abc', 'ttl': 400}]
+    TestRecord('@ in template host with input host Parameter Test', template_record, zone_records, 'foo.com', 'bar', {}, 1, 0, 1, False, expected_records)
+
+    zone_records = []
+    template_record = {'type': 'A', 'host': '@', 'pointsTo': '@', 'ttl': 400}
+    expected_records = [{'type': 'A', 'name': 'bar', 'data': 'bar.foo.com', 'ttl': 400}]
+    TestRecord('@ in template pointsTo with input host Parameter Test', template_record, zone_records, 'foo.com', 'bar', {}, 1, 0, 1, False, expected_records)
+
+    zone_records = []
+    template_record = {'type': 'A', 'host': '@', 'pointsTo': 'abc', 'ttl': 400}
+    expected_records = [{'type': 'A', 'name': '@', 'data': 'abc', 'ttl': 400}]
+    TestRecord('@ in template host without input host Parameter Test', template_record, zone_records, 'foo.com', '', {}, 1, 0, 1, False, expected_records)
+
+    zone_records = []
+    template_record = {'type': 'A', 'host': '@', 'pointsTo': '@', 'ttl': 400}
+    expected_records = [{'type': 'A', 'name': '@', 'data': 'foo.com', 'ttl': 400}]
+    TestRecord('@ in template pointsTo without input host Parameter Test', template_record, zone_records, 'foo.com', '', {}, 1, 0, 1, False, expected_records)
+
+    zone_records = []
+    template_record = {'type': 'A', 'host': '@', 'pointsTo': 'abc%fqdn%def', 'ttl': 400}
+    expected_records = [{'type': 'A', 'name': 'bar', 'data': 'abcbar.foo.comdef', 'ttl': 400}]
+    TestRecord('FQDN not in host Parameter Test', template_record, zone_records, 'foo.com', 'bar', {}, 1, 0, 1, False, expected_records)    
+
+
+    zone_records = []
+    template_record = {'type': 'A', 'host': '@', 'pointsTo': 'abc%host%def', 'ttl': 400}
+    expected_records = [{'type': 'A', 'name': 'bar', 'data': 'abcbardef', 'ttl': 400}]
+    TestRecord('Host Parameter Test', template_record, zone_records, 'foo.com', 'bar', {}, 1, 0, 1, False, expected_records)    
+
+    zone_records = []
+    template_record = {'type': 'A', 'host': '@', 'pointsTo': 'abc%domain%def', 'ttl': 400}
+    expected_records = [{'type': 'A', 'name': 'bar', 'data': 'abcfoo.comdef', 'ttl': 400}]
+    TestRecord('Domain Parameter Test', template_record, zone_records, 'foo.com', 'bar', {}, 1, 0, 1, False, expected_records)    
+
+    zone_records = []
+    template_record = {'type': 'A', 'host': '@', 'pointsTo': 'abc%v1%def', 'ttl': 400}
+    expected_records = [{'type': 'A', 'name': 'bar', 'data': 'abc123def', 'ttl': 400}]
+    TestRecord('Random Parameter Test', template_record, zone_records, 'foo.com', 'bar', {'v1': '123'}, 1, 0, 1, False, expected_records)    
+                        
+    print("Missing parameter test")
     zone_records = []
     template_record = {'type': 'A', 'host': '@', 'pointsTo': '%missing%', 'ttl': 600}
     try:
@@ -262,10 +302,10 @@ def RunTests():
     ATests()
     ExceptionTests()
     SigTests()
-    ParameterTest()
+    ParameterTests()
 
-    print("Failed Count = " + str(_counter.failCount))
-    print("Passed Count = " + str(_counter.passCount))
+    print("Failed Count = " + str(_testResults.failCount))
+    print("Passed Count = " + str(_testResults.passCount))
 
 
 

@@ -14,28 +14,29 @@ def WriteZoneRecords(domain, zone_records, apiKeySecret):
 
     return r.status_code==200
 
-print("Enter domain:")
-domain = raw_input()
-print("Enter host:")
-host = raw_input()
-if host == '':
-    host = None
-print("Enter API Key:")
-apiKey = raw_input()
-print("Enter providerId:")
-providerId = raw_input()
-print("Enter serviceId:")
-serviceId = raw_input()
+def Test():
+    print("Enter domain:")
+    domain = raw_input()
+    print("Enter host:")
+    host = raw_input()
+    if host == '':
+        host = None
+    print("Enter API Key:")
+    apiKey = raw_input()
+    print("Enter providerId:")
+    providerId = raw_input()
+    print("Enter serviceId:")
+    serviceId = raw_input()
 
-zone_records = ReadZoneRecords(domain, apiKey)
+    zone_records = ReadZoneRecords(domain, apiKey)
 
-dc = DomainConnect(providerId, serviceId)
-p = dc.Prompt()
+    dc = DomainConnect(providerId, serviceId)
+    p = dc.Prompt()
 
-new_r, deleted_r, final_r = dc.Apply(zone_records, domain, host, p)
+    new_r, deleted_r, final_r = dc.Apply(zone_records, domain, host, p)
 
-print("Final Records")
-print(json.dumps(final_r, indent=2))
+    print("Final Records")
+    print(json.dumps(final_r, indent=2))
 
-print(WriteZoneRecords(domain, final_r, apiKey))
+    print(WriteZoneRecords(domain, final_r, apiKey))
 

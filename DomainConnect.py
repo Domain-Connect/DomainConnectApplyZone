@@ -19,24 +19,35 @@ import Signature
 # SPFM host, spfRules
 #
 # Variables are allowed in all of the strings (exceptions are txtConflict)
+#
+# @ has special mean when used in two fields.
+#
+# For the host/name field the values are relative. @ is special for empty or relative to the root.
+# So a value @ with domain=foo.com&host=bar would result in bar in the zone.
+# A value of @ with domain=foo.com&host= would result in @.
+#
+# For the pointsTo/target the fields are absolute. @ is special for the root passed in but would be
+# expanded.
+# So a value @ with domain=foo.com&host=bar would result in bar.foo.com in the zone.
+# A value of @ with domain=foo.com&host= would result in foo.com in the zone.
+#
 
 #---------------------------------------------
 # Zone Records
 #
-# This is the full set of records in a delgated zone. A delegate zone typically
+# This is the full set of records in a delgated zone. A delegated zone typically
 # maps to a registered domain name (foo.com, foo.co.uk). It is the zone that
 # maps to the domain specified in the domain connect calls.
 #
 # Records input/output into a zone contain a type. Based on type, additional properties 
 # exist on the record.
 #
-# The name should be fully qualified but specified without the domain name.  For example, for a
-# zone file in the domain foo.com, www.bar.foo.com -> www.foo
+# The name should should be specified relative to the root zone name.
+# zone file in the domain foo.com, www.bar.foo.com would be listed as www.bar
 #
 # A value of '' or @ maps to the domain.
 #
-# Similarly the value of pointsTo or target should not/does not have a trailing dot. This is 
-# assumed.
+# Similarly the value of data should be a fully qualified domain name without a trailing dot.
 #
 # A name, data, ttl (int)
 # AAAA name, data, ttl (int)
@@ -67,23 +78,39 @@ class MissingParameter(Exception):
 #--------------------------------------------------
 # process_variables
 #
-# Handles replacing variables in an input string. Variables in a domain connect template can be:
-# 
-# -domain
-# -host
-# -fqdn (host + . + domain)
-# -@ (equal to fqdn)
-# -A key/value from the parameters
+# Handles replacing variables in an input string from a template.
 #
-def process_variables(inputStr, domain, host, params, is_root=False):  
+# Other inputs are the domain/host/params dictionary.
+#
+# Variables values in a domain connect template can be:
+#
+# %domain%
+# %host%
+# %fqdn% ([host.]domain)
+# @ (equal to fqdn)
+# A key/value from the parameters
+#
+# When the inputStr is the host/name field from a template record there is some extra processing.
+# This is because the host/name are relative to the host within the zone. This function will
+# convert the host/name to be relative to the domain (not host) within the zone.
+#
+# So a host/name xyz with a domain foo.com and a host of bar will map to xyz.bar.
+#
+# This processing is only done for processing of the host/name field, and is controlled by
+# is_template_host
+#
+def process_variables(inputStr, domain, host, params, is_host_or_name, is_target_or_pointsTo):
 	
     while inputStr.find('%') != -1:
         start = inputStr.find('%') + 1
         end = inputStr.find('%', start)
         varName = inputStr[start:end]
 
-        if varName == 'fqdn' or varName == '@':
-            value = host + '.' + domain
+        if varName == 'fqdn':
+            if host:
+                value = host + '.' + domain
+            else:
+                value = domain + '.'
         elif varName == 'domain':
             value = domain
         elif varName == 'host':
@@ -95,15 +122,22 @@ def process_variables(inputStr, domain, host, params, is_root=False):
 
         inputStr = inputStr.replace('%' + varName + '%', value)
 
-    if is_root:
-        if not host:
-            if not inputStr:
-                inputStr = '@'
-        else:
-            if inputStr == '@':
+    if is_host_or_name:
+        if not inputStr or inputStr == '@':
+            if host:
                 inputStr = host
             else:
+                inputStr = '@'
+        else:
+            if host:
                 inputStr = inputStr + '.' + host
+
+    if is_target_or_pointsTo:
+        if not inputStr or inputStr == '@':
+            if host:
+                inputStr = host + '.' + domain
+            else:
+                inputStr = domain
 
     return inputStr
 
@@ -295,22 +329,22 @@ def process_records(template_records, zone_records, domain, host, params):
         # Deal with the variables for each record type
 
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SPFM', 'NS']:
-            template_record['host'] = process_variables(template_record['host'], domain, host, params, True)
+            template_record['host'] = process_variables(template_record['host'], domain, host, params, True, False)
 
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
-            template_record['pointsTo'] = process_variables(template_record['pointsTo'], domain, host, params)
+            template_record['pointsTo'] = process_variables(template_record['pointsTo'], domain, host, params, False, True)
 
         if template_record_type in ['TXT']:
-            template_record['data'] = process_variables(template_record['data'], domain, host, params)
+            template_record['data'] = process_variables(template_record['data'], domain, host, params, False, False)
 
         if template_record_type in ['SPFM']:
-            template_record['spfRules'] = process_variables(template_record['spfRules'], domain, host, params)
+            template_record['spfRules'] = process_variables(template_record['spfRules'], domain, host, params, False, False)
 
         if template_record_type in ['SRV']:
-            template_record['name'] = process_variables(template_record['name'], domain, host, params, True)
-            template_record['target'] = process_variables(template_record['target'], domain, host, params)
-            template_record['protocol'] = process_variables(template_record['protocol'], domain, host, params)
-            template_record['service'] = process_variables(template_record['service'],domain, host, params)
+            template_record['name'] = process_variables(template_record['name'], domain, host, params, True, False)
+            template_record['target'] = process_variables(template_record['target'], domain, host, params, False, True)
+            template_record['protocol'] = process_variables(template_record['protocol'], domain, host, params, False, False)
+            template_record['service'] = process_variables(template_record['service'],domain, host, params, False, False)
 
         # Handle the proper processing for each template record type
         if template_record_type in ['SPFM']:
@@ -333,10 +367,13 @@ def process_records(template_records, zone_records, domain, host, params):
         # So if we set bar, foo.bar, www.foo.bar it should delete NS records of bar. But not xbar
         if template_record_type != 'NS' and template_record['host'] != '@':
 
+            print 'Deleting other NS'
+            print template_record['host']
             template_record_name = template_record['host'].lower()
 
             # Delete any records 
             for zone_record in zone_records:
+                print zone_record
                 if zone_record['type'].upper() == 'NS':
                     zone_record_name = zone_record['name'].lower()
 
@@ -413,6 +450,7 @@ def prompt_records(template_records):
 
     return params
 
+import os
 
 #---------------------------------------------------------
 # DomainConnect
@@ -428,7 +466,7 @@ class DomainConnect:
         
         # Read in the template
         try:
-            fileName = 'templates/' + providerId + '.' + serviceId + '.json'
+            fileName = os.path.dirname(os.path.realpath(__file__)) + '/templates/' + providerId + '.' + serviceId + '.json'
             with open(fileName, 'r') as myFile:
                 jsonString = myFile.read()
 
