@@ -367,13 +367,10 @@ def process_records(template_records, zone_records, domain, host, params):
         # So if we set bar, foo.bar, www.foo.bar it should delete NS records of bar. But not xbar
         if template_record_type != 'NS' and template_record['host'] != '@':
 
-            print 'Deleting other NS'
-            print template_record['host']
             template_record_name = template_record['host'].lower()
 
             # Delete any records 
             for zone_record in zone_records:
-                print zone_record
                 if zone_record['type'].upper() == 'NS':
                     zone_record_name = zone_record['name'].lower()
 
