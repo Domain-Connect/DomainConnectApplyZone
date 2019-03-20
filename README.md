@@ -79,5 +79,5 @@ read the template, prompt for all variable values, and apply the changes to the 
 
 ## Dependencies
 
-pip install PyCrypto
+pip install cryptography
 pip install dnspython
