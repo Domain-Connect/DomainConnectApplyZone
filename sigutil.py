@@ -1,24 +1,47 @@
 from dns.resolver import dns
-from Crypto.PublicKey import RSA
-from Crypto.Signature import PKCS1_v1_5
-from Crypto.Hash import SHA256
-from base64 import b64decode
 
-def verifysig(public_key, signature, data):
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+
+from base64 import b64decode, b64encode
+
+def verify_sig(public_key, signature, data):
     try:
-        rsakey = RSA.importKey(public_key)
-        signer = PKCS1_v1_5.new(rsakey)
-        digest = SHA256.new()
-        digest.update(data)
+        pk = serialization.load_pem_public_key(
+            public_key,
+            backend=default_backend()
+        )
 
-        if signer.verify(digest, b64decode(signature)):
-            return True
+        pk.verify(b64decode(signature),
+                  data,
+                  padding.PKCS1v15(),
+                  hashes.SHA256()
+        )
 
-        return False
+        return True
     except:
         return False
 
-def getpublickey(domain):
+# Generates a signature on the passed in data
+def generate_sig(private_key, data):
+
+    pk = serialization.load_pem_private_key(
+        private_key,
+        password=None,
+        backend=default_backend()
+        )
+
+    sig = pk.sign(
+        data,
+        padding.PKCS1v15(),
+        hashes.SHA256()
+    )
+
+    return b64encode(sig)
+
+def get_publickey(domain):
     try:
         segments = {}
 
@@ -52,3 +75,4 @@ def getpublickey(domain):
 
     except:
         return None
+

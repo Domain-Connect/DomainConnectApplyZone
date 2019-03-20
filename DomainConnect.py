@@ -1,5 +1,5 @@
 import json
-import Signature
+import sigutil
 
 #-------------------------------------------
 # Template Records
@@ -489,12 +489,12 @@ class DomainConnect:
     #
     def VerifySig(self, qs, sig, key):
         syncPubKeyDomain = self.jsonData['syncPubKeyDomain']
-        pubKey = Signature.getpublickey(key + '.' + syncPubKeyDomain)
+        pubKey = sigutil.get_publickey(key + '.' + syncPubKeyDomain)
         
         if not pubKey:
             raise InvalidSignature('Unable to get public key for template/key')
 
-        if not Signature.verifysig(pubKey, sig, qs):
+        if not sigutil.verify_sig(pubKey, sig, qs):
             raise InvalidSignature('Signature not valid')
 
     #----------------------------------------
