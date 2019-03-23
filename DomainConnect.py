@@ -311,13 +311,17 @@ def process_other(template_record, zone_records, new_records):
 #
 # Will process the template records to the zone using the domain/host/params
 #
-def process_records(template_records, zone_records, domain, host, params):
+def process_records(template_records, zone_records, domain, host, params, groupIds):
 
     # This will contain the new records
     new_records = []
 
     # Process each record in the template
     for template_record in template_records:
+
+        # If we passed ina  group, only apply templates as part of the group
+        if groupIds and 'groupId' in template_record and template_record['groupId'] not in groupIds:
+            continue
 
         # Get the record type
         template_record_type = template_record['type'].upper()
@@ -526,7 +530,7 @@ class DomainConnect:
     # final_records contains all records that would be in the zone (new_records plus records that weren't
     # deleted from the zone).
     #
-    def Apply(self, zone_records, domain, host, params, qs=None, sig=None, key=None):
+    def Apply(self, zone_records, domain, host, params, groupId=None, qs=None, sig=None, key=None):
 
         # If the template requires a host, return
         if 'hostRequired' in self.jsonData and self.jsonData['hostRequired'] and not host:
@@ -537,7 +541,7 @@ class DomainConnect:
             self.VerifySig(qs, sig, key)
 
         # Process the records in the template
-        return process_records(self.jsonData['records'], zone_records,  domain, host, params)
+        return process_records(self.jsonData['records'], zone_records,  domain, host, params, groupId)
 
     #-----------------------------------
     # Prompt
