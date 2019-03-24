@@ -62,7 +62,7 @@ key = None
 
 dc.Apply(zone_records, domain, host, params, groupId, qs, sig, key)
 ----
-n
+
 Upon success this method returns three lists of zone records.
 
 The first is the new records being added
@@ -73,7 +73,7 @@ The third is the list of final (complete) records that should be written to the 
 
 Calling this function can throw any of a number of exceptions. These include
 
-[cols=",,",options="header",]
+[cols=",",options="header",]
 |=======================================================================
 |Exception
 |Description
@@ -102,7 +102,7 @@ represents a record in the zone.
 All records have a type (A, AAAA, CNAME, NS, TXT, MX, or SRV). Depending on the type there
 are other attributes.
 
-[cols=",,",options="header",]
+[cols=",",options="header",]
 |=======================================================================
 |Field
 |Description
@@ -141,18 +141,8 @@ An example zone:
 [source,json]
 ----
 [
-	{
-		'type': 'A',
-		'name': '@',
-		'data': '127.0.0.1',
-		'ttl': 3000
-	},
-	{
-		'type': 'CNAME',
-		'name': 'www',
-		'data': '@',
-		'ttl': 3000
-	}
+{"type": "A","name": "@","data": "127.0.0.1","ttl": 3000},
+{"type": "CNAME","name": "www","data": "@","ttl": 3000}
 ]
 	
 ----
@@ -220,5 +210,9 @@ the entire zone, and write the entire zone.
 
 ## Dependencies
 
+[source]
+----
 pip install cryptography
 pip install dnspython
+pip install IPy
+----
