@@ -141,18 +141,8 @@ An example zone:
 [source,json]
 ----
 [
-	{
-		'type': 'A',
-		'name': '@',
-		'data': '127.0.0.1',
-		'ttl': 3000
-	},
-	{
-		'type': 'CNAME',
-		'name': 'www',
-		'data': '@',
-		'ttl': 3000
-	}
+{"type": "A","name": "@","data": "127.0.0.1","ttl": 3000},
+{"type": "CNAME","name": "www","data": "@","ttl": 3000}
 ]
 	
 ----
