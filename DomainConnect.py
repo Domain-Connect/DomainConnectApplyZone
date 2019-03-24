@@ -417,8 +417,6 @@ def process_records(template_records, zone_records, domain, host, params, groupI
             if template_record_type in ['NS']:
                 process_ns(template_record, zone_records, new_records)
             else:
-                print template_record
-                print zone_records
                 process_other(template_record, zone_records, new_records)
 
         if template_record_type in ['SRV']:
