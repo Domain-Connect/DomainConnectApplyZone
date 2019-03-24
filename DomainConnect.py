@@ -46,17 +46,19 @@ import validate
 # The name should should be specified relative to the root zone name.
 # zone file in the domain foo.com, www.bar.foo.com would be listed as www.bar
 #
-# A value of '' or @ maps to the domain.
+# A value of '' or @ in the name field maps to the domain.
 #
-# Similarly the value of data should be a fully qualified domain name without a trailing dot.
+# When a domain/host is allowed in the data field, this should be a fully qualified domain name without a trailing dot.
 #
-# A name, data, ttl (int)
-# AAAA name, data, ttl (int)
-# CNAME name, data, ttl (int)
-# NS name, data, ttl (int)
-# TXT name, data, ttl (int)
-# MX name, data, ttl(int), priority (int)
-# SRV name, data, ttl(int), protocol, service, priority (int), weight (int), port (int)
+# All records havea 'type'. Depending on the type, additional fields are required. Unless otherwise stated all data is a string.
+#
+# A: name, data, ttl (int)
+# AAAA: name, data, ttl (int)
+# CNAME: name, data, ttl (int)
+# NS: name, data, ttl (int)
+# TXT: name, data, ttl (int)
+# MX: name, data, ttl(int), priority (int)
+# SRV: name, data, ttl(int), protocol, service, priority (int), weight (int), port (int)
 #
 
 #------------------------------------------------------------------------

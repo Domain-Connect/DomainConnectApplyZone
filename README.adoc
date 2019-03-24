@@ -1,0 +1,224 @@
+# DomainConnectApplyZone
+
+## Introduction
+
+This module is a utility to implement the logic for applying a template to a zone.
+
+Given a domain, it's zone file, and the host (sub-domain) this can apply a template
+with parameters to the zone.
+
+Authorization of the user, verification that the user owns the domain, and the UX to
+gain consent from the user are left to the DNS Provider.  But all the logic for handling
+the application of the template, including conflict detection, is handled in this
+library.
+
+The library also provides convenient functions for verification of the digital signature when
+necessary.
+
+There are several entry points to the code.
+
+## DomainConnect
+
+This is a Python module and corresponding class that can handle applying a
+template to a zone of records.
+
+The object is initialized with a (service)providerId and serviceId.
+
+[source]
+----
+import DomainConnect
+dc = DomainConnect(<providerId>, <serviceId>)
+----
+
+This will correspond to the template in the filesystem at:
+
+templates/<providerId>.<serviceId>.json
+
+If the template cannot be found, an InvalidTemplate exception is thrown.
+
+There are several methods available on the object.
+
+### Apply
+
+The fist (and more common) method is to apply changes to a zone based on the
+template.  
+
+Input takes a list of records that exist in the zone, the domain, the host, and
+additional parameters for the template as a dictionary. It optionally takes a
+query string, sig, and key to verify the signature.
+
+[source]
+----
+import DomainConnect
+dc = DomainConnect("exampleservice.domainconnect.org", "template1")
+
+zone_records = [...] # List of records in the zone
+domain = 'example.com'
+host = None
+params = {'IP': '132.148.25.185', 'RANDOMTEXT': 'shm:1553436765:Hello'}
+groupId = None
+qs = None
+key = None
+
+dc.Apply(zone_records, domain, host, params, groupId, qs, sig, key)
+----
+n
+Upon success this method returns three lists of zone records.
+
+The first is the new records being added
+
+Second are the records to be deleted
+
+The third is the list of final (complete) records that should be written to the zone.
+
+Calling this function can throw any of a number of exceptions. These include
+
+[cols=",,",options="header",]
+|=======================================================================
+|Exception
+|Description
+
+|*HostRequired*
+|This is raised when the template requires a host, but no host (subdomain)
+is provided
+
+|*InvalidSignature*
+|This is raised when doing signature verification and the signature fails.
+
+|*MissingParameter*
+|This is raised when the template requires a parameter that wasn't passed in.
+
+|*InvalidData*
+|This is raised when invalid data is passed into the template.
+
+|=======================================================================
+
+### Records
+
+Records in a zone, being added to a zone, or being deleted from a zone are represented
+in a simple Python datastructure.  This is a list of dictionaries.  Each dictionary
+represents a record in the zone.
+
+All records have a type (A, AAAA, CNAME, NS, TXT, MX, or SRV). Depending on the type there
+are other attributes.
+
+[cols=",,",options="header",]
+|=======================================================================
+|Field
+|Description
+
+|*type*
+|This is one of A, AAAA, CNAME, NS, TXT, MX, or SRV. 
+
+|*name*
+|This is the name/host of the record. This exists for all types.
+
+|*data*
+|This is the data for the record. This exists for all types.
+
+|*ttl*
+|This is the TTL for the record. This is an int.
+
+|*priority*
+|This is the priority of an MX record or SRV record. This is an int.
+
+|*protocol*
+|This is the protocol for an SRV record. This must be TCP or UDP.
+
+|*service*
+|This is the service of an SRV record.
+
+|*weight*
+|This is the weight of the SRV record. This is an int.
+
+|*port*
+|This is the port of the SRV record. This is an int.
+
+|=======================================================================
+
+An example zone:
+
+[source,json]
+----
+[
+	{
+		'type': 'A',
+		'name': '@',
+		'data': '127.0.0.1',
+		'ttl': 3000
+	},
+	{
+		'type': 'CNAME',
+		'name': 'www',
+		'data': '@',
+		'ttl': 3000
+	}
+]
+	
+----
+
+Note:
+
+The @ sign is used for the name to represent the apex when allowed.  It is used for data for some record types when refering to
+the domain name of the zone.
+
+### VerifySig
+
+In addition to being used by the Apply method, this independent method will
+validate a query string against a signature and key.
+
+[source]
+----
+import DomainConnect
+dc = DomainConnect('exampleservice.domainconnect.org', 'template2')
+sig = 'LyCE+7H0zr/XHaxX36pdD1eSQENRiGTFxm79m7A5NLDPiUKLe71IrsEgnDLN76ndQcLTZlr4+HhpWzKZKyFl9ieEpNzZlDHRp35H83Erhm0eDctUmI1Zct51alZ8RuTL+aa29WC+AM7+gSpnL/AHl9mxckyeEuFFqXcl/3ShwK2F9x/7r+cICefiUEzsZN3EuqOvwqQkBSqcdVy/ohjNAG/InYAYSX+0fUK9UNQfQYkuPqOAptPRjX+hUnYsXUk/eQq16aX7TzhZm+eEq+En+oiEgh7qps1yvGbJm6QXKovan/sqng40R6FBP3R3dvfZC6QrfCUtGpQ8c0D0S5oLBw=='
+
+key = '_dck1'
+qs = 'domain=arnoldblinn.com&RANDOMTEXT=shm%3A1551036164%3Ahello&IP=132.148.25.185&host=bar'
+
+dc.VerifySig(qs, sig, key)
+----
+
+If the signature fails, an InvalidSignature exception is raised
+
+### Prompt
+
+This method is useful for testing. It will prompt the user for all values for all
+variables in the template. These are added as key/values in a dictionary
+suitable for passing into the Apply function.
+
+## QSUtil
+
+This contains a couple of simple functions to help with handling query strings in web
+applications.
+
+### qs2dict
+
+This will convert a query string of the form a=1&b=2 to a dictionary of the form
+{'a': '1', 'b': '2'}. It also can filter out keys based on an input list.
+
+This is useful for converting a query string to a dictionary, filtering out the
+values not useful as parameters (e.g. domain, host, sig, key).
+
+### qsfilter
+
+This will filter out certain keys from a query string. This is useful when verifying a signature,
+when the query string needs to be preserved but stripped of the values sig and key.
+
+## Test
+
+This contains a series of simple tests.  Run them by:
+
+import Test
+Test.RunTests()
+
+## GDTest
+
+This module is GoDaddy specific. This will prompt the user for domain/host/providerId/serviceId and GoDaddy API Key. It will
+read the template, prompt for all variable values, and apply the changes to the zone. This is done by using the API Key to read
+the entire zone, and write the entire zone.
+
+## Dependencies
+
+pip install cryptography
+pip install dnspython
