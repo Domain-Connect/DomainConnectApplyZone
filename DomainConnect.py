@@ -104,9 +104,11 @@ class InvalidData(Exception):
 # is_template_host
 #
 def process_variables(inputStr, domain, host, params, key):
-	
-    while inputStr.find('%') != -1:
-        start = inputStr.find('%') + 1
+
+    ci = 0
+
+    while inputStr.find('%', ci) != -1:
+        start = inputStr.find('%', ci) + 1
         end = inputStr.find('%', start)
         varName = inputStr[start:end]
 
@@ -125,6 +127,8 @@ def process_variables(inputStr, domain, host, params, key):
             raise MissingParameter("No value for parameter " + varName)
 
         inputStr = inputStr.replace('%' + varName + '%', value)
+
+        ci = start + len(value)
 
     if key == 'name' or key == 'host':
         if not inputStr or inputStr == '@':

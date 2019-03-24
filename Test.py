@@ -343,6 +343,12 @@ def ParameterTests():
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '%missing%', 'ttl': 600}]
     TestRecordsException('Missing Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, MissingParameter)
 
+def PercentParameterTests():
+    zone_records = []
+    template_records = [{'type': 'TXT', 'host': '@', 'data': 'abc%fff%def', 'ttl': 400}]
+    expected_records = [{'type': 'TXT', 'name': 'bar', 'data': 'abc%ab%cd%def', 'ttl': 400}]
+    TestRecords('Domain Parameter Test', template_records, zone_records, 'foo.com', 'bar', {'fff': '%ab%cd%'}, None, 1, 0, expected_records, False)    
+
 def BadParameterTests():
     zone_records = []
     template_records = [{'type': 'A', 'host': '-abc', 'pointsTo': '127.0.0.1', 'ttl': 400}]
@@ -391,6 +397,7 @@ def RunTests():
     SigTests()
     GroupTests()
     ParameterTests()
+    PercentParameterTests()
 
     print("Failed Count = " + str(_testResults.failCount))
     print("Passed Count = " + str(_testResults.passCount))
