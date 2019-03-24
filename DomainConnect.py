@@ -604,6 +604,17 @@ class DomainConnect:
         # Process the records in the template
         return process_records(self.jsonData['records'], zone_records,  domain, host, params, groupId)
 
+    #------------------------------------
+    # IsSignatureRequired
+    #
+    # Will indicate if the template requires a signature
+    #
+    def IsSignatureRequired(self):
+        if 'syncPubKeyDomain' in self.jsonData:
+            return True
+        
+        return False
+
     #-----------------------------------
     # Prompt
     #
