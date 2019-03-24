@@ -1,5 +1,6 @@
 import json
 import sigutil
+import validate
 
 #-------------------------------------------
 # Template Records
@@ -75,6 +76,9 @@ class InvalidSignature(Exception):
 class MissingParameter(Exception):
     pass
 
+class InvalidData(Exception):
+    pass
+
 #--------------------------------------------------
 # process_variables
 #
@@ -99,7 +103,7 @@ class MissingParameter(Exception):
 # This processing is only done for processing of the host/name field, and is controlled by
 # is_template_host
 #
-def process_variables(inputStr, domain, host, params, is_host_or_name, is_target_or_pointsTo):
+def process_variables(inputStr, domain, host, params, key):
 	
     while inputStr.find('%') != -1:
         start = inputStr.find('%') + 1
@@ -122,7 +126,7 @@ def process_variables(inputStr, domain, host, params, is_host_or_name, is_target
 
         inputStr = inputStr.replace('%' + varName + '%', value)
 
-    if is_host_or_name:
+    if key == 'name' or key == 'host':
         if not inputStr or inputStr == '@':
             if host:
                 inputStr = host
@@ -131,8 +135,8 @@ def process_variables(inputStr, domain, host, params, is_host_or_name, is_target
         else:
             if host:
                 inputStr = inputStr + '.' + host
-
-    if is_target_or_pointsTo:
+                
+    elif key == 'target' or key == 'pointsTo':
         if not inputStr or inputStr == '@':
             if host:
                 inputStr = host + '.' + domain
@@ -236,7 +240,7 @@ def process_spfm(template_record, zone_records, new_records):
 #
 def process_srv(template_record, zone_records, new_records):
 
-    new_record = {'type': 'SRV', 'name': template_record['host'], 'data': template_record['target'], 'ttl': int(template_record['ttl']), 'protocol': template_record['protocol'], 'service': template_record['service'], 'priority': int(template_record['priority']), 'weight': int(template_record['weight']), 'port': int(template_record['port'])}
+    new_record = {'type': 'SRV', 'name': template_record['name'], 'data': template_record['target'], 'ttl': int(template_record['ttl']), 'protocol': template_record['protocol'], 'service': template_record['service'], 'priority': int(template_record['priority']), 'weight': int(template_record['weight']), 'port': int(template_record['port'])}
     new_records.append(new_record)
 
     for zone_record in zone_records:
@@ -330,25 +334,68 @@ def process_records(template_records, zone_records, domain, host, params, groupI
         if template_record_type not in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'SPFM', 'NS']:
             raise TypeError('Unknown record type (' + template_record_type + ') in template')
 
-        # Deal with the variables for each record type
+        # Deal with the variables and validation 
 
+        # Deal with the host/name        
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SPFM', 'NS']:
-            template_record['host'] = process_variables(template_record['host'], domain, host, params, True, False)
+            template_record['host'] = process_variables(template_record['host'], domain, host, params, 'host')
 
+            if template_record_type in ['A', 'AAAA', 'MX', 'NS']:
+                if not validate.is_valid_host_other(template_record['host'], False):
+                    raise InvalidData('Invalid data for ' + template_record_type + ' host: ' + template_record['host'])
+            elif template_record_type in ['TXT', 'SPFM']:
+                if not validate.is_valid_host_other(template_record['host'], True):
+                    raise InvalidData('Invalid data for ' + template_record_type + ' host: ' + template_record['host'])
+            elif template_record_type in ['CNAME']:
+                if not validate.is_valid_host_cname(template_record['host']):
+                    raise InvalidData('Invalid data for ' + template_record_type + ' host: ' + template_record['host'])
+
+        elif template_record_type in ['SRV']:
+            template_record['name'] = process_variables(template_record['name'], domain, host, params, 'name')
+
+            if not validate.is_valid_host_srv(template_record['name']):
+                raise InvalidData('Invalid data for SRV name: ' + template_record['name'])
+            
+        # Points To / Target
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
-            template_record['pointsTo'] = process_variables(template_record['pointsTo'], domain, host, params, False, True)
+            template_record['pointsTo'] = process_variables(template_record['pointsTo'], domain, host, params, 'pointsTo')
+            
+            if template_record_type in ['MX', 'CNAME', 'NS']:
+                if not validate.is_valid_pointsTo_host(template_record['pointsTo']):
+                    raise InvalidData('Invalid data for ' + template_record_type + ' pointsTo: ' + template_record['pointsTo'])
+                
+            elif template_record_type in ['A']:
+                if not validate.is_valid_pointsTo_ip(template_record['pointsTo'], 4):
+                    raise InvalidData('Invalid data for A pointsTo: ' + template_record['pointsTo'])
+                
+            elif template_record_type in ['AAAA']:
+                if not validate.is_valid_pointsTo_ip(template_record['pointsTo'], 6):
+                    raise InvalidData('Invalid data for AAAA pointsTo: ' + template_record['pointsTo'])
 
-        if template_record_type in ['TXT']:
-            template_record['data'] = process_variables(template_record['data'], domain, host, params, False, False)
+        elif template_record_type in ['SRV']:
+            template_record['target'] = process_variables(template_record['target'], domain, host, params, 'target')
 
-        if template_record_type in ['SPFM']:
-            template_record['spfRules'] = process_variables(template_record['spfRules'], domain, host, params, False, False)
+            if not validate.is_valid_pointsTo_host(template_record['target']):
+                raise InvalidData('Invalid data for SRV target: ' + template_record['target'])
 
+        # SRV has a few more records that need to be processed and validated
         if template_record_type in ['SRV']:
-            template_record['name'] = process_variables(template_record['name'], domain, host, params, True, False)
-            template_record['target'] = process_variables(template_record['target'], domain, host, params, False, True)
-            template_record['protocol'] = process_variables(template_record['protocol'], domain, host, params, False, False)
-            template_record['service'] = process_variables(template_record['service'],domain, host, params, False, False)
+            template_record['protocol'] = process_variables(template_record['protocol'], domain, host, params, 'protocol')
+
+            if template_record['protocol'] not in ['TCP', 'UDP']:
+                raise InvalidData('Invalid data for SRV protocol: ' + template_record['protocol'])
+
+            template_record['service'] = process_variables(template_record['service'],domain, host, params, 'service')
+            if not validate.is_valid_pointsTo_host(template_record['service']):
+                raise InvalidData('Invalid data for SRV service: ' + template_record['service'])
+
+        # Couple of simple things in a TX and SPFM record
+        if template_record_type in ['TXT']:
+            template_record['data'] = process_variables(template_record['data'], domain, host, params, 'data')
+            
+        if template_record_type in ['SPFM']:
+            template_record['spfRules'] = process_variables(template_record['spfRules'], domain, host, params, 'spfRules')
+
 
         # Handle the proper processing for each template record type
         if template_record_type in ['SPFM']:
@@ -364,14 +411,19 @@ def process_records(template_records, zone_records, domain, host, params, groupI
             if template_record_type in ['NS']:
                 process_ns(template_record, zone_records, new_records)
             else:
+                print template_record
+                print zone_records
                 process_other(template_record, zone_records, new_records)
+
+        if template_record_type in ['SRV']:
+            template_record_name = template_record['name'].lower()
+        else:
+            template_record_name = template_record['host'].lower()
 
         # Setting any record with a non root host should delete any NS records at the same host.
         #
         # So if we set bar, foo.bar, www.foo.bar it should delete NS records of bar. But not xbar
-        if template_record_type != 'NS' and template_record['host'] != '@':
-
-            template_record_name = template_record['host'].lower()
+        if template_record_type != 'NS' and template_record_name != '@':
 
             # Delete any records 
             for zone_record in zone_records:
@@ -405,13 +457,19 @@ def process_records(template_records, zone_records, domain, host, params, groupI
 #
 # Given an input string will prompt for a variable value, adding the key/value to the passed in dictionary
 #
-def prompt_variables(inputStr, params):
+def prompt_variables(template_record, inputStr, params):
+    leading = False
     while inputStr.find('%') != -1:
+
         start = inputStr.find('%') + 1
         end = inputStr.find('%', start)
         varName = inputStr[start:end]
 
         if varName not in ['fqdn', 'domain', 'host', '@'] and varName not in params:
+            if not leading:
+                print(template_record)
+                leading = True
+
             print('Enter value for ' + varName + ':')
             v = raw_input()
             params[varName] = v
@@ -431,23 +489,22 @@ def prompt_records(template_records):
         template_record_type = template_record['type']
 
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS', 'TXT', 'SPFM']:
-            prompt_variables(template_record['host'], params)
-                       
+            prompt_variables(template_record, template_record['host'], params)
 
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
-            prompt_variables(template_record['pointsTo'], params)
+            prompt_variables(template_record, template_record['pointsTo'], params)
 
         if template_record_type in ['TXT']:
-            prompt_variables(template_record['data'], params)
+            prompt_variables(template_record, template_record['data'], params)
 
         if template_record_type in ['SPFM']:
-            prompt_variables(template_record['spfRules'], params)
+            prompt_variables(template_record, template_record['spfRules'], params)
 
         if template_record_type in ['SRV']:
-            prompt_variables(template_record['name'], params)
-            prompt_variables(template_record['target'], params)
-            prompt_variables(template_record['protocol'], params)
-            prompt_variables(template_record['service'], params)
+            prompt_variables(template_record, template_record['name'], params)
+            prompt_variables(template_record, template_record['target'], params)
+            prompt_variables(template_record, template_record['protocol'], params)
+            prompt_variables(template_record, template_record['service'], params)
 
     return params
 
@@ -467,7 +524,7 @@ class DomainConnect:
         
         # Read in the template
         try:
-            fileName = os.path.dirname(os.path.realpath(__file__)) + '/templates/' + providerId + '.' + serviceId + '.json'
+            fileName = os.path.dirname(os.path.realpath(__file__)) + '/templates/' + providerId.lower() + '.' + serviceId.lower() + '.json'
             with open(fileName, 'r') as myFile:
                 jsonString = myFile.read()
 
