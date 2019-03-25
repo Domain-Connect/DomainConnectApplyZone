@@ -18,39 +18,49 @@ def WriteZoneRecords(domain, zone_records, apiKeySecret):
     return r.status_code
 
 def Test():
+    # Collect the data 
     print("Enter domain:")
     domain = raw_input()
     print("Enter host:")
     host = raw_input()
     if host == '':
         host = None
-    print("Enter API Key:")
-    apiKey = raw_input()
     print("Enter Service Provider Id (template providerId):")
     providerId = raw_input()
     print("Enter Service Id (template serviceId):")
     serviceId = raw_input()
 
-    zone_records = ReadZoneRecords(domain, apiKey)
-    if zone_records == None:
-        print("Unknown domain")
-        return
-
+    # Create the DomainConnect Object
     try:
         dc = DomainConnect(providerId, serviceId)
     except InvalidTemplate:
-        print ("Unknown template")
+        print ("Unknown or missing template")
         return
-    
-    p = dc.Prompt()
 
-    new_r, deleted_r, final_r = dc.Apply(zone_records, domain, host, p)
+    # Ask for an API Key (GoDaddy Specific)
+    print("Enter GoDaddy API Key (see https://developer.godaddy.com/keys):")
+    apiKey = raw_input()
 
+    # Read the zone
+    zone_records = ReadZoneRecords(domain, apiKey)
+    if zone_records == None:
+        print("Unknown or unauthorized domain")
+        return
+
+    # Now use the domain connect object to prompt for variables
+    params = dc.Prompt()
+
+    # Apply the zone
+    new_r, deleted_r, final_r = dc.Apply(zone_records, domain, host, params, ignoreSignature=True)
+
+    # Echo the final records
     print("Final Records")
     print(json.dumps(final_r, indent=2))
 
+    # Write them to the zone
     status = WriteZoneRecords(domain, final_r, apiKey)
 
+    # Display the result
     if status != 200:
         print("Write failed: " + status)
         return

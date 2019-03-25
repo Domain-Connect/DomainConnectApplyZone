@@ -2,18 +2,15 @@
 
 ## Introduction
 
-This module is a utility to implement the logic for applying a template to a zone.
+This module implements the logic for applying a Domain Connect template to a zone.
 
-Given a domain, it's zone file, and the host (sub-domain) this can apply a template
-with parameters to the zone.
+Given a zone's contents, a domain/host (sub-domain), a template (identified by a
+providerId/serviceId), and parameters this will calculate the changes to the zone.
 
 Authorization of the user, verification that the user owns the domain, and the UX to
 gain consent from the user are left to the DNS Provider.  But all the logic for handling
-the application of the template, including conflict detection, is handled in this
-library.
-
-The library also provides convenient functions for verification of the digital signature when
-necessary.
+the application of the template, including conflict detection, parameter processing,
+signature verification and more are handled in this library.
 
 There are several entry points to the code.
 
@@ -30,22 +27,73 @@ import DomainConnect
 dc = DomainConnect(<providerId>, <serviceId>)
 ----
 
-This will correspond to the template in the filesystem at:
+This will correspond to a template.  Templates can be found at
+https://github.com/Domain-Connect/templates. These must exist in a sub-directory of
+this project in files of the form:
 
 templates/<providerId>.<serviceId>.json
 
 If the template cannot be found, an InvalidTemplate exception is thrown.
 
-There are several methods available on the object.
+There are several other methods on this class/object.
 
-### Apply
+### Apply(...)
 
 The fist (and more common) method is to apply changes to a zone based on the
 template.  
 
 Input takes a list of records that exist in the zone, the domain, the host, and
-additional parameters for the template as a dictionary. It optionally takes a
-query string, sig, and key to verify the signature.
+additional parameters for the template as a dictionary of key/value pairs.
+It optionally takes a query string, sig, and key to verify the signature.
+
+#### Parameters
+
+[cols=",",options="header",]
+|=======================================================================
+|Parameter
+|Type
+|Description
+
+|*Zone Records*
+|[{}]
+|This is the list of records representing the zone. It is described below.
+
+|*Domain*
+|string
+|This is the domain name. It matches the domain of the zone, and the domain
+the template will be applied to.
+
+|*Host*
+|string
+|This is the host or sub-domain. It can be None.
+
+|*Group Ids*
+|[string,]
+|(optional) This is a list of groups to apply. If None or empty, the entire template will be applied.
+
+|*Query String (qs)*
+|string
+|(optional) This is the query string used for signature verification. It should match the entire
+query string, properly URL Encoded, without the sig or key values. This defaults to None.
+
+|*Signature (sig)*
+|string
+|(optional) This is the signature. This defaults to None.
+
+|*Key (key)*
+|string
+|(optional) This is the key into DNS on syncPubKeyDomain to read the public key for signature verification.
+This defaults to None.
+
+|*Ignore Signature (ignoreSignature) *
+|Boolean
+|(optional) This tells the system to ignore any signature verification. Extreme care should be taken with this parameter, as
+it is largely intended for internal tooling and testing. This defaults to False.
+
+|=======================================================================
+
+
+#### Example
 
 [source]
 ----
@@ -56,22 +104,21 @@ zone_records = [...] # List of records in the zone
 domain = 'example.com'
 host = None
 params = {'IP': '132.148.25.185', 'RANDOMTEXT': 'shm:1553436765:Hello'}
-groupId = None
-qs = None
-key = None
 
-dc.Apply(zone_records, domain, host, params, groupId, qs, sig, key)
+dc.Apply(zone_records, domain, host, params)
 ----
 
-Upon success this method returns three lists of zone records.
+Upon success this method returns a tuple containing three lists of zone records.
 
-The first is the new records being added
+The first is the list new records being added.
 
-Second are the records to be deleted
+Second is the list of records to be deleted.
 
 The third is the list of final (complete) records that should be written to the zone.
 
-Calling this function can throw any of a number of exceptions. These include
+Calling this function can throw any of a number of exceptions.
+
+#### Exceptions
 
 [cols=",",options="header",]
 |=======================================================================
@@ -83,56 +130,78 @@ Calling this function can throw any of a number of exceptions. These include
 is provided
 
 |*InvalidSignature*
-|This is raised when doing signature verification and the signature fails.
+|This is raised when the template requires a signature and verification fails.
 
 |*MissingParameter*
 |This is raised when the template requires a parameter that wasn't passed in.
 
 |*InvalidData*
-|This is raised when invalid data is passed into the template.
+|This is raised when invalid data is passed into the template. Usually this is a
+parameter that results in malformed DNS data.
 
 |=======================================================================
 
-### Records
+### jsonData
 
-Records in a zone, being added to a zone, or being deleted from a zone are represented
-in a simple Python datastructure.  This is a list of dictionaries.  Each dictionary
-represents a record in the zone.
+This attribute returns the template in json form.
+
+### IsSignatureRequired()
+
+This attribute returns True if the template requires signatures, False if not.
+
+## Records
+
+Records passed into and returned from the Apply method represent DNS records. These
+are implemented using a simple list of dictionary, with each dictionary representing a
+DNS record.
 
 All records have a type (A, AAAA, CNAME, NS, TXT, MX, or SRV). Depending on the type there
 are other attributes.
 
-[cols=",",options="header",]
+[cols=",,",options="header",]
 |=======================================================================
 |Field
+|Type
 |Description
 
 |*type*
+|string
 |This is one of A, AAAA, CNAME, NS, TXT, MX, or SRV. 
 
 |*name*
-|This is the name/host of the record. This exists for all types.
+|string
+|This is the name/host of the record. This exists for all types. The must contain data
+that is relative to the root zone.  For example, in the domain foo.com the name for the resolution
+of www.bar.foo.com would contain "www.bar". A value of @ or None would indicate the apex.
 
 |*data*
-|This is the data for the record. This exists for all types.
+|string
+|This is the data for the record. This exists for all types. When the data contains
+a domain/host a fully qualified domain name without a trailing dot must be used.
 
 |*ttl*
-|This is the TTL for the record. This is an int.
+|int
+|This is the TTL for the record. This exists for all types.
 
 |*priority*
-|This is the priority of an MX record or SRV record. This is an int.
+|int
+|This is the priority of an MX record or SRV record.
 
 |*protocol*
-|This is the protocol for an SRV record. This must be TCP or UDP.
+|string
+|This is the protocol for an SRV record. This must be the value TCP or UDP.
 
 |*service*
+|string
 |This is the service of an SRV record.
 
 |*weight*
-|This is the weight of the SRV record. This is an int.
+|int
+|This is the weight of the SRV record.
 
 |*port*
-|This is the port of the SRV record. This is an int.
+|int
+|This is the port of the SRV record.
 
 |=======================================================================
 
@@ -147,14 +216,9 @@ An example zone:
 	
 ----
 
-Note:
+### VerifySig()
 
-The @ sign is used for the name to represent the apex when allowed.  It is used for data for some record types when refering to
-the domain name of the zone.
-
-### VerifySig
-
-In addition to being used by the Apply method, this independent method will
+In addition to being used by the Apply method, this independent method can be used to 
 validate a query string against a signature and key.
 
 [source]
@@ -177,23 +241,46 @@ This method is useful for testing. It will prompt the user for all values for al
 variables in the template. These are added as key/values in a dictionary
 suitable for passing into the Apply function.
 
+[source]
+----
+dc = DomainConnect(providerId, serviceId)
+params = Prompt()
+----
+
 ## QSUtil
 
 This contains a couple of simple functions to help with handling query strings in web
 applications.
 
-### qs2dict
+### qs2dict(qs, filter=[])
 
-This will convert a query string of the form a=1&b=2 to a dictionary of the form
-{'a': '1', 'b': '2'}. It also can filter out keys based on an input list.
+This will convert a query string (qs) of the form a=1&b=2&c=3&d=4 to a dictionary of the form
+{'a': '1', 'b': '2', 'c': '3', 'd': '4'}.
 
 This is useful for converting a query string to a dictionary, filtering out the
 values not useful as parameters (e.g. domain, host, sig, key).
 
-### qsfilter
+[source]
+----
+import DomainConnect
 
-This will filter out certain keys from a query string. This is useful when verifying a signature,
-when the query string needs to be preserved but stripped of the values sig and key.
+qs = 'a=1&b=2&c=3&d=4'
+params = DomainConnect.QSUtil.qs2dict(qs, ['c', 'd']
+# params contains {'a': '1', 'b': '2'}
+----
+
+### qsfilter(qs, filter=[])
+
+This is similar to the above but returns the results as a string.
+
+[source]
+----
+import DomainConnect
+
+qs = 'a=1&b=2&c=3&d=4'
+qs2 = DomainConnect.QSUtil.qsfilter(qs, ['c', 'd']
+# qs2 contains 'a=1&b=2'
+----
 
 ## Test
 

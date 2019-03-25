@@ -19,7 +19,7 @@ import validate
 # SRV name, target, protocol, service, priority (int), weight (int), port (int), ttl (int)
 # SPFM host, spfRules
 #
-# Variables are allowed in all of the strings (exceptions are txtConflict)
+# Variables are allowed in all of the strings (exceptions are the txtConflict*)
 #
 # @ has special mean when used in two fields.
 #
@@ -29,6 +29,7 @@ import validate
 #
 # For the pointsTo/target the fields are absolute. @ is special for the root passed in but would be
 # expanded.
+#
 # So a value @ with domain=foo.com&host=bar would result in bar.foo.com in the zone.
 # A value of @ with domain=foo.com&host= would result in foo.com in the zone.
 #
@@ -96,43 +97,52 @@ class InvalidData(Exception):
 # @ (equal to fqdn)
 # A key/value from the parameters
 #
+# All variables in the template and the input are case insensitive.
+#
 # When the inputStr is the host/name field from a template record there is some extra processing.
 # This is because the host/name are relative to the host within the zone. This function will
 # convert the host/name to be relative to the domain (not host) within the zone.
 #
 # So a host/name xyz with a domain foo.com and a host of bar will map to xyz.bar.
 #
-# This processing is only done for processing of the host/name field, and is controlled by
-# is_template_host
-#
-def process_variables(inputStr, domain, host, params, key):
+def process_variables(inputStr, domain, host, params, recordKey):
 
     ci = 0
 
     while inputStr.find('%', ci) != -1:
+
+        # Find the next variable to process
         start = inputStr.find('%', ci) + 1
         end = inputStr.find('%', start)
-        varName = inputStr[start:end]
 
-        if varName == 'fqdn':
+        # Grab the variable name (both original and lower case)
+        varName = inputStr[start:end]
+        varNameLower = varName.lower()
+
+        # Calculate the value
+        if varNameLower == 'fqdn':
             if host:
                 value = host + '.' + domain
             else:
                 value = domain + '.'
-        elif varName == 'domain':
+        elif varNameLower == 'domain':
             value = domain
-        elif varName == 'host':
+        elif varNameLower == 'host':
             value = host
-        elif varName in params:
-            value = params[varName]
+        elif varNameLower in params:
+            value = params[varNameLower]
         else:
-            raise MissingParameter("No value for parameter " + varName)
+            raise MissingParameter("No value for parameter '" + varName + "'")
 
+        # Place the value into the input string
         inputStr = inputStr.replace('%' + varName + '%', value)
 
+        # Advance passed this, as the value might have had a % 
         ci = start + len(value)
 
-    if key == 'name' or key == 'host':
+    # If we are processing the name/host field from the template, modify the path to be relative
+    # to the host being applied.
+    if recordKey == 'name' or recordKey == 'host':
         if not inputStr or inputStr == '@':
             if host:
                 inputStr = host
@@ -141,8 +151,9 @@ def process_variables(inputStr, domain, host, params, key):
         else:
             if host:
                 inputStr = inputStr + '.' + host
-                
-    elif key == 'target' or key == 'pointsTo':
+
+    # If we are processing the target/pointsTo, a null or empty maps to the fqdn being applied
+    elif recordKey == 'target' or recordKey == 'pointsTo':
         if not inputStr or inputStr == '@':
             if host:
                 inputStr = host + '.' + domain
@@ -165,18 +176,25 @@ def process_variables(inputStr, domain, host, params, key):
 #
 def process_txt(template_record, zone_records, new_records):	
 
+    # Add the new record
     new_records.append({'type': 'TXT', 'name': template_record['host'], 'data' : template_record['data'], 'ttl': int(template_record['ttl'])})
 
+    # Handle any conflicting deletes
     for zone_record in zone_records:
         zone_record_type = zone_record['type'].upper()
+
+        # We conflict against TXT or CNAME with the same host
 
         if zone_record_type not in ['TXT', 'CNAME'] or \
             zone_record['name'].lower() != template_record['host'].lower():
             continue
 
+        # Delete the CNAME
         if zone_record_type == 'CNAME':
+            
             zone_record['_delete'] = 1
 
+        # Delete the TXT according to the matching rules
         elif zone_record_type == 'TXT':
             if 'txtConflictMatchingMode' in template_record:
                 matching_mode = template_record['txtConflictMatchingMode']
@@ -209,8 +227,6 @@ def process_spfm(template_record, zone_records, new_records):
         if  zone_record['type'].upper() == 'TXT' and \
             zone_record['name'].lower() == template_record['host'].lower() and \
             zone_record['data'].startswith('v=spf1 '):
-
-            
 
             # If our rule is not already in the spf rules, merge it in
             if zone_record['data'].find(template_record['spfRules']) == -1: 
@@ -284,8 +300,6 @@ def process_ns(template_record, zone_records, new_records):
 #
 # This results in marking zone_records for deletion, and adding additional
 # records in new_records
-#
-# For all other record types, we simply delete records of certain types according to the 
 #
 
 _delete_map = {
@@ -552,12 +566,19 @@ class DomainConnect:
     #
     # This method will raise an execption if the signature fails.  It will return if it suceeds.
     #
-    def VerifySig(self, qs, sig, key):
+    def VerifySig(self, qs, sig, key, ignoreSignature=False):
+
+        if ignoreSignature:
+            return
+
+        if not qs or not sig or not key:
+            raise InvalidSignature('Missing data for signature verification')
+        
         syncPubKeyDomain = self.jsonData['syncPubKeyDomain']
         pubKey = sigutil.get_publickey(key + '.' + syncPubKeyDomain)
         
         if not pubKey:
-            raise InvalidSignature('Unable to get public key for template/key')
+            raise InvalidSignature('Unable to get public key for template/key from ' + key + '.' + syncPubKeyDomain)
 
         if not sigutil.verify_sig(pubKey, sig, qs):
             raise InvalidSignature('Signature not valid')
@@ -591,19 +612,29 @@ class DomainConnect:
     # final_records contains all records that would be in the zone (new_records plus records that weren't
     # deleted from the zone).
     #
-    def Apply(self, zone_records, domain, host, params, groupId=None, qs=None, sig=None, key=None):
+    def Apply(self, zone_records, domain, host, params, groupIds=None, qs=None, sig=None, key=None, ignoreSignature=False):
+
+        # Domain and host should be lower cased
+        domain = domain.lower()
+        host = host.lower()
+
+        # Convert the params to all lower case
+        newParams = {}
+        for k in params:
+            newParams[k.lower()] = params[k]
+        params = newParams
 
         # If the template requires a host, return
         if 'hostRequired' in self.jsonData and self.jsonData['hostRequired'] and not host:
             raise HostRequired('Template requires a host name')
 
-        # If the template requires a signature, validate it
-        if 'syncPubKeyDomain' in self.jsonData and self.jsonData['syncPubKeyDomain'] and qs and sig and key:
-            self.VerifySig(qs, sig, key)
-
+        # See if the template requires a signature
+        if 'syncPubKeyDomain' in self.jsonData and self.jsonData['syncPubKeyDomain']:
+            self.VerifySig(qs, sig, key, ignoreSignature)
+            
         # Process the records in the template
-        return process_records(self.jsonData['records'], zone_records,  domain, host, params, groupId)
-
+        return process_records(self.jsonData['records'], zone_records,  domain, host, params, groupIds)
+    
     #------------------------------------
     # IsSignatureRequired
     #
