@@ -47,7 +47,7 @@ def TestSig(title, providerId, serviceId, qs, sig, key, ignoreSignature, expecte
     passed = False
 
     try:
-        dc.VerifySig(qs, sig, key, ignoreSignature)
+        dc.verify_sig(qs, sig, key, ignoreSignature)
         if expected:
             passed = True
     except InvalidSignature:
@@ -83,7 +83,7 @@ def TestTemplate(title, zone_records, providerId, serviceId, domain, host, param
 
     dc = DomainConnect(providerId, serviceId)
 
-    new_records, deleted_records, final_records = dc.Apply(zone_records, domain, host, params, groupIds=groupIds, qs=qs, sig=sig, key=key, ignoreSignature=ignoreSignature)
+    new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params, groupIds=groupIds, qs=qs, sig=sig, key=key, ignoreSignature=ignoreSignature)
 
     if verbose:
         print("New Records")

@@ -551,7 +551,7 @@ class DomainConnect:
             raise InvalidTemplate
 
     #-------------------------------------------------
-    # VerifySig
+    # verify_sig
     #
     # This method will verify a signature of a query string.
     #
@@ -566,7 +566,7 @@ class DomainConnect:
     #
     # This method will raise an execption if the signature fails.  It will return if it suceeds.
     #
-    def VerifySig(self, qs, sig, key, ignoreSignature=False):
+    def verify_sig(self, qs, sig, key, ignoreSignature=False):
 
         if ignoreSignature:
             return
@@ -584,7 +584,7 @@ class DomainConnect:
             raise InvalidSignature('Signature not valid')
 
     #----------------------------------------
-    # ApplyTemplate
+    # apply_template
     #
     # Will apply the template to the zone
     #
@@ -612,7 +612,7 @@ class DomainConnect:
     # final_records contains all records that would be in the zone (new_records plus records that weren't
     # deleted from the zone).
     #
-    def Apply(self, zone_records, domain, host, params, groupIds=None, qs=None, sig=None, key=None, ignoreSignature=False):
+    def apply_template(self, zone_records, domain, host, params, groupIds=None, qs=None, sig=None, key=None, ignoreSignature=False):
 
         # Domain and host should be lower cased
         domain = domain.lower()
@@ -630,7 +630,7 @@ class DomainConnect:
 
         # See if the template requires a signature
         if 'syncPubKeyDomain' in self.jsonData and self.jsonData['syncPubKeyDomain']:
-            self.VerifySig(qs, sig, key, ignoreSignature)
+            self.verify_sig(qs, sig, key, ignoreSignature)
             
         # Process the records in the template
         return process_records(self.jsonData['records'], zone_records,  domain, host, params, groupIds)
@@ -640,7 +640,7 @@ class DomainConnect:
     #
     # Will indicate if the template requires a signature
     #
-    def IsSignatureRequired(self):
+    def is_sig_required(self):
         if 'syncPubKeyDomain' in self.jsonData:
             return True
         
@@ -651,7 +651,7 @@ class DomainConnect:
     #
     # Will prompt for values for a template
     #
-    def Prompt(self):
+    def prompt(self):
 
         print('Getting parameters for ' + self.jsonData['providerName'] + ' to enable ' + self.jsonData['serviceName']) 
         if 'variableDescription' in self.jsonData:

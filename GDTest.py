@@ -51,7 +51,7 @@ def Test():
     params = dc.Prompt()
 
     # Apply the zone
-    new_r, deleted_r, final_r = dc.Apply(zone_records, domain, host, params, ignoreSignature=True)
+    new_r, deleted_r, final_r = dc.apply_template(zone_records, domain, host, params, ignoreSignature=True)
 
     # Echo the final records
     print("Final Records")
