@@ -85,7 +85,7 @@ query string, properly URL Encoded, without the sig or key values. This defaults
 |(optional) This is the key into DNS on syncPubKeyDomain to read the public key for signature verification.
 This defaults to None.
 
-|*Ignore Signature (ignoreSignature) *
+|*Ignore Signature (ignore_signature) *
 |Boolean
 |(optional) This tells the system to ignore any signature verification. Extreme care should be taken with this parameter, as
 it is largely intended for internal tooling and testing. This defaults to False.
