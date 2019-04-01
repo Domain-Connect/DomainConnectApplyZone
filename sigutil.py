@@ -7,7 +7,9 @@ from cryptography.hazmat.backends import default_backend
 
 from base64 import b64decode, b64encode
 
+
 def verify_sig(public_key, signature, data):
+    """ Verifies a signature """
     try:
         pk = serialization.load_pem_public_key(
             public_key,
@@ -24,9 +26,9 @@ def verify_sig(public_key, signature, data):
     except:
         return False
 
-# Generates a signature on the passed in data
-def generate_sig(private_key, data):
 
+def generate_sig(private_key, data):
+    """ Generates a signature on the passed in data """
     pk = serialization.load_pem_private_key(
         private_key,
         password=None,
@@ -41,7 +43,9 @@ def generate_sig(private_key, data):
 
     return b64encode(sig)
 
+
 def get_publickey(domain):
+    """ Gets a publickey from a zone """
     try:
         segments = {}
 
@@ -75,4 +79,3 @@ def get_publickey(domain):
 
     except:
         return None
-

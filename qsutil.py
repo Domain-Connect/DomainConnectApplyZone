@@ -1,13 +1,9 @@
-
-#-----------------------------------
-# qs2dict
-#
-# This function will take a query string of the form a=1&b=2 and
-# return a dictionary of the form {'a': '1', 'b': '2'}. It will
-# also filter any key in the filter list.
-#
 def qs2dict(qs, filter=[]):
-
+    """
+    This function will take a query string of the form a=1&b=2 and return a
+    dictionary of the form {'a': '1', 'b': '2'}. It will also filter any key in
+    the filter list.
+    """
     result = {}
     params = qs.split('&')
     for param in params:
@@ -18,15 +14,14 @@ def qs2dict(qs, filter=[]):
                 result[k] = v
 
     return result
-#---------------------------------------------
-# qsfilter
-#
-# This function will take a query string of the form a=1&b=2&c=3 and
-# return a string filter based on values.  For example, passing in
-# filter=['b'] will return a=1&c=3
-#
-def qsfilter(qs, filter=[]):
 
+
+def qsfilter(qs, filter=[]):
+    """
+    This function will take a query string of the form a=1&b=2&c=3 and return a
+    string filter based on values.  For example, passing in filter=['b'] will
+    return a=1&c=3
+    """
     result = []
     params = qs.split('&')
     for param in params:
@@ -40,5 +35,3 @@ def qsfilter(qs, filter=[]):
             result.append(param)
 
     return '&'.join(result)
-
-    

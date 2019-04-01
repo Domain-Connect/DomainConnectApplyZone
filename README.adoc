@@ -158,7 +158,7 @@ parameter that results in malformed DNS data.
 
 |=======================================================================
 
-### jsonData
+### data
 
 This attribute returns the template in json form.
 
@@ -291,7 +291,7 @@ suitable for passing into the Apply function.
 
 [source]
 ----
-dc = DomainConnect(providerId, serviceId)
+dc = DomainConnect(provider_id, service_id)
 params = dc.prompt()
 ----
 
