@@ -2,6 +2,7 @@ import json
 
 from DomainConnect import *
 
+
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -12,6 +13,7 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+
 class TestResults:
 
     def __init__(self):
@@ -21,7 +23,7 @@ class TestResults:
     def Reset(self):
         self.passCount = 0
         self.failCount = 0
-        
+
     def Pass(self, message=None):
         self.passCount = self.passCount + 1
 
@@ -38,16 +40,18 @@ class TestResults:
             final_message = final_message + ': ' + message
         print(final_message)
 
+
 _testResults = TestResults()
 
-def TestSig(title, providerId, serviceId, qs, sig, key, ignoreSignature, expected, verbose=False):
+
+def TestSig(title, providerId, serviceId, qs, sig, key, ignore_signature, expected, verbose=False):
 
     dc = DomainConnect(providerId, serviceId)
 
     passed = False
 
     try:
-        dc.verify_sig(qs, sig, key, ignoreSignature)
+        dc.verify_sig(qs, sig, key, ignore_signature)
         if expected:
             passed = True
     except InvalidSignature:
@@ -60,6 +64,7 @@ def TestSig(title, providerId, serviceId, qs, sig, key, ignoreSignature, expecte
     else:
         _testResults.Fail()
 
+
 def TestRecordsException(title, template_records, zone_records, domain, host, params, exception, verbose=False):
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
@@ -70,7 +75,8 @@ def TestRecordsException(title, template_records, zone_records, domain, host, pa
     except exception as e:
         _testResults.Pass(str(e))
 
-def TestTemplate(title, zone_records, providerId, serviceId, domain, host, params, groupIds, newCount, deleteCount, expected_records, verbose=False, qs=None, sig=None, key=None, ignoreSignature=False):        
+
+def TestTemplate(title, zone_records, providerId, serviceId, domain, host, params, group_ids, newCount, deleteCount, expected_records, verbose=False, qs=None, sig=None, key=None, ignore_signature=False):
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     if verbose:
@@ -83,7 +89,7 @@ def TestTemplate(title, zone_records, providerId, serviceId, domain, host, param
 
     dc = DomainConnect(providerId, serviceId)
 
-    new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params, groupIds=groupIds, qs=qs, sig=sig, key=key, ignoreSignature=ignoreSignature)
+    new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params, group_ids=group_ids, qs=qs, sig=sig, key=key, ignore_signature=ignore_signature)
 
     if verbose:
         print("New Records")
@@ -100,7 +106,6 @@ def TestTemplate(title, zone_records, providerId, serviceId, domain, host, param
 
     if final_records is not None:
         final_records.sort()
-        
 
     if (newCount is not None and len(new_records) != newCount) or \
        (deleteCount is not None and len(deleted_records) != deleteCount) or \
@@ -109,7 +114,8 @@ def TestTemplate(title, zone_records, providerId, serviceId, domain, host, param
     else:
         _testResults.Pass()
 
-def TestRecords(title, template_records, zone_records, domain, host, params, groupIds, newCount, deleteCount, expected_records, verbose=False):
+
+def TestRecords(title, template_records, zone_records, domain, host, params, group_ids, newCount, deleteCount, expected_records, verbose=False):
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     if verbose:
@@ -120,7 +126,7 @@ def TestRecords(title, template_records, zone_records, domain, host, params, gro
         print 'Params = ' + str(params)
 
     new_records = []
-    new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, groupIds)
+    new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, group_ids)
 
     if verbose:
         print("New Records")
@@ -137,7 +143,6 @@ def TestRecords(title, template_records, zone_records, domain, host, params, gro
 
     if final_records is not None:
         final_records.sort()
-        
 
     if (newCount is not None and len(new_records) != newCount) or \
        (deleteCount is not None and len(deleted_records) != deleteCount) or \
@@ -145,6 +150,7 @@ def TestRecords(title, template_records, zone_records, domain, host, params, gro
         _testResults.Fail()
     else:
         _testResults.Pass()
+
 
 def NSTests():
     zone_records = [{'type': 'NS', 'name':'foo', 'data': 'abc', 'ttl': 500}]
@@ -179,6 +185,7 @@ def NSTests():
     ]
     TestRecords('Delete Multiple A with NS Test (through Host)', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 2, expected_records)
 
+
 def SPFMTests():
     zone_records = [
         {'type': 'A', 'name': '@', 'data': 'old.old.old.old', 'ttl': 500},
@@ -209,6 +216,7 @@ def SPFMTests():
     ]
     TestRecords('SPF Merge Existing', template_records, zone_records, 'foo.com', '', {}, None, 1, 1, expected_records)
 
+
 def TXTTests():
 
     zone_records = [
@@ -234,7 +242,7 @@ def TXTTests():
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abcnew', 'ttl': 600, 'txtConflictMatchingMode': 'All'}]
     expected_records = [
 	{'type': 'TXT', 'name': '@', 'data': 'abcnew', 'ttl': 600},
-    ]    
+    ]
     TestRecords('TXT Matching Mode All', template_records, zone_records, 'foo.com', '', {}, None, 1, 3, expected_records)
 
     zone_records = [
@@ -249,6 +257,7 @@ def TXTTests():
     ]
     TestRecords('TXT Matching Mode Prefix', template_records, zone_records, 'foo.com', '', {}, None, 1, 2, expected_records)
 
+
 def CNAMETests():
     zone_records = [
         {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
@@ -262,12 +271,14 @@ def CNAMETests():
     ]
     TestRecords('CNAME Delete', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 4, expected_records)
 
+
 def SRVTests():
     zone_records = []
     template_records = [{'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
     expected_records = [{'type': 'SRV', 'name': '_abc.bar', 'data': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
     TestRecords('SRV Add', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, None, 1, 0, expected_records, False)
-    
+
+
 def ATests():
     zone_records = [
         {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
@@ -281,6 +292,7 @@ def ATests():
         {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
     ]
     TestRecords('CNAME Delete', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 3, expected_records)
+
 
 def GroupTests():
     zone_records = [
@@ -319,11 +331,13 @@ def GroupTests():
         {'type': 'TXT', 'name': 'bar', 'data': 'testdata', 'ttl': 600}
     ]
     TestRecords('Apply Group 1 and 2', template_records, zone_records, 'foo.com', 'bar', {}, ['1', '2'], 2, 1, expected_records)
-    
+
+
 def ExceptionTests():
     zone_records = []
     template_records = [{'type': 'CNAME', 'host': '@', 'pointsTo': 'foo.com', 'ttl': 400}]
     TestRecordsException("CNAME at Apex Test", template_records, zone_records, 'foo.com', '', {}, InvalidData)
+
 
 def SigTests():
     sig = 'LyCE+7H0zr/XHaxX36pdD1eSQENRiGTFxm79m7A5NLDPiUKLe71IrsEgnDLN76ndQcLTZlr4+HhpWzKZKyFl9ieEpNzZlDHRp35H83Erhm0eDctUmI1Zct51alZ8RuTL+aa29WC+AM7+gSpnL/AHl9mxckyeEuFFqXcl/3ShwK2F9x/7r+cICefiUEzsZN3EuqOvwqQkBSqcdVy/ohjNAG/InYAYSX+0fUK9UNQfQYkuPqOAptPRjX+hUnYsXUk/eQq16aX7TzhZm+eEq+En+oiEgh7qps1yvGbJm6QXKovan/sqng40R6FBP3R3dvfZC6QrfCUtGpQ8c0D0S5oLBw=='
@@ -331,13 +345,14 @@ def SigTests():
     key = '_dck1'
     qs = 'domain=arnoldblinn.com&RANDOMTEXT=shm%3A1551036164%3Ahello&IP=132.148.25.185&host=bar'
     TestSig('Passed Sig', 'exampleservice.domainconnect.org', 'template2', qs, sig, key, False, True)
-    
+
     sig = 'BADE+7H0zr/XHaxX36pdD1eSQENRiGTFxm79m7A5NLDPiUKLe71IrsEgnDLN76ndQcLTZlr4+HhpWzKZKyFl9ieEpNzZlDHRp35H83Erhm0eDctUmI1Zct51alZ8RuTL+aa29WC+AM7+gSpnL/AHl9mxckyeEuFFqXcl/3ShwK2F9x/7r+cICefiUEzsZN3EuqOvwqQkBSqcdVy/ohjNAG/InYAYSX+0fUK9UNQfQYkuPqOAptPRjX+hUnYsXUk/eQq16aX7TzhZm+eEq+En+oiEgh7qps1yvGbJm6QXKovan/sqng40R6FBP3R3dvfZC6QrfCUtGpQ8c0D0S5oLBw=='
     TestSig('Failed Sig', 'exampleservice.domainconnect.org', 'template2', qs, sig, key, False, False)
 
     TestSig('Missing Sig', 'exampleservice.domainconnect.org', 'template2', qs, None, None, False, False)
 
     TestSig('Ignore Sig', 'exampleservice.domainconnect.org', 'template2', None, None, None, True, True)
+
 
 def ParameterTests():
     zone_records = []
@@ -363,18 +378,17 @@ def ParameterTests():
     zone_records = []
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abc%fqdn%def', 'ttl': 400}]
     expected_records = [{'type': 'TXT', 'name': 'bar', 'data': 'abcbar.foo.comdef', 'ttl': 400}]
-    TestRecords('FQDN not in host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)    
-
+    TestRecords('FQDN not in host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)
 
     zone_records = []
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abc%host%def', 'ttl': 400}]
     expected_records = [{'type': 'TXT', 'name': 'bar', 'data': 'abcbardef', 'ttl': 400}]
-    TestRecords('Host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)    
+    TestRecords('Host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)
 
     zone_records = []
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abc%domain%def', 'ttl': 400}]
     expected_records = [{'type': 'TXT', 'name': 'bar', 'data': 'abcfoo.comdef', 'ttl': 400}]
-    TestRecords('Domain Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)    
+    TestRecords('Domain Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)
 
     zone_records = []
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '127.0.0.%v1%', 'ttl': 400}]
@@ -385,11 +399,13 @@ def ParameterTests():
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '%missing%', 'ttl': 600}]
     TestRecordsException('Missing Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, MissingParameter)
 
+
 def PercentParameterTests():
     zone_records = []
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abc%fff%def', 'ttl': 400}]
     expected_records = [{'type': 'TXT', 'name': 'bar', 'data': 'abc%ab%cd%def', 'ttl': 400}]
-    TestRecords('Domain Parameter Test', template_records, zone_records, 'foo.com', 'bar', {'fff': '%ab%cd%'}, None, 1, 0, expected_records, False)    
+    TestRecords('Domain Parameter Test', template_records, zone_records, 'foo.com', 'bar', {'fff': '%ab%cd%'}, None, 1, 0, expected_records, False)
+
 
 def BadParameterTests():
     zone_records = []
@@ -424,6 +440,7 @@ def BadParameterTests():
     template_records = [{'type': 'SRV', 'name': 'abc', 'target': '127.0.0.1', 'protocol': 'TCP', 'service': 'foo.com-', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
     TestRecordsException('Bad SRV Service', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
 
+
 def TemplateTests():
     zone_records = []
     expected_records = [{'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 1800}, {'type': 'TXT', 'name': '@', 'data': 'foobar', 'ttl': 1800}]
@@ -431,11 +448,11 @@ def TemplateTests():
 
     zone_records = []
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 1800}, {'type': 'TXT', 'name': 'bar', 'data': 'foobar', 'ttl': 1800}, {'type': 'CNAME', 'name': 'whd.bar', 'data': 'bar.foo.com', 'ttl': 600}]
-    TestTemplate('Ignore Sig Template Test', zone_records, 'exampleservice.domainconnect.org', 'template2', 'foo.com', 'bar', {'IP': '127.0.0.1', 'RANDOMTEXT': 'foobar'}, None, 3, 0, expected_records, ignoreSignature=True)
+    TestTemplate('Ignore Sig Template Test', zone_records, 'exampleservice.domainconnect.org', 'template2', 'foo.com', 'bar', {'IP': '127.0.0.1', 'RANDOMTEXT': 'foobar'}, None, 3, 0, expected_records, ignore_signature=True)
 
     zone_records = []
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 1800}, {'type': 'TXT', 'name': 'bar', 'data': 'foobar', 'ttl': 1800}, {'type': 'CNAME', 'name': 'whd.bar', 'data': 'bar.foo.com', 'ttl': 600}]
-    TestTemplate('Random Case on provider, params, domain, host', zone_records, 'eXampleservice.domaincOnnect.org', 'template2', 'fOo.com', 'bAr', {'Ip': '127.0.0.1', 'RaNDoMTEXT': 'foobar'}, None, 3, 0, expected_records, ignoreSignature=True)
+    TestTemplate('Random Case on provider, params, domain, host', zone_records, 'eXampleservice.domaincOnnect.org', 'template2', 'fOo.com', 'bAr', {'Ip': '127.0.0.1', 'RaNDoMTEXT': 'foobar'}, None, 3, 0, expected_records, ignore_signature=True)
 
     sig = 'LyCE+7H0zr/XHaxX36pdD1eSQENRiGTFxm79m7A5NLDPiUKLe71IrsEgnDLN76ndQcLTZlr4+HhpWzKZKyFl9ieEpNzZlDHRp35H83Erhm0eDctUmI1Zct51alZ8RuTL+aa29WC+AM7+gSpnL/AHl9mxckyeEuFFqXcl/3ShwK2F9x/7r+cICefiUEzsZN3EuqOvwqQkBSqcdVy/ohjNAG/InYAYSX+0fUK9UNQfQYkuPqOAptPRjX+hUnYsXUk/eQq16aX7TzhZm+eEq+En+oiEgh7qps1yvGbJm6QXKovan/sqng40R6FBP3R3dvfZC6QrfCUtGpQ8c0D0S5oLBw=='
     key = '_dck1'
@@ -443,14 +460,12 @@ def TemplateTests():
     zone_records = []
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '132.148.25', 'ttl': 1800}, {'type': 'TXT', 'name': 'bar', 'data': 'shm:1551036164:hello', 'ttl': 1800}, {'type': 'CNAME', 'name': 'whd.bar', 'data': 'bar.foo.com', 'ttl': 600}]
     TestTemplate('Sig Template Test', zone_records, 'exampleservice.domainconnect.org', 'template2', 'foo.com', 'bar', {'IP': '132.148.25', 'RANDOMTEXT': 'shm:1551036164:hello'}, None, 3, 0, expected_records, qs=qs, sig=sig, key=key)
-    
 
-    
 
 def RunTests():
-    
+
     _testResults.Reset()
-    
+
     CNAMETests()
     SRVTests()
     SPFMTests()
@@ -466,6 +481,3 @@ def RunTests():
 
     print("Failed Count = " + str(_testResults.failCount))
     print("Passed Count = " + str(_testResults.passCount))
-
-
-

@@ -1,6 +1,7 @@
 import re
 import IPy
 
+
 #
 # Validates that the input is an IP address (version 4 or 6)
 #
@@ -15,6 +16,7 @@ def is_valid_pointsTo_ip(input, version):
 
     return False
 
+
 #
 # Validates that the pointsTo/Target field is a valid hostname
 #
@@ -25,6 +27,7 @@ def is_valid_pointsTo_host(hostname):
         hostname = hostname[:-1] # strip exactly one dot from the right, if present
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in hostname.split("."))
+
 
 #
 # Validates the host/name for the record is a valid host.
@@ -37,13 +40,14 @@ def is_valid_hostname(input, allow_apex, allow_underscores):
 
     if len(input) > 253:
         return False
-    
+
     if allow_underscores:
         input = input.lstrip('_')
     if input[-1] == ".":
         input = input[:-1] # strip exactly one dot from the right, if present
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in input.split("."))
+
 
 def is_valid_host_other(input, allow_underscores):
     if not input or input == '@':
@@ -54,20 +58,22 @@ def is_valid_host_other(input, allow_underscores):
 
     if allow_underscores:
         input = input.lstrip('_')
-    
+
     if input[-1] == ".":
         input = input[:-1] # strip exactly one dot from the right, if present
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in input.split("."))
 
+
 def is_valid_host_cname(input):
     if len(input) > 253:
         return False
-    
+
     if input[-1] == ".":
         input = input[:-1] # strip exactly one dot from the right, if present
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in input.split("."))
+
 
 def is_valid_host_srv(input):
     if len(input) > 253:
@@ -77,10 +83,8 @@ def is_valid_host_srv(input):
         return False
 
     input = input[1:]
-    
+
     if input[-1] == ".":
         input = input[:-1] # strip exactly one dot from the right, if present
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in input.split("."))
-
-    
