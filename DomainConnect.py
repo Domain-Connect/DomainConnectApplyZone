@@ -1,6 +1,7 @@
 import json
 import sigutil
 import validate
+import uuid
 
 #-------------------------------------------
 # Template Records
@@ -51,7 +52,9 @@ import validate
 #
 # When a domain/host is allowed in the data field, this should be a fully qualified domain name without a trailing dot.
 #
-# All records havea 'type'. Depending on the type, additional fields are required. Unless otherwise stated all data is a string.
+# All records havea 'type'. They also have a name, data and ttl 
+#
+# Depending on the type, additional fields are required. Unless otherwise stated all data is a string. 
 #
 # A: name, data, ttl (int)
 # AAAA: name, data, ttl (int)
@@ -61,6 +64,15 @@ import validate
 # MX: name, data, ttl(int), priority (int)
 # SRV: name, data, ttl(int), protocol, service, priority (int), weight (int), port (int)
 #
+# Zone records also have an optional field "_dc".  If present and not null, this contains information about the template
+# that originally set the record.  This is a dictionary and contains:
+#
+# id: A unique id identifiying the specific template applied
+# providerId: The providerId of the template
+# serviceId: The serviceId of the template
+# host: The original host of the template
+# essential: The record was written as an essential record from the template (Always or OnApply)
+# 
 
 #------------------------------------------------------------------------
 # Exceptions
@@ -174,10 +186,9 @@ def process_variables(inputStr, domain, host, params, recordKey):
 #
 # It will delete TXT records in the zone according to the txtConflict settings.
 #
-def process_txt(template_record, zone_records, new_records):	
+def process_txt(template_record, zone_records, new_records):
 
-    # Add the new record
-    new_records.append({'type': 'TXT', 'name': template_record['host'], 'data' : template_record['data'], 'ttl': int(template_record['ttl'])})
+    new_record = {'type': 'TXT', 'name': template_record['host'], 'data' : template_record['data'], 'ttl': int(template_record['ttl'])}
 
     # Handle any conflicting deletes
     for zone_record in zone_records:
@@ -186,7 +197,8 @@ def process_txt(template_record, zone_records, new_records):
         # We conflict against TXT or CNAME with the same host
 
         if zone_record_type not in ['TXT', 'CNAME'] or \
-            zone_record['name'].lower() != template_record['host'].lower():
+            zone_record['name'].lower() != template_record['host'].lower() or \
+            '_replace' in zone_record:
             continue
 
         # Delete the CNAME
@@ -205,6 +217,8 @@ def process_txt(template_record, zone_records, new_records):
                 zone_record['_delete'] = 1
             elif matching_mode == 'Prefix' and zone_record['data'].startswith(template_record['txtConflictMatchingPrefix']):
                 zone_record['_delete'] = 1
+
+    return new_record
 
 #-------------------------------------------------------------
 # process_spfm
@@ -229,7 +243,8 @@ def process_spfm(template_record, zone_records, new_records):
             zone_record['data'].startswith('v=spf1 '):
 
             # If our rule is not already in the spf rules, merge it in
-            if zone_record['data'].find(template_record['spfRules']) == -1: 
+            if zone_record['data'].find(template_record['spfRules']) == -1 and \
+               '_replace' not in zone_record:
                 
                 # We will delete the old record for spf
                 zone_record['_delete'] = 1
@@ -245,9 +260,13 @@ def process_spfm(template_record, zone_records, new_records):
             found_spf = True
             break
 
-    # If we didn't have an spf record, add a new one
+    # If we didn't have an spf record, create one
     if not found_spf:
-        new_records.append({'type': 'TXT', 'name': template_record['host'], 'data': 'v=spf1 ' + template_record['spfRules'] + ' -all', 'ttl': 6000})
+        new_record = {'type': 'TXT', 'name': template_record['host'], 'data': 'v=spf1 ' + template_record['spfRules'] + ' -all', 'ttl': 6000}
+        return new_record
+
+    return None
+
 
 #-------------------------------------------------------------
 # process_srv
@@ -263,11 +282,12 @@ def process_spfm(template_record, zone_records, new_records):
 def process_srv(template_record, zone_records, new_records):
 
     new_record = {'type': 'SRV', 'name': template_record['name'], 'data': template_record['target'], 'ttl': int(template_record['ttl']), 'protocol': template_record['protocol'], 'service': template_record['service'], 'priority': int(template_record['priority']), 'weight': int(template_record['weight']), 'port': int(template_record['port'])}
-    new_records.append(new_record)
 
     for zone_record in zone_records:
-        if zone_record['type'].upper() == 'SRV' and zone_record['name'].lower() == template_record['name'].lower():
+        if zone_record['type'].upper() == 'SRV' and zone_record['name'].lower() == template_record['name'].lower() and '_replace' not in zone_record:
             zone_record['_delete'] = 1
+
+    return new_record
 
 #-------------------------------------------------------------------
 # process_ns
@@ -277,8 +297,7 @@ def process_srv(template_record, zone_records, new_records):
 def process_ns(template_record, zone_records, new_records):
 
     # Add the new record
-    new_record = {'type': template_record['type'].upper(), 'name': template_record['host'], 'data': template_record['pointsTo'], 'ttl': int(template_record['ttl'])}
-    new_records.append(new_record)
+    new_record = {'type': 'NS', 'name': template_record['host'], 'data': template_record['pointsTo'], 'ttl': int(template_record['ttl'])}
 
     # Delete any record in the zone that conflicts with this new record.
     #
@@ -289,9 +308,10 @@ def process_ns(template_record, zone_records, new_records):
 
         zone_record_name = zone_record['name'].lower()
         
-        if zone_record_name == template_record_name or zone_record_name.endswith('.' + template_record_name):
+        if (zone_record_name == template_record_name or zone_record_name.endswith('.' + template_record_name)) and '_replace' not in zone_record:
             zone_record['_delete'] = 1
 
+    return new_record
 
 #-------------------------------------------------------------
 # process_other
@@ -319,23 +339,36 @@ def process_other(template_record, zone_records, new_records):
     if record_type == 'MX':
         new_record['priority'] = template_record['priority']
 
-    new_records.append(new_record)
-
     # Mark records in the zone for deletion
     for zone_record in zone_records:
 		
         zone_record_type = zone_record['type'].upper()
         
         if zone_record_type in _delete_map[record_type] and \
-            zone_record['name'].lower() == template_record['host'].lower():
+            zone_record['name'].lower() == template_record['host'].lower() and \
+            '_replace' not in zone_record:
             zone_record['_delete'] = 1
+
+    return new_record
 
 #--------------------------------------------------
 # process_records
 #
 # Will process the template records to the zone using the domain/host/params
 #
-def process_records(template_records, zone_records, domain, host, params, groupIds):
+def process_records(template_records, zone_records, domain, host, params, group_ids, multi_aware=False, multiInstance=False, providerId=None, serviceId=None, unique_id=None):
+
+    # If we are multi aware, we should remove the previous instances of the record
+    if multi_aware and not multiInstance:
+
+        for zone_record in zone_records:
+
+            if '_dc' in zone_record:
+                
+                if providerId and 'providerId' in zone_record['_dc'] and serviceId and 'serviceId' in zone_record['_dc'] and host and 'host' in zone_record['_dc'] and \
+                   providerId == zone_record['_dc']['providerId'] and serviceId == zone_record['_dc']['serviceId'] and host == zone_record['_dc']['host']:
+
+                    zone_record['_replace'] = True
 
     # This will contain the new records
     new_records = []
@@ -344,7 +377,7 @@ def process_records(template_records, zone_records, domain, host, params, groupI
     for template_record in template_records:
 
         # If we passed ina  group, only apply templates as part of the group
-        if groupIds and 'groupId' in template_record and template_record['groupId'] not in groupIds:
+        if group_ids and 'groupId' in template_record and template_record['groupId'] not in group_ids:
             continue
 
         # Get the record type
@@ -416,41 +449,47 @@ def process_records(template_records, zone_records, domain, host, params, groupI
         if template_record_type in ['SPFM']:
             template_record['spfRules'] = process_variables(template_record['spfRules'], domain, host, params, 'spfRules')
 
+        new_record = None
 
         # Handle the proper processing for each template record type
         if template_record_type in ['SPFM']:
-            process_spfm(template_record, zone_records, new_records)
+            new_record = process_spfm(template_record, zone_records, new_records)
         elif template_record_type in ['TXT']:
-            process_txt(template_record, zone_records, new_records)
+            new_record = process_txt(template_record, zone_records, new_records)
         elif template_record_type in ['SRV']:
-            process_srv(template_record, zone_records, new_records)
+            new_record = process_srv(template_record, zone_records, new_records)
         else:
             if template_record_type in ['CNAME', 'NS'] and template_record['host'] == '@':
                 raise HostRequired('Cannot have APEX CNAME or NS without host')
 
             if template_record_type in ['NS']:
-                process_ns(template_record, zone_records, new_records)
+                new_record = process_ns(template_record, zone_records, new_records)
             else:
-                process_other(template_record, zone_records, new_records)
+                new_record = process_other(template_record, zone_records, new_records)
 
-        if template_record_type in ['SRV']:
-            template_record_name = template_record['name'].lower()
-        else:
-            template_record_name = template_record['host'].lower()
-
-        # Setting any record with a non root host should delete any NS records at the same host.
+        # Setting any record type that isn't an NS record has an extra delete rule.  We should delete any NS records at the same host.
         #
         # So if we set bar, foo.bar, www.foo.bar it should delete NS records of bar. But not xbar
-        if template_record_type != 'NS' and template_record_name != '@':
+        if template_record_type != 'NS' and new_record and new_record['name'] != '@':
 
             # Delete any records 
             for zone_record in zone_records:
                 if zone_record['type'].upper() == 'NS':
                     zone_record_name = zone_record['name'].lower()
 
-                    if  template_record_name == zone_record_name or template_record_name.endswith('.' + zone_record_name):
+                    if  (new_record['name'] == zone_record_name or new_record['name'].endswith('.' + zone_record_name)) and '_replace' not in zone_record:
                         zone_record['_delete'] = 1
             
+        # So we have a new record.  Add it to the new records.
+        if new_record:
+
+            # If we are muti aware, store the information about the template used
+            if multi_aware:
+                essential = template_record['essential'] if 'essential' in template_record else 'Always'
+                new_record['_dc'] = {'id': unique_id, 'providerId': providerId, 'serviceId': serviceId, 'host': host, 'essential': essential}
+
+            new_records.append(new_record)
+
 
     # Now compute the final list of records in the zone, and the records to be deleted
     deleted_records = []
@@ -460,14 +499,31 @@ def process_records(template_records, zone_records, domain, host, params, groupI
     for new_record in new_records:
         final_records.append(new_record)
 
+    # If we are multi aware, we need to cascade deletes
+    if multi_aware:
+
+        for zone_record in zone_records:
+
+            # If the record is marked for deletion and is essential to the service, we cascade
+            if '_delete' in zone_record and '_dc' in zone_record and 'essential' in zone_record['_dc'] and zone_record['_dc']['essential'] == 'Always':
+                
+                for zone_record2 in zone_records:
+                    if '_dc' in zone_record2 and \
+                       zone_record['_dc']['providerId'] == zone_record2['_dc']['providerId'] and \
+                       zone_record['_dc']['serviceId'] == zone_record2['_dc']['serviceId'] and \
+                       zone_record['_dc']['host'] == zone_record2['_dc']['host']:
+                        
+                        zone_record2['_delete'] = 1
+
     # Add the records in the zone that weren't being deleted, and clean up the _delete setting
     for zone_record in zone_records:
-        if not '_delete' in zone_record:
-            final_records.append(zone_record)
-        else:
-            del zone_record['_delete']
+        if  '_replace' in zone_record:
+           deleted_records.append(zone_record)
+        elif '_delete' in zone_record:
             deleted_records.append(zone_record)
-
+        else:
+            final_records.append(zone_record)
+            
     return new_records, deleted_records, final_records
 
 #--------------------------------------------------
@@ -566,9 +622,9 @@ class DomainConnect:
     #
     # This method will raise an execption if the signature fails.  It will return if it suceeds.
     #
-    def verify_sig(self, qs, sig, key, ignoreSignature=False):
+    def verify_sig(self, qs, sig, key, ignore_signature=False):
 
-        if ignoreSignature:
+        if ignore_signature:
             return
 
         if not qs or not sig or not key:
@@ -612,7 +668,7 @@ class DomainConnect:
     # final_records contains all records that would be in the zone (new_records plus records that weren't
     # deleted from the zone).
     #
-    def apply_template(self, zone_records, domain, host, params, groupIds=None, qs=None, sig=None, key=None, ignoreSignature=False):
+    def apply_template(self, zone_records, domain, host, params, group_ids=None, qs=None, sig=None, key=None, ignore_signature=False, multi_aware=False):
 
         # Domain and host should be lower cased
         domain = domain.lower()
@@ -630,10 +686,14 @@ class DomainConnect:
 
         # See if the template requires a signature
         if 'syncPubKeyDomain' in self.jsonData and self.jsonData['syncPubKeyDomain']:
-            self.verify_sig(qs, sig, key, ignoreSignature)
+            self.verify_sig(qs, sig, key, ignore_signature)
+
+        unique_id = str(uuid.uuid4())
+
+        multiInstance = self.jsonData['multiInstance'] if 'multiInstance' in self.jsonData else False
             
         # Process the records in the template
-        return process_records(self.jsonData['records'], zone_records,  domain, host, params, groupIds)
+        return process_records(self.jsonData['records'], zone_records,  domain, host, params, group_ids, multi_aware, multiInstance, self.providerId, self.serviceId, unique_id)
     
     #------------------------------------
     # IsSignatureRequired

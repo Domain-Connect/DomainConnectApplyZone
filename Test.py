@@ -70,7 +70,7 @@ def TestRecordsException(title, template_records, zone_records, domain, host, pa
     except exception as e:
         _testResults.Pass(str(e))
 
-def TestTemplate(title, zone_records, providerId, serviceId, domain, host, params, groupIds, newCount, deleteCount, expected_records, verbose=False, qs=None, sig=None, key=None, ignoreSignature=False):        
+def TestTemplate(title, zone_records, providerId, serviceId, domain, host, params, group_ids, new_count, delete_count, expected_records, verbose=False, qs=None, sig=None, key=None, ignoreSignature=False):        
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     if verbose:
@@ -83,7 +83,7 @@ def TestTemplate(title, zone_records, providerId, serviceId, domain, host, param
 
     dc = DomainConnect(providerId, serviceId)
 
-    new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params, groupIds=groupIds, qs=qs, sig=sig, key=key, ignoreSignature=ignoreSignature)
+    new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params, group_ids=group_ids, qs=qs, sig=sig, key=key, ignoreSignature=ignoreSignature)
 
     if verbose:
         print("New Records")
@@ -102,14 +102,14 @@ def TestTemplate(title, zone_records, providerId, serviceId, domain, host, param
         final_records.sort()
         
 
-    if (newCount is not None and len(new_records) != newCount) or \
-       (deleteCount is not None and len(deleted_records) != deleteCount) or \
+    if (new_count is not None and len(new_records) != new_count) or \
+       (delete_count is not None and len(deleted_records) != delete_count) or \
        (expected_records is not None and expected_records != final_records):
         _testResults.Fail()
     else:
         _testResults.Pass()
 
-def TestRecords(title, template_records, zone_records, domain, host, params, groupIds, newCount, deleteCount, expected_records, verbose=False):
+def TestRecords(title, template_records, zone_records, domain, host, params, expected_records, group_ids=[], new_count=None, delete_count=None, verbose=False, multi_aware=False, multiInstance=False, providerId=None, serviceId=None, unique_id=None):
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     if verbose:
@@ -120,7 +120,7 @@ def TestRecords(title, template_records, zone_records, domain, host, params, gro
         print 'Params = ' + str(params)
 
     new_records = []
-    new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, groupIds)
+    new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, group_ids, multi_aware=multi_aware, multiInstance=multiInstance, providerId=providerId, serviceId=serviceId, unique_id=unique_id)
 
     if verbose:
         print("New Records")
@@ -138,9 +138,8 @@ def TestRecords(title, template_records, zone_records, domain, host, params, gro
     if final_records is not None:
         final_records.sort()
         
-
-    if (newCount is not None and len(new_records) != newCount) or \
-       (deleteCount is not None and len(deleted_records) != deleteCount) or \
+    if (new_count is not None and len(new_records) != new_count) or \
+       (delete_count is not None and len(deleted_records) != delete_count) or \
        (expected_records is not None and expected_records != final_records):
         _testResults.Fail()
     else:
@@ -150,22 +149,22 @@ def NSTests():
     zone_records = [{'type': 'NS', 'name':'foo', 'data': 'abc', 'ttl': 500}]
     template_records = [{'type': 'A', 'host': 'foo', 'pointsTo': '127.0.0.1', 'ttl': 300}]
     expected_records = [{'type': 'A', 'name':'foo', 'data': '127.0.0.1', 'ttl': 300}]
-    TestRecords('Delete NS with an A', template_records, zone_records, 'foo.com', '', {}, None, 1, 1, expected_records)
+    TestRecords('Delete NS with an A', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=1)
 
     zone_records = [{'type': 'NS', 'name':'foo.bar', 'data': 'abc', 'ttl': 500}]
     template_records = [{'type': 'A', 'host': 'foo', 'pointsTo': '127.0.0.0', 'ttl': 300}]
     expected_records = [{'type': 'A', 'name':'foo.bar', 'data': '127.0.0.0', 'ttl': 300}]
-    TestRecords('Delete NS with A Test (through Host)', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 1, expected_records)
+    TestRecords('Delete NS with A Test (through Host)', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=1)
 
     zone_records = [{'type': 'A', 'name':'foo', 'data': 'abc', 'ttl': 500}]
     template_records = [{'type': 'NS', 'host': 'foo', 'pointsTo': 'def', 'ttl': 300}]
     expected_records = [{'type': 'NS', 'name':'foo', 'data': 'def', 'ttl': 300}]
-    TestRecords('Delete A record with NS Test', template_records, zone_records, 'foo.com', '', {}, None, 1, 1, expected_records)
+    TestRecords('Delete A record with NS Test', template_records, zone_records, 'foo.com', '', {}, None, expected_records, new_count=1, delete_count=1)
 
     zone_records = [{'type': 'A', 'name':'www.foo.bar', 'data': 'abc', 'ttl': 500}]
     template_records = [{'type': 'NS', 'host': '@', 'pointsTo': 'def', 'ttl': 300}]
     expected_records = [{'type': 'NS', 'name':'bar', 'data': 'def', 'ttl': 300}]
-    TestRecords('Delete A record with NS Test (through Host)', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 1, expected_records)
+    TestRecords('Delete A record with NS Test (through Host)', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=1)
 
     zone_records = [
         {'type': 'A', 'name':'bar', 'data': 'abc', 'ttl': 500},
@@ -177,7 +176,7 @@ def NSTests():
         {'type': 'NS', 'name':'bar', 'data': 'def', 'ttl': 300},
         {'type': 'A', 'name':'xbar', 'data': 'abc', 'ttl': 500}
     ]
-    TestRecords('Delete Multiple A with NS Test (through Host)', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 2, expected_records)
+    TestRecords('Delete Multiple A with NS Test (through Host)', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=2)
 
 def SPFMTests():
     zone_records = [
@@ -192,7 +191,7 @@ def SPFMTests():
         {'type': 'AAAA', 'name': '@', 'data': 'bog.bog.bog.bog', 'ttl': 200},
         {'type': 'TXT', 'name': '@', 'data' : 'v=spf1 foo -all', 'ttl': 6000}
     ]
-    TestRecords('SPF Merge New', template_records, zone_records, 'foo.com', '', {}, None, 1, 0, expected_records)
+    TestRecords('SPF Merge New', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
 
     zone_records = [
         {'type': 'A', 'name': '@', 'data': 'old.old.old.old', 'ttl': 500},
@@ -207,7 +206,7 @@ def SPFMTests():
         {'type': 'AAAA', 'name': '@', 'data': 'bog.bog.bog.bog', 'ttl': 200},
 	{'type': 'TXT', 'name': '@', 'data': 'v=spf1 foo bar -all', 'ttl': 6000}
     ]
-    TestRecords('SPF Merge Existing', template_records, zone_records, 'foo.com', '', {}, None, 1, 1, expected_records)
+    TestRecords('SPF Merge Existing', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=1)
 
 def TXTTests():
 
@@ -224,7 +223,7 @@ def TXTTests():
         {'type': 'TXT', 'name': '@', 'data': 'abcnew', 'ttl': 600}
     ]
 
-    TestRecords('TXT Matching Mode None', template_records, zone_records, 'foo.com', '', {}, None, 1, 0, expected_records)
+    TestRecords('TXT Matching Mode None', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
 
     zone_records = [
 	{'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
@@ -235,7 +234,7 @@ def TXTTests():
     expected_records = [
 	{'type': 'TXT', 'name': '@', 'data': 'abcnew', 'ttl': 600},
     ]    
-    TestRecords('TXT Matching Mode All', template_records, zone_records, 'foo.com', '', {}, None, 1, 3, expected_records)
+    TestRecords('TXT Matching Mode All', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=3)
 
     zone_records = [
 	{'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
@@ -247,7 +246,7 @@ def TXTTests():
 	{'type': 'TXT', 'name': '@', 'data': 'abcnew', 'ttl': 600},
 	{'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
     ]
-    TestRecords('TXT Matching Mode Prefix', template_records, zone_records, 'foo.com', '', {}, None, 1, 2, expected_records)
+    TestRecords('TXT Matching Mode Prefix', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=2)
 
 def CNAMETests():
     zone_records = [
@@ -260,13 +259,13 @@ def CNAMETests():
     expected_records = [
         {'type': 'CNAME', 'name': 'bar', 'data': 'abc', 'ttl': 600}
     ]
-    TestRecords('CNAME Delete', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 4, expected_records)
+    TestRecords('CNAME Delete', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=4)
 
 def SRVTests():
     zone_records = []
     template_records = [{'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
     expected_records = [{'type': 'SRV', 'name': '_abc.bar', 'data': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
-    TestRecords('SRV Add', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, None, 1, 0, expected_records, False)
+    TestRecords('SRV Add', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, expected_records, new_count=1, delete_count=0)
     
 def ATests():
     zone_records = [
@@ -280,7 +279,7 @@ def ATests():
         {'type': 'A', 'name': 'bar', 'data':'127.0.0.1', 'ttl': 600},
         {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
     ]
-    TestRecords('CNAME Delete', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 3, expected_records)
+    TestRecords('CNAME Delete', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=3)
 
 def GroupTests():
     zone_records = [
@@ -293,7 +292,7 @@ def GroupTests():
     expected_records = [
         {'type': 'A', 'name': 'bar', 'data':'127.0.0.1', 'ttl': 600},
     ]
-    TestRecords('Apply Group 1', template_records, zone_records, 'foo.com', 'bar', {}, ['1'], 1, 1, expected_records)
+    TestRecords('Apply Group 1', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, group_ids=['1'], new_count=1, delete_count=1)
 
     zone_records = [
         {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
@@ -305,7 +304,7 @@ def GroupTests():
     expected_records = [
         {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
     ]
-    TestRecords('Apply no Groups', template_records, zone_records, 'foo.com', 'bar', {}, ['3'], 0, 0, expected_records)
+    TestRecords('Apply no Groups', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, group_ids=['3'], new_count=0, delete_count=0)
 
     zone_records = [
         {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
@@ -318,7 +317,7 @@ def GroupTests():
         {'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 600},
         {'type': 'TXT', 'name': 'bar', 'data': 'testdata', 'ttl': 600}
     ]
-    TestRecords('Apply Group 1 and 2', template_records, zone_records, 'foo.com', 'bar', {}, ['1', '2'], 2, 1, expected_records)
+    TestRecords('Apply Group 1 and 2', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, group_ids=['1', '2'], new_count=2, delete_count=1)
     
 def ExceptionTests():
     zone_records = []
@@ -343,53 +342,91 @@ def ParameterTests():
     zone_records = []
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '127.0.0.1', 'ttl': 400}]
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 400}]
-    TestRecords('@ in template host with input host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)
+    TestRecords('@ in template host with input host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
 
     zone_records = []
     template_records = [{'type': 'CNAME', 'host': '@', 'pointsTo': '@', 'ttl': 400}]
     expected_records = [{'type': 'CNAME', 'name': 'bar', 'data': 'bar.foo.com', 'ttl': 400}]
-    TestRecords('@ in template pointsTo with input host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)
+    TestRecords('@ in template pointsTo with input host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
 
     zone_records = []
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '127.0.0.1', 'ttl': 400}]
     expected_records = [{'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 400}]
-    TestRecords('@ in template host without input host Parameter Test', template_records, zone_records, 'foo.com', '', {}, None, 1, 0, expected_records)
+    TestRecords('@ in template host without input host Parameter Test', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
 
     zone_records = []
     template_records = [{'type': 'CNAME', 'host': 'bar', 'pointsTo': '@', 'ttl': 400}]
     expected_records = [{'type': 'CNAME', 'name': 'bar', 'data': 'foo.com', 'ttl': 400}]
-    TestRecords('@ in template pointsTo without input host Parameter Test', template_records, zone_records, 'foo.com', '', {}, None, 1, 0, expected_records)
+    TestRecords('@ in template pointsTo without input host Parameter Test', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
 
     zone_records = []
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abc%fqdn%def', 'ttl': 400}]
     expected_records = [{'type': 'TXT', 'name': 'bar', 'data': 'abcbar.foo.comdef', 'ttl': 400}]
-    TestRecords('FQDN not in host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)    
+    TestRecords('FQDN not in host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)    
 
 
     zone_records = []
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abc%host%def', 'ttl': 400}]
     expected_records = [{'type': 'TXT', 'name': 'bar', 'data': 'abcbardef', 'ttl': 400}]
-    TestRecords('Host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)    
+    TestRecords('Host Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)    
 
     zone_records = []
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abc%domain%def', 'ttl': 400}]
     expected_records = [{'type': 'TXT', 'name': 'bar', 'data': 'abcfoo.comdef', 'ttl': 400}]
-    TestRecords('Domain Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, None, 1, 0, expected_records)    
+    TestRecords('Domain Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)    
 
     zone_records = []
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '127.0.0.%v1%', 'ttl': 400}]
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 400}]
-    TestRecords('Random Parameter Test', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, None, 1, 0, expected_records)
+    TestRecords('Random Parameter Test', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, expected_records, new_count=1, delete_count=0)
 
     zone_records = []
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '%missing%', 'ttl': 600}]
-    TestRecordsException('Missing Parameter Test', template_records, zone_records, 'foo.com', 'bar', {}, MissingParameter)
+    TestRecordsException('Missing Parameter Test', template_records, zone_records, 'foo.com', 'bar', {},  MissingParameter)
 
 def PercentParameterTests():
     zone_records = []
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abc%fff%def', 'ttl': 400}]
     expected_records = [{'type': 'TXT', 'name': 'bar', 'data': 'abc%ab%cd%def', 'ttl': 400}]
-    TestRecords('Domain Parameter Test', template_records, zone_records, 'foo.com', 'bar', {'fff': '%ab%cd%'}, None, 1, 0, expected_records, False)    
+    TestRecords('Domain Parameter Test', template_records, zone_records, 'foo.com', 'bar', {'fff': '%ab%cd%'}, expected_records, new_count=1, delete_count=0)
+
+def MultiTests():
+    zone_records = [{'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 400, '_dc': {'id':'abc', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }}]
+    template_records = [{'type': 'A', 'host': '@', 'pointsTo': '127.0.0.2', 'ttl': 500}]
+    expected_records = [{'type': 'A', 'name': '@', 'data': '127.0.0.2', 'ttl': 500, '_dc': {'id':'def', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }}]
+    TestRecords('Re-apply same template', template_records, zone_records, 'foo.com', '@', {}, expected_records, new_count=1, delete_count=1, multi_aware=True, multiInstance=False, providerId='e.d.org', serviceId='t1', unique_id='def')
+
+    zone_records = [{'type': 'TXT', 'name': '@', 'data': 'olddata', 'ttl': 400, 'txtConflictMatchMode': 'None', '_dc': {'id':'abc', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }}]
+    template_records = [{'type': 'TXT', 'host': '@', 'data': 'newdata', 'ttl': 500}]
+    expected_records = [{'type': 'TXT', 'name': '@', 'data': 'newdata', 'ttl': 500, '_dc': {'id':'def', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }}]
+    TestRecords('Re-apply on TXT without multi-instance', template_records, zone_records, 'foo.com', '@', {}, expected_records, new_count=1, delete_count=1, multi_aware=True, multiInstance=False, providerId='e.d.org', serviceId='t1', unique_id='def')
+    
+    zone_records = [{'type': 'TXT', 'name': '@', 'data': 'olddata', 'ttl': 400, 'txtConflictMatchMode': 'None', '_dc': {'id':'abc', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }}]
+    template_records = [{'type': 'TXT', 'host': '@', 'data': 'newdata', 'ttl': 500}]
+    expected_records = [
+        {'type': 'TXT', 'name': '@', 'data': 'olddata', 'ttl': 400, 'txtConflictMatchMode': 'None', '_dc': {'id':'abc', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }},
+        {'type': 'TXT', 'name': '@', 'data': 'newdata', 'ttl': 500, '_dc': {'id':'def', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }}
+    ]
+    TestRecords('Re-apply on TXT with multi-instance', template_records, zone_records, 'foo.com', '@', {}, expected_records, new_count=1, delete_count=0, multi_aware=True, multiInstance=True, providerId='e.d.org', serviceId='t1', unique_id='def')
+
+    zone_records = [
+        {'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 400, '_dc': {'id':'abc', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }},
+        {'type': 'CNAME', 'name': 'www', 'data' : '@', 'ttl': 500, '_dc': {'id':'abc', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }}
+    ]
+    template_records = [{'type': 'A', 'host': '@', 'pointsTo': '127.0.0.2', 'ttl': 500}]
+    expected_records = [{'type': 'A', 'name': '@', 'data': '127.0.0.2', 'ttl': 500, '_dc': {'id':'def', 'providerId': 'e.d.org', 'serviceId': 't2', 'host': '@', 'essential': 'Always' }}]
+    TestRecords('Apply different template cascade delete', template_records, zone_records, 'foo.com', '@', {}, expected_records, new_count=1, delete_count=2, multi_aware=True, multiInstance=False, providerId='e.d.org', serviceId='t2', unique_id='def')
+
+    zone_records = [
+        {'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 400, '_dc': {'id':'abc', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'OnApply' }},
+        {'type': 'CNAME', 'name': 'www', 'data' : '@', 'ttl': 500, '_dc': {'id':'abc', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }}
+    ]
+    template_records = [{'type': 'A', 'host': '@', 'pointsTo': '127.0.0.2', 'ttl': 500, 'essential': 'OnApply'}]
+    expected_records = [
+        {'type': 'A', 'name': '@', 'data': '127.0.0.2', 'ttl': 500, '_dc': {'id':'def', 'providerId': 'e.d.org', 'serviceId': 't2', 'host': '@', 'essential': 'OnApply' }},
+        {'type': 'CNAME', 'name': 'www', 'data' : '@', 'ttl': 500, '_dc': {'id':'abc', 'providerId': 'e.d.org', 'serviceId': 't1', 'host': '@', 'essential': 'Always' }}        
+    ]
+    TestRecords('Apply different template but essential blocks delete', template_records, zone_records, 'foo.com', '@', {}, expected_records, new_count=1, delete_count=1, multi_aware=True, multiInstance=False, providerId='e.d.org', serviceId='t2', unique_id='def')
 
 def BadParameterTests():
     zone_records = []
@@ -444,10 +481,9 @@ def TemplateTests():
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '132.148.25', 'ttl': 1800}, {'type': 'TXT', 'name': 'bar', 'data': 'shm:1551036164:hello', 'ttl': 1800}, {'type': 'CNAME', 'name': 'whd.bar', 'data': 'bar.foo.com', 'ttl': 600}]
     TestTemplate('Sig Template Test', zone_records, 'exampleservice.domainconnect.org', 'template2', 'foo.com', 'bar', {'IP': '132.148.25', 'RANDOMTEXT': 'shm:1551036164:hello'}, None, 3, 0, expected_records, qs=qs, sig=sig, key=key)
     
-
     
 
-def RunTests():
+def run():
     
     _testResults.Reset()
     
@@ -458,11 +494,12 @@ def RunTests():
     TXTTests()
     ATests()
     ExceptionTests()
-    SigTests()
+    #SigTests()
     GroupTests()
     ParameterTests()
     PercentParameterTests()
-    TemplateTests()
+    #TemplateTests()
+    MultiTests()
 
     print("Failed Count = " + str(_testResults.failCount))
     print("Passed Count = " + str(_testResults.passCount))

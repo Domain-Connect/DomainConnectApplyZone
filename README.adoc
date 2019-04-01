@@ -5,14 +5,26 @@
 This module implements the logic for applying a Domain Connect template to a zone.
 
 Given a zone's contents, a domain/host (sub-domain), a template (identified by a
-providerId/serviceId), and parameters this will calculate the changes to the zone.
+providerId/serviceId), temmplate variable values, and additional parameters; the
+library will calculate changes to the zone.
 
 Authorization of the user, verification that the user owns the domain, and the UX to
 gain consent from the user are left to the DNS Provider.  But all the logic for handling
 the application of the template, including conflict detection, parameter processing,
 signature verification and more are handled in this library.
 
-There are several entry points to the code.
+The library works by taking as canonical input the current content of the zone file
+corresponding to the domain name being processed.  And it returns the modified zone file
+in the same canonical format. It is up to the implementation to translate to and from
+this canonical format.
+
+Some DNS Providers only apply templates to a zone at run-time. After the zone is applied
+the records in the zone have no indication they were applied by a template. Other DNS
+Providers remember the records that were applied by a template, providing advanced features
+in their UX.
+
+This library can deal with both types of DNS Providers. If a DNS Provider wishes to remember
+template state in its zone, it simply needs to read/write this additional state with the records.
 
 ## DomainConnect
 
@@ -37,14 +49,15 @@ If the template cannot be found, an InvalidTemplate exception is thrown.
 
 There are several other methods on this class/object.
 
-### Apply(...)
+### apply_template(...)
 
 The fist (and more common) method is to apply changes to a zone based on the
 template.  
 
 Input takes a list of records that exist in the zone, the domain, the host, and
 additional parameters for the template as a dictionary of key/value pairs.
-It optionally takes a query string, sig, and key to verify the signature.
+It optionally takes a query string, sig, and key to verify the signature. And an
+optional flag indicating if the DNS Provider is multi-template-aware.
 
 #### Parameters
 
@@ -85,10 +98,14 @@ query string, properly URL Encoded, without the sig or key values. This defaults
 |(optional) This is the key into DNS on syncPubKeyDomain to read the public key for signature verification.
 This defaults to None.
 
-|*Ignore Signature (ignoreSignature) *
+|*Ignore Signature (ignore_signature) *
 |Boolean
 |(optional) This tells the system to ignore any signature verification. Extreme care should be taken with this parameter, as
 it is largely intended for internal tooling and testing. This defaults to False.
+
+|*Multi Template Aware (multi_aware) *
+|Boolean
+|(optional) This tells the system that the DNS Provider wishes to engage the multi-template processing. It defaults to False.
 
 |=======================================================================
 
@@ -105,7 +122,7 @@ domain = 'example.com'
 host = None
 params = {'IP': '132.148.25.185', 'RANDOMTEXT': 'shm:1553436765:Hello'}
 
-dc.Apply(zone_records, domain, host, params)
+dc.apply_template(zone_records, domain, host, params)
 ----
 
 Upon success this method returns a tuple containing three lists of zone records.
@@ -145,7 +162,7 @@ parameter that results in malformed DNS data.
 
 This attribute returns the template in json form.
 
-### IsSignatureRequired()
+### is_signature_required
 
 This attribute returns True if the template requires signatures, False if not.
 
@@ -157,6 +174,10 @@ DNS record.
 
 All records have a type (A, AAAA, CNAME, NS, TXT, MX, or SRV). Depending on the type there
 are other attributes.
+
+If the DNS Provider wishes to implement template state in DNS, an set of fields is required
+in this data structure. This will be a dictionary.  It is recommended that the DNS Provider
+store this by serializing the dictionary into a string.
 
 [cols=",,",options="header",]
 |=======================================================================
@@ -203,6 +224,33 @@ a domain/host a fully qualified domain name without a trailing dot must be used.
 |int
 |This is the port of the SRV record.
 
+|*_dc*
+|json
+|(optional) This is the json structure representing the template state for applied records. The
+DNS Provider should store this by serializing/deserialzing the json, allowing for future extensibility.
+Fields in here are interesting to the DNS Provider and are documented below.
+
+|*_dc.id*
+|String
+|This is the unique id representing the application of a template
+
+|*_dc.providerId*
+|String
+|This is the providerId of the applied template on this record
+
+|*_dc.serviceId*
+|String
+|This is the serviceId of the applied template on this record
+
+|*_dc.host*
+|String
+|This was the host used to apply this template. All templates are scoped to the domain/host.
+
+|*_dc.essential*
+|String
+|Largely internal, this indicates that the essential property on the record when applied. This
+is used for conflict detection when overwriting.
+
 |=======================================================================
 
 An example zone:
@@ -216,9 +264,9 @@ An example zone:
 	
 ----
 
-### VerifySig()
+### verify_sig()
 
-In addition to being used by the Apply method, this independent method can be used to 
+In addition to being used by the apply_template method, this independent method can be used to 
 validate a query string against a signature and key.
 
 [source]
@@ -230,12 +278,12 @@ sig = 'LyCE+7H0zr/XHaxX36pdD1eSQENRiGTFxm79m7A5NLDPiUKLe71IrsEgnDLN76ndQcLTZlr4+
 key = '_dck1'
 qs = 'domain=arnoldblinn.com&RANDOMTEXT=shm%3A1551036164%3Ahello&IP=132.148.25.185&host=bar'
 
-dc.VerifySig(qs, sig, key)
+dc.verify_sig(qs, sig, key)
 ----
 
 If the signature fails, an InvalidSignature exception is raised
 
-### Prompt
+### prompt
 
 This method is useful for testing. It will prompt the user for all values for all
 variables in the template. These are added as key/values in a dictionary
@@ -244,13 +292,12 @@ suitable for passing into the Apply function.
 [source]
 ----
 dc = DomainConnect(providerId, serviceId)
-params = Prompt()
+params = dc.prompt()
 ----
 
-## QSUtil
+## Query String Utilities
 
-This contains a couple of simple functions to help with handling query strings in web
-applications.
+Several helper functions are included for dealing with query strings.
 
 ### qs2dict(qs, filter=[])
 
@@ -286,14 +333,23 @@ qs2 = DomainConnect.QSUtil.qsfilter(qs, ['c', 'd']
 
 This contains a series of simple tests.  Run them by:
 
+[source]
+----
 import Test
-Test.RunTests()
+Test.run()
+----
 
 ## GDTest
 
 This module is GoDaddy specific. This will prompt the user for domain/host/providerId/serviceId and GoDaddy API Key. It will
 read the template, prompt for all variable values, and apply the changes to the zone. This is done by using the API Key to read
 the entire zone, and write the entire zone.
+
+[source]
+----
+import GDTest
+GDTest.run()
+----
 
 ## Dependencies
 

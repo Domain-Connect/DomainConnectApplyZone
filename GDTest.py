@@ -17,7 +17,7 @@ def WriteZoneRecords(domain, zone_records, apiKeySecret):
 
     return r.status_code
 
-def Test():
+def run():
     # Collect the data 
     print("Enter domain:")
     domain = raw_input()
