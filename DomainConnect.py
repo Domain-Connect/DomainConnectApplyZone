@@ -376,7 +376,6 @@ def process_records(template_records, zone_records, domain, host, params,
 
                     zone_record['_replace'] = True
 
-
     # This will contain the new records
     new_records = []
 
@@ -511,7 +510,6 @@ def process_records(template_records, zone_records, domain, host, params,
         if not new_record:
             continue
 
-
         # Setting any record type that isn't an NS record has an extra delete
         # rule.
         #
@@ -531,7 +529,6 @@ def process_records(template_records, zone_records, domain, host, params,
                          new_record['name'].endswith('.' + zone_record_name)) and
                         '_replace' not in zone_record):
                         zone_record['_delete'] = 1
-
 
         # If we are muti aware, store the information about the template
         #used
