@@ -73,7 +73,16 @@ class InvalidData(Exception):
     pass
 
 
-def process_variables(input_, domain, host, params, recordKey):
+def raise_if_error(errors, dryrun):
+    if not dryrun and errors:
+        raise errors[0][0](errors[0][1])
+
+
+def process_variables_failed(input_):
+    return '##UNDEF##' in input_
+
+
+def process_variables(input_, domain, host, params, recordKey, dryrun=False):
     """
     Handles replacing variables in an input string from a template.
 
@@ -99,6 +108,7 @@ def process_variables(input_, domain, host, params, recordKey):
     """
 
     ci = 0
+    errors = []
 
     while input_.find('%', ci) != -1:
 
@@ -123,7 +133,9 @@ def process_variables(input_, domain, host, params, recordKey):
         elif name_lc in params:
             value = params[name_lc]
         else:
-            raise MissingParameter("No value for parameter '" + name + "'")
+            errors.append((MissingParameter,
+                           "No value for parameter '" + name + "'"))
+            value = '##UNDEF##'
 
         # Place the value into the input string
         input_ = input_.replace('%' + name + '%', value)
@@ -152,7 +164,9 @@ def process_variables(input_, domain, host, params, recordKey):
             else:
                 input_ = domain
 
-    return input_
+    raise_if_error(errors, dryrun)
+
+    return input_, errors
 
 
 def process_txt(template_record, zone_records, new_records):
@@ -360,10 +374,13 @@ def process_other(template_record, zone_records, new_records):
 
 def process_records(template_records, zone_records, domain, host, params,
                     group_ids, multi_aware=False, multi_instance=False,
-                    provider_id=None, service_id=None, unique_id=None):
+                    provider_id=None, service_id=None, unique_id=None,
+                    dryrun=False):
     """
     Will process the template records to the zone using the domain/host/params
     """
+
+    errors = []
 
     # If we are multi aware, we should remove the previous instances of the
     # template
@@ -400,94 +417,124 @@ def process_records(template_records, zone_records, domain, host, params,
         # We can only handle certain record types
         supported = ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'SPFM', 'NS']
         if template_record_type not in supported:
-            raise TypeError('Unknown record type (' + template_record_type +
-                            ') in template')
+            msg = ('Unknown record type (' + template_record_type +
+                   ') in template')
+            errors.append((TypeError, msg))
 
         # Deal with the variables and validation
 
         # Deal with the host/name
         if template_record_type == 'SRV':
-            template_record['name'] = process_variables(
-                template_record['name'], domain, host, params, 'name')
+            template_record['name'], errs = process_variables(
+                template_record['name'], domain, host, params, 'name',
+                dryrun=dryrun)
+            errors.extend(errs)
 
-            if not is_valid_host_srv(template_record['name']):
-                raise InvalidData('Invalid data for SRV name: ' +
-                                  template_record['name'])
+            if not process_variables_failed(template_record['name']):
+                if not is_valid_host_srv(template_record['name']):
+                    msg = ('Invalid data for SRV name: ' +
+                           template_record['name'])
+                    errors.append((InvalidData, msg))
 
         else:
-            template_record['host'] = process_variables(
-                template_record['host'], domain, host, params, 'host')
+            template_record['host'], errs = process_variables(
+                template_record['host'], domain, host, params, 'host',
+                dryrun=dryrun)
+            errors.extend(errs)
 
-            err_msg = ('Invalid data for ' + template_record_type +
-                       ' host: ' + template_record['host'])
-            if template_record_type in ['A', 'AAAA', 'MX', 'NS']:
-                if not is_valid_host_other(template_record['host'],
-                                                    False):
-                    raise InvalidData(err_msg)
-            elif template_record_type in ['TXT', 'SPFM']:
-                if not is_valid_host_other(template_record['host'],
-                                                    True):
-                    raise InvalidData(err_msg)
-            elif template_record_type == 'CNAME':
-                if not is_valid_host_cname(template_record['host']):
-                    raise InvalidData(err_msg)
+            if not process_variables_failed(template_record['host']):
+                err_msg = ('Invalid data for ' + template_record_type +
+                           ' host: ' + template_record['host'])
+                if template_record_type in ['A', 'AAAA', 'MX', 'NS']:
+                    if not is_valid_host_other(template_record['host'],
+                                                        False):
+                        errors.append((InvalidData, err_msg))
+                elif template_record_type in ['TXT', 'SPFM']:
+                    if not is_valid_host_other(template_record['host'],
+                                                        True):
+                        errors.append((InvalidData, err_msg))
+                elif template_record_type == 'CNAME':
+                    if not is_valid_host_cname(template_record['host']):
+                        errors.append((InvalidData, err_msg))
 
         # Points To / Target
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
-            template_record['pointsTo'] = process_variables(
-                template_record['pointsTo'], domain, host, params, 'pointsTo')
+            template_record['pointsTo'], errs = process_variables(
+                template_record['pointsTo'], domain, host, params, 'pointsTo',
+                dryrun=dryrun)
+            errors.extend(errs)
 
-            if template_record_type in ['MX', 'CNAME', 'NS']:
-                if not is_valid_pointsTo_host(
-                        template_record['pointsTo']):
-                    raise InvalidData('Invalid data for ' +
-                                      template_record_type + ' pointsTo: ' +
-                                      template_record['pointsTo'])
-            elif template_record_type == 'A':
-                if not is_valid_pointsTo_ip(
-                        template_record['pointsTo'], 4):
-                    raise InvalidData('Invalid data for A pointsTo: ' +
-                                      template_record['pointsTo'])
-            elif template_record_type == 'AAAA':
-                if not is_valid_pointsTo_ip(
-                        template_record['pointsTo'], 6):
-                    raise InvalidData('Invalid data for AAAA pointsTo: ' +
-                                      template_record['pointsTo'])
+            if not process_variables_failed(template_record['pointsTo']):
+                if template_record_type in ['MX', 'CNAME', 'NS']:
+                    if not is_valid_pointsTo_host(
+                            template_record['pointsTo']):
+                        msg = ('Invalid data for ' + template_record_type +
+                               ' pointsTo: ' + template_record['pointsTo'])
+                        errors.append((InvalidData, msg))
+                elif template_record_type == 'A':
+                    if not is_valid_pointsTo_ip(
+                            template_record['pointsTo'], 4):
+                        msg = ('Invalid data for A pointsTo: ' +
+                               template_record['pointsTo'])
+                        errors.append((InvalidData, msg))
+                elif template_record_type == 'AAAA':
+                    if not is_valid_pointsTo_ip(
+                            template_record['pointsTo'], 6):
+                        msg = ('Invalid data for AAAA pointsTo: ' +
+                               template_record['pointsTo'])
+                        errors.append((InvalidData, msg))
 
         elif template_record_type == 'SRV':
-            template_record['target'] = process_variables(
-                template_record['target'], domain, host, params, 'target')
+            template_record['target'], errs = process_variables(
+                template_record['target'], domain, host, params, 'target',
+                dryrun=dryrun)
+            errors.extend(errs)
 
-            if not is_valid_pointsTo_host(template_record['target']):
-                raise InvalidData('Invalid data for SRV target: ' +
-                                  template_record['target'])
+            if not process_variables_failed(template_record['target']):
+                if not is_valid_pointsTo_host(template_record['target']):
+                    msg = ('Invalid data for SRV target: ' +
+                           template_record['target'])
+                    errors.append((InvalidData, msg))
 
         # SRV has a few more records that need to be processed and validated
         if template_record_type == 'SRV':
-            template_record['protocol'] = process_variables(
-                template_record['protocol'], domain, host, params, 'protocol')
+            template_record['protocol'], errs = process_variables(
+                template_record['protocol'], domain, host, params, 'protocol',
+                dryrun=dryrun)
+            errors.extend(errs)
 
             protocol = template_record['protocol'].lower()
-            if protocol[0] == '_':
-                protocol = protocol[1:]
-            if protocol not in ['tcp', 'udp', 'tls']:
-                raise InvalidData('Invalid data for SRV protocol: ' +
-                                  template_record['protocol'])
+            if not process_variables_failed(protocol):
+                if protocol[0] == '_':
+                    protocol = protocol[1:]
+                if protocol not in ['tcp', 'udp', 'tls']:
+                    msg = ('Invalid data for SRV protocol: ' +
+                           template_record['protocol'])
+                    errors.append((InvalidData, msg))
 
-            template_record['service'] = process_variables(
-                template_record['service'], domain, host, params, 'service')
-            if not is_valid_pointsTo_host(template_record['service']):
-                raise InvalidData('Invalid data for SRV service: ' +
-                                  template_record['service'])
+            template_record['service'], errs = process_variables(
+                template_record['service'], domain, host, params, 'service',
+                dryrun=dryrun)
+            errors.extend(errs)
+
+            if not process_variables_failed(template_record['service']):
+                if not is_valid_pointsTo_host(template_record['service']):
+                    msg = ('Invalid data for SRV service: ' +
+                           template_record['service'])
+                    errors.append((InvalidData, msg))
 
         # Handle variables in a TXT and SPFM record
         if template_record_type == 'TXT':
-            template_record['data'] = process_variables(
-                template_record['data'], domain, host, params, 'data')
+            template_record['data'], errs = process_variables(
+                template_record['data'], domain, host, params, 'data',
+                dryrun=dryrun)
+            errors.extend(errs)
 
         if template_record_type == 'SPFM':
-            template_record['spfRules'] = process_variables(
-                template_record['spfRules'], domain, host, params, 'spfRules')
+            template_record['spfRules'], errs = process_variables(
+                template_record['spfRules'], domain, host, params, 'spfRules',
+                dryrun=dryrun)
+            errors.extend(errs)
 
         # Handle the proper processing for each template record type
 
@@ -503,7 +550,8 @@ def process_records(template_records, zone_records, domain, host, params,
         else:
             if (template_record_type in ['CNAME', 'NS'] and
                     template_record['host'] == '@'):
-                raise HostRequired('Cannot have APEX CNAME or NS without host')
+                msg = 'Cannot have APEX CNAME or NS without host'
+                errors.append((HostRequired, msg))
 
             if template_record_type in ['NS']:
                 new_record = process_ns(template_record, zone_records,
@@ -588,7 +636,9 @@ def process_records(template_records, zone_records, domain, host, params,
         else:
             final_records.append(zone_record)
 
-    return new_records, deleted_records, final_records
+    raise_if_error(errors, dryrun)
+
+    return new_records, deleted_records, final_records, errors
 
 
 #--------------------------------------------------
@@ -661,6 +711,7 @@ class DomainConnect(object):
     def __init__(self, provider_id, service_id):
         self.provider_id = provider_id
         self.service_id = service_id
+        self.errors = []
 
         # Read in the template
         try:
@@ -673,7 +724,7 @@ class DomainConnect(object):
         except:
             raise InvalidTemplate
 
-    def verify_sig(self, qs, sig, key, ignore_signature=False):
+    def verify_sig(self, qs, sig, key, ignore_signature=False, dryrun=False):
         """
         This method will verify a signature of a query string.
 
@@ -695,8 +746,11 @@ class DomainConnect(object):
         if ignore_signature:
             return
 
+        errors = []
+
         if not qs or not sig or not key:
-            raise InvalidSignature('Missing data for signature verification')
+            errors.append((InvalidSignature,
+                           'Missing data for signature verification'))
 
         syncPubKeyDomain = self.data['syncPubKeyDomain']
         pubKey = get_publickey(key + '.' + syncPubKeyDomain)
@@ -704,14 +758,24 @@ class DomainConnect(object):
         if not pubKey:
             msg = ('Unable to get public key for template/key from ' + key +
                    '.' + syncPubKeyDomain)
-            raise InvalidSignature(msg)
+            errors.append((InvalidSignature, msg))
 
         if not verify_sig(pubKey, sig, qs):
-            raise InvalidSignature('Signature not valid')
+            errors.append((InvalidSignature, 'Signature not valid'))
+
+        raise_if_error(errors, dryrun)
+
+        return errors
+
+    def get_apply_template_errors(self, *args, **kwargs):
+        kwargs['dryrun'] = True
+        self.apply_template(*args, **kwargs)
+        return self.errors
 
     def apply_template(self, zone_records, domain, host, params,
                        group_ids=None, qs=None, sig=None, key=None,
-                       ignore_signature=False, multi_aware=False):
+                       ignore_signature=False, multi_aware=False,
+                       dryrun=False):
         """
         Will apply the template to the zone
 
@@ -740,6 +804,8 @@ class DomainConnect(object):
         (new_records plus records that weren't deleted from the zone).
         """
 
+        self.errors = []
+
         # Domain and host should be lower cased
         domain = domain.lower()
         host = host.lower()
@@ -754,12 +820,16 @@ class DomainConnect(object):
         if ('hostRequired' in self.data and
                 self.data['hostRequired'] and
                 not host):
-            raise HostRequired('Template requires a host name')
+            self.errors.append((HostRequired, 'Template requires a host name'))
+            raise_if_error(self.errors, dryrun)
 
         # See if the template requires a signature
         if ('syncPubKeyDomain' in self.data and
             self.data['syncPubKeyDomain']):
-            self.verify_sig(qs, sig, key, ignore_signature)
+            errs = self.verify_sig(qs, sig, key, ignore_signature,
+                                   dryrun=dryrun)
+            self.errors.extend(errs)
+            raise_if_error(self.errors, dryrun)
 
         unique_id = str(uuid.uuid4())
 
@@ -769,10 +839,15 @@ class DomainConnect(object):
             multi_instance = False
 
         # Process the records in the template
-        return process_records(self.data['records'], zone_records,
-                               domain, host, params, group_ids,
-                               multi_aware, multi_instance,
-                               self.provider_id, self.service_id, unique_id)
+        add, rem, full, errs = process_records(self.data['records'],
+                                               zone_records, domain, host,
+                                               params, group_ids, multi_aware,
+                                               multi_instance,
+                                               self.provider_id,
+                                               self.service_id,
+                                               unique_id, dryrun=dryrun)
+        self.errors.extend(errs)
+        return add, rem, full
 
     def is_sig_required(self):
         """ Will indicate if the template requires a signature """
