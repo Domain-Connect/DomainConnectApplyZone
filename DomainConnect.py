@@ -16,19 +16,19 @@ properties exist on the record.
 
 All records have a 'type'. They also have a name, data and ttl.
 
-The first of these properties is the 'name'. The name should should be 
-specified relative to the root zone name. For a zone file in the domain foo.com, 
-www.bar.foo.com would have a name of 'www.bar'. A value of '' or @ in the name 
+The first of these properties is the 'name'. The name should should be
+specified relative to the root zone name. For a zone file in the domain foo.com,
+www.bar.foo.com would have a name of 'www.bar'. A value of '' or @ in the name
 field maps to the domain.
 
-Another common property is the data field. When a domain or host entry is allowed 
-in the data field, this should be a fully qualified domain name without a trailing 
+Another common property is the data field. When a domain or host entry is allowed
+in the data field, this should be a fully qualified domain name without a trailing
 dot.
 
 ttl is a number, and is straight forward.
 
 Depending on the type, additional fields are required. Unless otherwise stated
-all data is a string. 
+all data is a string.
 
 A: name, data, ttl (int)
 AAAA: name, data, ttl (int)
@@ -38,7 +38,7 @@ TXT: name, data, ttl (int)
 MX: name, data, ttl(int), priority (int)
 SRV: name, data, ttl(int), protocol, service, priority (int), weight (int), port (int)
 
-Zone records passed in have an optional field "_dc". If present and not null, 
+Zone records passed in have an optional field "_dc". If present and not null,
 this contains information about the template that originally set the record.
 
 This is a dictionary and contains:
@@ -47,7 +47,7 @@ id: A unique id identifiying the specific template applied
 providerId: The providerId of the template
 serviceId: The serviceId of the template
 host: The original host of the template
-essential: The record was written as an essential record from the template 
+essential: The record was written as an essential record from the template
            (Always or OnApply)
 """
 
@@ -128,7 +128,7 @@ def process_variables(input_, domain, host, params, recordKey):
         # Place the value into the input string
         input_ = input_.replace('%' + name + '%', value)
 
-        # Advance passed this, as the value might have had a % 
+        # Advance passed this, as the value might have had a %
         ci = start + len(input_)
 
     # If we are processing the name/host field from the template, modify the
@@ -228,7 +228,7 @@ def process_spfm(template_record, zone_records, new_records):
             # If our rule is not already in the spf rules, merge it in
             if (zone_record['data'].find(template_record['spfRules']) == -1 and
                 '_replace' not in zone_record):
-                
+
                 # We will delete the old record for spf
                 zone_record['_delete'] = 1
 
@@ -253,7 +253,7 @@ def process_spfm(template_record, zone_records, new_records):
                       'name': template_record['host'],
                       'data': 'v=spf1 ' + template_record['spfRules'] + ' -all',
                       'ttl': 6000}
-        
+
     return new_record
 
 def process_srv(template_record, zone_records, new_records):
@@ -344,7 +344,7 @@ def process_other(template_record, zone_records, new_records):
     # Mark records in the zone for deletion
     for zone_record in zone_records:
         zone_record_type = zone_record['type'].upper()
-        
+
         if zone_record_type in _delete_map[record_type] and \
             zone_record['name'].lower() == template_record['host'].lower() and \
             '_replace' not in zone_record:
@@ -366,10 +366,10 @@ def process_records(template_records, zone_records, domain, host, params,
         for zone_record in zone_records:
 
             if '_dc' in zone_record:
-                
+
                 if (provider_id and 'providerId' in zone_record['_dc'] and
                     service_id and 'serviceId' in zone_record['_dc'] and
-                    host and 'host' in zone_record['_dc'] and 
+                    host and 'host' in zone_record['_dc'] and
                     provider_id == zone_record['_dc']['providerId'] and
                     service_id == zone_record['_dc']['serviceId'] and
                     host == zone_record['_dc']['host']):
@@ -398,9 +398,9 @@ def process_records(template_records, zone_records, domain, host, params,
             raise TypeError('Unknown record type (' + template_record_type +
                             ') in template')
 
-        # Deal with the variables and validation 
+        # Deal with the variables and validation
 
-        # Deal with the host/name        
+        # Deal with the host/name
         if template_record_type == 'SRV':
             template_record['name'] = process_variables(
                 template_record['name'], domain, host, params, 'name')
@@ -522,7 +522,7 @@ def process_records(template_records, zone_records, domain, host, params,
         if (template_record_type != 'NS' and
             new_record['name'] != '@'):
 
-            # Delete any records 
+            # Delete any records
             for zone_record in zone_records:
                 if zone_record['type'].upper() == 'NS':
                     zone_record_name = zone_record['name'].lower()
@@ -531,7 +531,7 @@ def process_records(template_records, zone_records, domain, host, params,
                          new_record['name'].endswith('.' + zone_record_name)) and
                         '_replace' not in zone_record):
                         zone_record['_delete'] = 1
-            
+
 
         # If we are muti aware, store the information about the template
         #used
@@ -560,13 +560,13 @@ def process_records(template_records, zone_records, domain, host, params,
                 '_dc' in zone_record and
                 'essential' in zone_record['_dc'] and
                 zone_record['_dc']['essential'] == 'Always'):
-                
+
                 for zone_record2 in zone_records:
-                    if ('_dc' in zone_record2 and 
+                    if ('_dc' in zone_record2 and
                         zone_record['_dc']['providerId'] == zone_record2['_dc']['providerId'] and
                         zone_record['_dc']['serviceId'] == zone_record2['_dc']['serviceId'] and \
                         zone_record['_dc']['host'] == zone_record2['_dc']['host']):
-                        
+
                         zone_record2['_delete'] = 1
 
     # Now compute the final list of records in the zone, and the records to be
@@ -584,7 +584,7 @@ def process_records(template_records, zone_records, domain, host, params,
             deleted_records.append(zone_record)
         else:
             final_records.append(zone_record)
-            
+
     return new_records, deleted_records, final_records
 
 
@@ -594,7 +594,7 @@ def process_records(template_records, zone_records, domain, host, params,
 # Given an input string will prompt for a variable value, adding the key/value to the passed in dictionary
 #
 def prompt_variables(template_record, value, params):
-                    
+
     leading = False
     while value.find('%') != -1:
 
@@ -764,7 +764,7 @@ class DomainConnect(object):
             multi_instance = self.data['multiInstance']
         else:
             multi_instance = False
-            
+
         # Process the records in the template
         return process_records(self.data['records'], zone_records,
                                domain, host, params, group_ids,
