@@ -154,6 +154,7 @@ def process_variables(input_, domain, host, params, recordKey):
 
     return input_
 
+
 def process_txt(template_record, zone_records, new_records):
     """
     Will process a txt record from a template.
@@ -203,6 +204,7 @@ def process_txt(template_record, zone_records, new_records):
                 zone_record['_delete'] = 1
 
     return new_record
+
 
 def process_spfm(template_record, zone_records, new_records):
     """
@@ -255,6 +257,7 @@ def process_spfm(template_record, zone_records, new_records):
                       'ttl': 6000}
 
     return new_record
+
 
 def process_srv(template_record, zone_records, new_records):
     """
@@ -314,12 +317,14 @@ def process_ns(template_record, zone_records, new_records):
 
     return new_record
 
+
 _delete_map = {
     'A' : ['A', 'AAAA', 'CNAME'],
     'AAAA' : ['A', 'AAAA', 'CNAME'],
     'MX' : ['MX', 'CNAME'],
     'CNAME' : ['A', 'AAAA', 'CNAME', 'MX', 'TXT']
 }
+
 
 def process_other(template_record, zone_records, new_records):
     """
@@ -351,6 +356,7 @@ def process_other(template_record, zone_records, new_records):
             zone_record['_delete'] = 1
 
     return new_record
+
 
 def process_records(template_records, zone_records, domain, host, params,
                     group_ids, multi_aware=False, multi_instance=False,
