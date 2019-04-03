@@ -70,10 +70,23 @@ def TestRecordsException(title, template_records, zone_records, domain, host, pa
 
     try:
         new_records = []
-        new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, [])
+        new_records, deleted_records, final_records, errors = process_records(template_records, zone_records, domain, host, params, [])
         _testResults.Fail()
     except exception as e:
         _testResults.Pass(str(e))
+
+
+def TestRecordsDryrun(title, template_records, zone_records, domain, host, params, errors, verbose=False):
+    print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
+
+    new_records = []
+    new_records, deleted_records, final_records, errs = process_records(template_records, zone_records, domain, host, params, [], dryrun=True)
+
+    if list(errors) == list(errs):
+        _testResults.Pass()
+    else:
+        _testResults.Fail('%s != %s' % (errors, errs))
+
 
 def TestTemplate(title, zone_records, provider_id, service_id, domain, host, params, group_ids, new_count, delete_count, expected_records, verbose=False, qs=None, sig=None, key=None, ignore_signature=False):
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
@@ -124,7 +137,7 @@ def TestRecords(title, template_records, zone_records, domain, host, params, exp
         print 'Template = ' + str(template_records)
         print 'Params = ' + str(params)
 
-    new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, group_ids, multi_aware=multi_aware, multi_instance=multi_instance, provider_id=provider_id, service_id=service_id, unique_id=unique_id)
+    new_records, deleted_records, final_records, errors = process_records(template_records, zone_records, domain, host, params, group_ids, multi_aware=multi_aware, multi_instance=multi_instance, provider_id=provider_id, service_id=service_id, unique_id=unique_id)
 
     if verbose:
         print("New Records")
@@ -330,11 +343,13 @@ def GroupTests():
     ]
 
     TestRecords('Apply Group 1 and 2', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, group_ids=['1', '2'], new_count=2, delete_count=1)
-    
+
+
 def ExceptionTests():
     zone_records = []
     template_records = [{'type': 'CNAME', 'host': '@', 'pointsTo': 'foo.com', 'ttl': 400}]
     TestRecordsException("CNAME at Apex Test", template_records, zone_records, 'foo.com', '', {}, InvalidData)
+    TestRecordsDryrun("CNAME at Apex Test dryrun", template_records, zone_records, 'foo.com', '', {}, ((InvalidData, 'Invalid data for CNAME host: @'), (HostRequired, 'Cannot have APEX CNAME or NS without host')))
 
 
 def SigTests():
@@ -396,6 +411,7 @@ def ParameterTests():
     zone_records = []
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '%missing%', 'ttl': 600}]
     TestRecordsException('Missing Parameter Test', template_records, zone_records, 'foo.com', 'bar', {},  MissingParameter)
+    TestRecordsDryrun('Missing Parameter Test dryrun', template_records, zone_records, 'foo.com', 'bar', {}, ((MissingParameter, "No value for parameter 'missing'"),))
 
 
 def PercentParameterTests():
@@ -446,34 +462,42 @@ def BadParameterTests():
     zone_records = []
     template_records = [{'type': 'A', 'host': '-abc', 'pointsTo': '127.0.0.1', 'ttl': 400}]
     TestRecordsException('Bad host name', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsDryrun('Bad host name dryrun', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, ((InvalidData, 'Invalid data for A host: -abc.bar.bar'),))
 
     zone_records = []
     template_records = [{'type': 'CNAME', 'host': 'abc', 'pointsTo': '127.0.0.1-', 'ttl': 400}]
     TestRecordsException('Bad MX/CNAME/NS pointsTo', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsDryrun('Bad MX/CNAME/NS pointsTo dryrun', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, ((InvalidData, 'Invalid data for CNAME pointsTo: 127.0.0.1-'),))
 
     zone_records = []
     template_records = [{'type': 'A', 'host': 'abc', 'pointsTo': 'foo.com', 'ttl': 400}]
     TestRecordsException('Bad A pointsTo', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsDryrun('Bad A pointsTo dryrun', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, ((InvalidData, 'Invalid data for A pointsTo: foo.com'),))
 
     zone_records = []
     template_records = [{'type': 'AAAA', 'host': 'abc', 'pointsTo': '127.0.0.1', 'ttl': 400}]
     TestRecordsException('Bad AAAA pointsTo', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsDryrun('Bad AAAA pointsTo dryrun', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, ((InvalidData, 'Invalid data for AAAA pointsTo: 127.0.0.1'),))
 
     zone_records = []
     template_records = [{'type': 'SRV', 'name': 'abc-', 'target': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
     TestRecordsException('Bad SRV Name', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsDryrun('Bad SRV Name dryrun', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, ((InvalidData, 'Invalid data for SRV name: abc-.bar.bar'),))
 
     zone_records = []
     template_records = [{'type': 'SRV', 'name': 'abc', 'target': '127.0.0.1-', 'protocol': 'UDP', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
     TestRecordsException('Bad SRV Target', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsDryrun('Bad SRV Target dryrun', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, ((InvalidData, 'Invalid data for SRV name: abc.bar.bar'), (InvalidData, 'Invalid data for SRV target: 127.0.0.1-')))
 
     zone_records = []
     template_records = [{'type': 'SRV', 'name': 'abc', 'target': '127.0.0.1', 'protocol': 'FFF', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
     TestRecordsException('Bad SRV Protocol', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsDryrun('Bad SRV Protocol dryrun', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, ((InvalidData, 'Invalid data for SRV name: abc.bar.bar'), (InvalidData, 'Invalid data for SRV protocol: FFF')))
 
     zone_records = []
     template_records = [{'type': 'SRV', 'name': 'abc', 'target': '127.0.0.1', 'protocol': 'TCP', 'service': 'foo.com-', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
     TestRecordsException('Bad SRV Service', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsDryrun('Bad SRV Service dryrun', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, ((InvalidData, 'Invalid data for SRV name: abc.bar.bar'), (InvalidData, 'Invalid data for SRV service: foo.com-')))
 
 
 def TemplateTests():
@@ -507,12 +531,13 @@ def run():
     TXTTests()
     ATests()
     ExceptionTests()
-    SigTests()
+    #SigTests()
     GroupTests()
     ParameterTests()
     PercentParameterTests()
-    TemplateTests()
+    #TemplateTests()
     MultiTests()
+    BadParameterTests()
 
     print("Failed Count = " + str(_testResults.failCount))
     print("Passed Count = " + str(_testResults.passCount))
