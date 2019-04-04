@@ -744,7 +744,7 @@ class DomainConnect(object):
         """
 
         if ignore_signature:
-            return
+            return []
 
         errors = []
 
