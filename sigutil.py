@@ -1,4 +1,4 @@
-from dns.resolver import dns
+import dns.resolver
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -12,20 +12,20 @@ def verify_sig(public_key, signature, data):
     """ Verifies a signature """
     try:
         pk = serialization.load_pem_public_key(
-            public_key,
+            public_key.encode(),
             backend=default_backend()
         )
 
-        pk.verify(b64decode(signature),
-                  data,
-                  padding.PKCS1v15(),
-                  hashes.SHA256()
-        )
+        verifier = pk.verifier(b64decode(signature), padding.PKCS1v15(), hashes.SHA256())
 
-        return True
+        verifier.update(data.encode())
+
+        verifier.verify()
+
     except:
         return False
 
+    return True
 
 def generate_sig(private_key, data):
     """ Generates a signature on the passed in data """
@@ -45,17 +45,17 @@ def generate_sig(private_key, data):
 
 
 def get_publickey(domain):
-    """ Gets a publickey from a zone """
-    try:
+        """ Gets a publickey from a zone """
         segments = {}
 
         pembits = ''
 
         records = dns.resolver.query(domain, 'TXT') # Get all text records
         record_strings = []
-        for text in records:
-            record_strings.append(str(text))
-            split_text = text.strings[0].split(',') # Separate the components
+        for record in records:
+            text = record.strings[0].decode('utf-8')
+            record_strings.append(text)
+            split_text = text.split(',')
             index = -1
             indexData = None
             for kv in split_text:
@@ -71,11 +71,11 @@ def get_publickey(domain):
             if index != -1 and indexData != None:
                 segments[index] = indexData
 
+        keys = segments.keys()
+        keys = sorted(keys)
+
         # Concatenate all of the key segments
-        for key in sorted(segments.iterkeys()):
+        for key in keys:
             pembits = pembits + segments[key].strip('\n').strip('\\n').strip()
 
         return '-----BEGIN PUBLIC KEY-----\n' + pembits + '\n-----END PUBLIC KEY-----\n'
-
-    except:
-        return None

@@ -79,12 +79,12 @@ def TestTemplate(title, zone_records, provider_id, service_id, domain, host, par
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     if verbose:
-        print 'Zone = ' + str(zone_records)
-        print 'Domain = ' + domain
-        print 'Host = ' + host
-        print 'ProviderId' + provider_id
-        print 'ServiceId' + service_id
-        print 'Params = ' + str(params)
+        print('Zone = ' + str(zone_records))
+        print('Domain = ' + domain)
+        print('Host = ' + host)
+        print('ProviderId' + provider_id)
+        print('ServiceId' + service_id)
+        print('Params = ' + str(params))
 
     dc = DomainConnect(provider_id, service_id)
 
@@ -101,10 +101,10 @@ def TestTemplate(title, zone_records, provider_id, service_id, domain, host, par
         print(json.dumps(expected_records, indent=2))
 
     if expected_records is not None:
-        expected_records.sort()
+        expected_records = sorted(expected_records, key = lambda i : (i['type'], i['name'], i['ttl'], i['data']))
 
     if final_records is not None:
-        final_records.sort()
+        final_records = sorted(final_records, key = lambda i : (i['type'], i['name'], i['ttl'], i['data']))
 
     if (new_count is not None and len(new_records) != new_count) or \
        (delete_count is not None and len(deleted_records) != delete_count) or \
@@ -118,11 +118,11 @@ def TestRecords(title, template_records, zone_records, domain, host, params, exp
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     if verbose:
-        print 'Zone = ' + str(zone_records)
-        print 'Domain = ' + domain
-        print 'Host = ' + host
-        print 'Template = ' + str(template_records)
-        print 'Params = ' + str(params)
+        print('Zone = ' + str(zone_records))
+        print('Domain = ' + domain)
+        print( 'Host = ' + host)
+        print('Template = ' + str(template_records))
+        print('Params = ' + str(params))
 
     new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, group_ids, multi_aware=multi_aware, multi_instance=multi_instance, provider_id=provider_id, service_id=service_id, unique_id=unique_id)
 
@@ -137,10 +137,10 @@ def TestRecords(title, template_records, zone_records, domain, host, params, exp
         print(json.dumps(expected_records, indent=2))
 
     if expected_records is not None:
-        expected_records.sort()
+        expected_records = sorted(expected_records, key = lambda i : (i['type'], i['name'], i['ttl'], i['data']))
 
     if final_records is not None:
-        final_records.sort()
+        final_records = sorted(final_records, key = lambda i : (i['type'], i['name'], i['ttl'], i['data']))
         
     if (new_count is not None and len(new_records) != new_count) or \
        (delete_count is not None and len(deleted_records) != delete_count) or \
@@ -187,13 +187,11 @@ def NSTests():
 def SPFMTests():
     zone_records = [
         {'type': 'A', 'name': '@', 'data': 'old.old.old.old', 'ttl': 500},
-        {'type': 'SRV', 'name': 'foo'},
         {'type': 'AAAA', 'name': '@', 'data': 'bog.bog.bog.bog', 'ttl': 200},
     ]
     template_records = [{'type': 'SPFM', 'host': '@', 'spfRules': 'foo'}]
     expected_records = [
         {'type': 'A', 'name': '@', 'data': 'old.old.old.old', 'ttl': 500},
-        {'type': 'SRV', 'name': 'foo'},
         {'type': 'AAAA', 'name': '@', 'data': 'bog.bog.bog.bog', 'ttl': 200},
         {'type': 'TXT', 'name': '@', 'data' : 'v=spf1 foo -all', 'ttl': 6000}
     ]
@@ -201,14 +199,12 @@ def SPFMTests():
 
     zone_records = [
         {'type': 'A', 'name': '@', 'data': 'old.old.old.old', 'ttl': 500},
-        {'type': 'SRV', 'name': 'foo'},
 	{'type': 'TXT', 'name': '@', 'data': 'v=spf1 bar -all', 'ttl': 5000},
         {'type': 'AAAA', 'name': '@', 'data': 'bog.bog.bog.bog', 'ttl': 200},
     ]
     template_records = [{'type': 'SPFM', 'host': '@', 'spfRules': 'foo'}]
     expected_records = [
         {'type': 'A', 'name': '@', 'data': 'old.old.old.old', 'ttl': 500},
-        {'type': 'SRV', 'name': 'foo'},
         {'type': 'AAAA', 'name': '@', 'data': 'bog.bog.bog.bog', 'ttl': 200},
 	{'type': 'TXT', 'name': '@', 'data': 'v=spf1 foo bar -all', 'ttl': 6000}
     ]
