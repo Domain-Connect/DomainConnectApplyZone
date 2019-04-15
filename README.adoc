@@ -352,11 +352,12 @@ import GDTest
 GDTest.run()
 ----
 
-## Dependencies
+## Instalation/Dependencies
 
-[source]
-----
-pip install cryptography
-pip install dnspython
-pip install IPy
-----
+To install run:
+
+python setup.py build
+python setup.py install
+
+Dependencies include cryptography, dnspython, and IPy
+
