@@ -26,7 +26,7 @@ in their UX.
 This library can deal with both types of DNS Providers. If a DNS Provider wishes to remember
 template state in its zone, it simply needs to read/write this additional state with the records.
 
-## DomainConnect
+## domainconnectzone
 
 This is a Python module and corresponding class that can handle applying a
 template to a zone of records.
@@ -35,8 +35,8 @@ The object is initialized with a (service)providerId and serviceId.
 
 [source]
 ----
-import DomainConnect
-dc = DomainConnect(<providerId>, <serviceId>)
+import domainconnectzone
+dc = domainconnectzone.DomainConnect(<providerId>, <serviceId>)
 ----
 
 This will correspond to a template.  Templates can be found at
@@ -114,8 +114,8 @@ it is largely intended for internal tooling and testing. This defaults to False.
 
 [source]
 ----
-import DomainConnect
-dc = DomainConnect("exampleservice.domainconnect.org", "template1")
+import domainconnectzone
+dc = domainconnectzone.DomainConnect("exampleservice.domainconnect.org", "template1")
 
 zone_records = [...] # List of records in the zone
 domain = 'example.com'
@@ -271,8 +271,8 @@ validate a query string against a signature and key.
 
 [source]
 ----
-import DomainConnect
-dc = DomainConnect('exampleservice.domainconnect.org', 'template2')
+import domainconnectzone
+dc = domainconnectzone.DomainConnect('exampleservice.domainconnect.org', 'template2')
 sig = 'LyCE+7H0zr/XHaxX36pdD1eSQENRiGTFxm79m7A5NLDPiUKLe71IrsEgnDLN76ndQcLTZlr4+HhpWzKZKyFl9ieEpNzZlDHRp35H83Erhm0eDctUmI1Zct51alZ8RuTL+aa29WC+AM7+gSpnL/AHl9mxckyeEuFFqXcl/3ShwK2F9x/7r+cICefiUEzsZN3EuqOvwqQkBSqcdVy/ohjNAG/InYAYSX+0fUK9UNQfQYkuPqOAptPRjX+hUnYsXUk/eQq16aX7TzhZm+eEq+En+oiEgh7qps1yvGbJm6QXKovan/sqng40R6FBP3R3dvfZC6QrfCUtGpQ8c0D0S5oLBw=='
 
 key = '_dck1'
@@ -291,7 +291,8 @@ suitable for passing into the Apply function.
 
 [source]
 ----
-dc = DomainConnect(provider_id, service_id)
+import domainconnectzone
+dc = domainconnectzone.DomainConnect(provider_id, service_id)
 params = dc.prompt()
 ----
 
@@ -309,10 +310,10 @@ values not useful as parameters (e.g. domain, host, sig, key).
 
 [source]
 ----
-import DomainConnect
+import domainconnectzone
 
 qs = 'a=1&b=2&c=3&d=4'
-params = DomainConnect.QSUtil.qs2dict(qs, ['c', 'd']
+params = domainconnectzone.QSUtil.qs2dict(qs, ['c', 'd']
 # params contains {'a': '1', 'b': '2'}
 ----
 
@@ -322,10 +323,10 @@ This is similar to the above but returns the results as a string.
 
 [source]
 ----
-import DomainConnect
+import domainconnectzone
 
 qs = 'a=1&b=2&c=3&d=4'
-qs2 = DomainConnect.QSUtil.qsfilter(qs, ['c', 'd']
+qs2 = domainconnectzone.QSUtil.qsfilter(qs, ['c', 'd']
 # qs2 contains 'a=1&b=2'
 ----
 

@@ -30,13 +30,13 @@ def verify_sig(public_key, signature, data):
 def generate_sig(private_key, data):
     """ Generates a signature on the passed in data """
     pk = serialization.load_pem_private_key(
-        private_key,
+        private_key.encode(),
         password=None,
         backend=default_backend()
         )
 
     sig = pk.sign(
-        data,
+        data.encode(),
         padding.PKCS1v15(),
         hashes.SHA256()
     )
