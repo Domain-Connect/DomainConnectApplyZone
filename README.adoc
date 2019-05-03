@@ -36,14 +36,14 @@ The object is initialized with a (service)providerId and serviceId.
 [source]
 ----
 import domainconnectzone
-dc = domainconnectzone.DomainConnect(<providerId>, <serviceId>)
+dc = domainconnectzone.DomainConnect(<provider_id>, <service_id>, <template_dir>)
 ----
 
-This will correspond to a template.  Templates can be found at
-https://github.com/Domain-Connect/templates. These must exist in a sub-directory of
-this project in files of the form:
+The provider id and service id map to the template name. Tempaltes can be found
+in the github project at https://github.com/Domain-Connect/templates.  Individual
+template files are named <service_id>.<provider_id>.json.
 
-templates/<providerId>.<serviceId>.json
+The location of the templates are a parameter to the object.
 
 If the template cannot be found, an InvalidTemplate exception is thrown.
 

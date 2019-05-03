@@ -13,6 +13,7 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+template_dir = '/root/templates'
 
 class TestResults:
 
@@ -46,7 +47,7 @@ _testResults = TestResults()
 
 def TestSig(title, provider_id, service_id, qs, sig, key, ignore_signature, expected, verbose=False):
 
-    dc = DomainConnect(provider_id, service_id)
+    dc = DomainConnect(provider_id, service_id, template_dir)
 
     passed = False
 
@@ -86,7 +87,7 @@ def TestTemplate(title, zone_records, provider_id, service_id, domain, host, par
         print('ServiceId' + service_id)
         print('Params = ' + str(params))
 
-    dc = DomainConnect(provider_id, service_id)
+    dc = DomainConnect(provider_id, service_id, template_dir)
 
     new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params, group_ids=group_ids, qs=qs, sig=sig, key=key, ignore_signature=ignore_signature)
 

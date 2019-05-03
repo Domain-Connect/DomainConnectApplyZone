@@ -1,8 +1,8 @@
 import json
 import os
 import uuid
-from .sigutil import get_publickey, verify_sig
-from .validate import *
+from sigutil import get_publickey, verify_sig
+from validate import *
 
 """
 Zone Records
@@ -655,20 +655,26 @@ class DomainConnect(object):
     The other to prompt for variables in a template /!\ deprecated!
     """
 
-    def __init__(self, provider_id, service_id):
+    def __init__(self, provider_id, service_id, template_path=None):
         self.provider_id = provider_id
         self.service_id = service_id
 
         # Read in the template
-        try:
-            directory = os.path.dirname(os.path.realpath(__file__))
+        if True:
+            if not template_path:
+                directory = os.path.dirname(os.path.realpath(__file__)) + '/templates'
+            else:
+                directory = template_path
+
             basename = provider_id.lower() + '.' + service_id.lower() + '.json'
-            filename = os.path.join(directory, 'templates', basename)
+            filename = os.path.join(directory, basename)
+
+            print filename
+            
             with open(filename, 'r') as file_:
                 self.data = json.load(file_)
-
-        except:
-            raise InvalidTemplate
+        #except:
+        #    raise InvalidTemplate
 
     def verify_sig(self, qs, sig, key, ignore_signature=False):
         """

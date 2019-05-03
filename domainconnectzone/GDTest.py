@@ -3,6 +3,8 @@ import requests
 
 from DomainConnect import *
 
+template_dir = '/root/templates'
+
 def ReadZoneRecords(domain, apiKeySecret):
     r = requests.get('https://api.godaddy.com/v1/domains/' + domain + '/records', headers={'Authorization' : 'sso-key ' + apiKeySecret})
 
@@ -32,7 +34,7 @@ def run():
 
     # Create the DomainConnect Object
     try:
-        dc = DomainConnect(providerId, serviceId)
+        dc = DomainConnect(providerId, serviceId, template_dir)
     except InvalidTemplate:
         print ("Unknown or missing template")
         return
