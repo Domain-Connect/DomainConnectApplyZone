@@ -669,8 +669,6 @@ class DomainConnect(object):
             basename = provider_id.lower() + '.' + service_id.lower() + '.json'
             filename = os.path.join(directory, basename)
 
-            print filename
-            
             with open(filename, 'r') as file_:
                 self.data = json.load(file_)
         #except:
