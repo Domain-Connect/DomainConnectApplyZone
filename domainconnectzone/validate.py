@@ -67,6 +67,9 @@ def is_valid_host_other(input, allow_underscores):
 
 
 def is_valid_host_cname(input):
+    """
+    Will validate the input as a valid host value for a cname
+    """
     if len(input) > 253:
         return False
 

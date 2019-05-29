@@ -5,30 +5,30 @@ from sigutil import get_publickey, verify_sig
 from validate import *
 
 """
+Zone
+
+A delegated zone typically maps to a registered domain name (foo.com, foo.co.uk).
+It is the 'domain' name in the Domain Connect calls.
+
 Zone Records
-
-This is the full set of records in a delgated zone. A delegated zone typically
-maps to a registered domain name (foo.com, foo.co.uk). It is the zone that
-maps to the domain specified in the domain connect calls.
-
-Records input/output into a zone contain a type. Based on type, additional
-properties exist on the record.
 
 All records have a 'type'. They also have a name, data and ttl.
 
-The first of these properties is the 'name'. The name should should be 
-specified relative to the root zone name. For a zone file in the domain foo.com, 
-www.bar.foo.com would have a name of 'www.bar'. A value of '' or @ in the name 
-field maps to the domain.
+The name should should be specified relative to the root zone name. So for a zone 
+file in the domain foo.com, the DNS entry for www.bar.foo.com would have a name 
+of 'www.bar'. A value of '' or @ in the name field maps to the domain.
 
-Another common property is the data field. When a domain or host entry is allowed 
+The type identifies the type of record. This interface deals with A, AAAA, CNAME, NS,
+TXT, MX, and SRV types. These largely map to the types supported in Domain Connect.
+
+The contents of the data field vary by type. When a domain or host entry is allowed 
 in the data field, this should be a fully qualified domain name without a trailing 
 dot.
 
 ttl is a number, and is straight forward.
 
 Depending on the type, additional fields are required. Unless otherwise stated
-all data is a string. 
+all data types are strings.
 
 A: name, data, ttl (int)
 AAAA: name, data, ttl (int)
@@ -38,20 +38,21 @@ TXT: name, data, ttl (int)
 MX: name, data, ttl(int), priority (int)
 SRV: name, data, ttl(int), protocol, service, priority (int), weight (int), port (int)
 
-Zone records passed in have an optional field "_dc". If present and not null, 
-this contains information about the template that originally set the record.
+Zone records passed into the interface have an optional field called '_dc'.
+If present and not null, this contains information about the template that originally 
+set the record. This is useful for DNS Providers that want to remember template state
+with records.
 
-This is a dictionary and contains:
+_dc is a dictionary and contains:
 
 id: A unique id identifiying the specific template applied
-providerId: The providerId of the template
-serviceId: The serviceId of the template
-host: The original host of the template
-essential: The record was written as an essential record from the template 
-           (Always or OnApply)
+providerId: The original service providerId of the template
+serviceId: The original serviceId of the template
+host: The original host used when applying the template
+essential: The record was written as an essential record from the template (Always or OnApply)
 """
 
-# These are the exceptions
+# These are the exceptions raised by various calls to this library
 
 class InvalidTemplate(Exception):
     pass
@@ -73,29 +74,36 @@ class InvalidData(Exception):
     pass
 
 
-def process_variables(input_, domain, host, params, recordKey):
+def resolve_variables(input_, domain, host, params, recordKey):
     """
-    Handles replacing variables in an input string from a template.
+    Handles resolution of the variables in an input string from a template.
 
-    Other inputs are the domain/host/params dictionary.
+    Output will be the value of the field for processing the template_row. This
+    includes variable substitution, host/name resolution, and filling in defaults.
 
-    Variables values in a domain connect template can be:
+    Other inputs are the domain/host the template is being applied to. And
+    of course the params dictionary containing the keys/values.
+
+    Variable values in a domain connect template can be:
 
     %domain%
     %host%
     %fqdn% ([host.]domain)
     @ (equal to fqdn)
-    A key/value from the parameters
+    key/value from the parameters
 
     All variables in the template and the input are case insensitive.
 
     When the value is the host/name field from a template record there is some
-    extra processing.  This is because the host/name are relative to the host
-    within the zone. This function will convert the host/name to be relative
-    to the domain (not host) within the zone.
+    extra processing.  This is because the host/name in the template are considered
+    relative to the domain/host the template is being applied to.
 
-    So a host/name xyz with a domain foo.com and a host of bar will map to
-    xyz.bar.
+    For example, a domain of foo.com and host of bar with a template host/name of xyz
+    will convert relative to the domain as xyz.bar.
+
+    In other words, the output of this will 'nromalize" the host relative to the root zone.
+
+    When the value is the pointsTo/target a null or empty value will resolve to the fqdn.
     """
 
     ci = 0
@@ -128,7 +136,7 @@ def process_variables(input_, domain, host, params, recordKey):
         # Place the value into the input string
         input_ = input_.replace('%' + name + '%', value)
 
-        # Advance passed this, as the value might have had a % 
+        # Advance passt this, as the value might have had a % 
         ci = start + len(input_)
 
     # If we are processing the name/host field from the template, modify the
@@ -154,7 +162,7 @@ def process_variables(input_, domain, host, params, recordKey):
 
     return input_
 
-def process_txt(template_record, zone_records, new_records):
+def process_txt_record(template_record, zone_records, new_records):
     """
     Will process a txt record from a template.
 
@@ -204,12 +212,12 @@ def process_txt(template_record, zone_records, new_records):
 
     return new_record
 
-def process_spfm(template_record, zone_records, new_records):
+def process_spfm_record(template_record, zone_records, new_records):
     """
     Will process an spfm record from a template.
 
-    This results in marking zone_records for deletion, and adding additional
-    records in new_records
+    This will result in marking an old SPF record for deletion, and returning
+    a new SPF record.
 
     An spfm record in the template will merge the data in with existing spf TXT
     records, or will create a new spf TXT record.
@@ -256,15 +264,14 @@ def process_spfm(template_record, zone_records, new_records):
         
     return new_record
 
-def process_srv(template_record, zone_records, new_records):
+def process_srv_record(template_record, zone_records, new_records):
     """
     Will process an srv record from a template.
 
-    This results in marking zone_records for deletion, and adding additional
-    records in new_records
+    This results in marking zone_records for deletion, and returning the new record
 
-    An srv record in the template will delete all existing srv records in the
-    zone of the same name.
+    An srv record in the template will delete all existing srv records of the
+    same name in the zone.
     """
 
     new_record = {'type': 'SRV',
@@ -290,6 +297,8 @@ def process_ns(template_record, zone_records, new_records):
     """
     Will process a NS template record. The host is always set for an NS record
     (it will not be @)
+
+    This will delete any record conflicting with the name of the host.
     """
 
     # Add the new record
@@ -321,13 +330,12 @@ _delete_map = {
     'CNAME' : ['A', 'AAAA', 'CNAME', 'MX', 'TXT']
 }
 
-def process_other(template_record, zone_records, new_records):
+def process_other_record(template_record, zone_records, new_records):
     """
     Will process all other record types from a template. This includes A, AAAA,
     MX, and CNAME.
 
-    This results in marking zone_records for deletion, and adding additional
-    records in new_records
+    This results in marking zone_records for deletion.
     """
 
     record_type = template_record['type'].upper()
@@ -402,7 +410,7 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # Deal with the host/name        
         if template_record_type == 'SRV':
-            template_record['name'] = process_variables(
+            template_record['name'] = resolve_variables(
                 template_record['name'], domain, host, params, 'name')
 
             if not is_valid_host_srv(template_record['name']):
@@ -410,7 +418,7 @@ def process_records(template_records, zone_records, domain, host, params,
                                   template_record['name'])
 
         else:
-            template_record['host'] = process_variables(
+            template_record['host'] = resolve_variables(
                 template_record['host'], domain, host, params, 'host')
 
             err_msg = ('Invalid data for ' + template_record_type +
@@ -429,7 +437,7 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # Points To / Target
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
-            template_record['pointsTo'] = process_variables(
+            template_record['pointsTo'] = resolve_variables(
                 template_record['pointsTo'], domain, host, params, 'pointsTo')
 
             if template_record_type in ['MX', 'CNAME', 'NS']:
@@ -450,7 +458,7 @@ def process_records(template_records, zone_records, domain, host, params,
                                       template_record['pointsTo'])
 
         elif template_record_type == 'SRV':
-            template_record['target'] = process_variables(
+            template_record['target'] = resolve_variables(
                 template_record['target'], domain, host, params, 'target')
 
             if not is_valid_pointsTo_host(template_record['target']):
@@ -459,7 +467,7 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # SRV has a few more records that need to be processed and validated
         if template_record_type == 'SRV':
-            template_record['protocol'] = process_variables(
+            template_record['protocol'] = resolve_variables(
                 template_record['protocol'], domain, host, params, 'protocol')
 
             protocol = template_record['protocol'].lower()
@@ -469,7 +477,7 @@ def process_records(template_records, zone_records, domain, host, params,
                 raise InvalidData('Invalid data for SRV protocol: ' +
                                   template_record['protocol'])
 
-            template_record['service'] = process_variables(
+            template_record['service'] = resolve_variables(
                 template_record['service'], domain, host, params, 'service')
             if not is_valid_pointsTo_host(template_record['service']):
                 raise InvalidData('Invalid data for SRV service: ' +
@@ -477,11 +485,11 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # Handle variables in a TXT and SPFM record
         if template_record_type == 'TXT':
-            template_record['data'] = process_variables(
+            template_record['data'] = resolve_variables(
                 template_record['data'], domain, host, params, 'data')
 
         if template_record_type == 'SPFM':
-            template_record['spfRules'] = process_variables(
+            template_record['spfRules'] = resolve_variables(
                 template_record['spfRules'], domain, host, params, 'spfRules')
 
         # Handle the proper processing for each template record type
@@ -489,12 +497,12 @@ def process_records(template_records, zone_records, domain, host, params,
         new_record = None
 
         if template_record_type in ['SPFM']:
-            new_record = process_spfm(template_record, zone_records,
+            new_record = process_spfm_record(template_record, zone_records,
                                       new_records)
         elif template_record_type in ['TXT']:
-            new_record = process_txt(template_record, zone_records, new_records)
+            new_record = process_txt_record(template_record, zone_records, new_records)
         elif template_record_type in ['SRV']:
-            new_record = process_srv(template_record, zone_records, new_records)
+            new_record = process_srv_record(template_record, zone_records, new_records)
         else:
             if (template_record_type in ['CNAME', 'NS'] and
                     template_record['host'] == '@'):
@@ -504,7 +512,7 @@ def process_records(template_records, zone_records, domain, host, params,
                 new_record = process_ns(template_record, zone_records,
                                         new_records)
             else:
-                new_record = process_other(template_record, zone_records,
+                new_record = process_other_record(template_record, zone_records,
                                            new_records)
 
         # If we didn't get a new record there is nothing else to do
@@ -718,7 +726,7 @@ class DomainConnect(object):
 
         Input:
 
-        The zone_records is a list of dictionary containing an copy of all the
+        zone_records is a list of dictionaries containing an copy of all the
         records in the zone for the domain. Each dictionary adheres to the
         schema for a zone record described above.
 
@@ -753,8 +761,8 @@ class DomainConnect(object):
 
         # If the template requires a host, return
         if ('hostRequired' in self.data and
-                self.data['hostRequired'] and
-                not host):
+            self.data['hostRequired'] and
+            not host):
             raise HostRequired('Template requires a host name')
 
         # See if the template requires a signature
@@ -762,12 +770,15 @@ class DomainConnect(object):
             self.data['syncPubKeyDomain']):
             self.verify_sig(qs, sig, key, ignore_signature)
 
-        unique_id = str(uuid.uuid4())
+        # If we are mulit-template aware, generate a unique id for application of this template
+        # and determine if the template supports multi-instance
+        unique_id = None
+        multi_instance = False
+        if multi_aware:
+            unique_id = str(uuid.uuid4())
 
-        if 'multiInstance' in self.data:
-            multi_instance = self.data['multiInstance']
-        else:
-            multi_instance = False
+            if 'multiInstance' in self.data:
+                multi_instance = self.data['multiInstance']
             
         # Process the records in the template
         return process_records(self.data['records'], zone_records,

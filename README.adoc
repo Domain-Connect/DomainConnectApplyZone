@@ -5,7 +5,7 @@
 This module implements the logic for applying a Domain Connect template to a zone.
 
 Given a zone's contents, a domain/host (sub-domain), a template (identified by a
-providerId/serviceId), temmplate variable values, and additional parameters; the
+providerId/serviceId), variable values, and additional parameters; the
 library will calculate changes to the zone.
 
 Authorization of the user, verification that the user owns the domain, and the UX to
@@ -51,7 +51,7 @@ There are several other methods on this class/object.
 
 ### apply_template(...)
 
-The fist (and more common) method is to apply changes to a zone based on the
+The first (and more common) method is to apply changes to a zone based on the
 template.  
 
 Input takes a list of records that exist in the zone, the domain, the host, and
