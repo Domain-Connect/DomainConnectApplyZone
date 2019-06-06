@@ -1,5 +1,6 @@
 import json
 import os
+import copy
 import uuid
 from sigutil import get_publickey, verify_sig
 from validate import *
@@ -116,20 +117,19 @@ def resolve_variables(input_, domain, host, params, recordKey):
 
         # Grab the variable name (both original and lower case)
         name = input_[start:end]
-        name_lc = name.lower()
 
         # Calculate the value
-        if name_lc == 'fqdn':
+        if name == 'fqdn':
             if host:
                 value = host + '.' + domain
             else:
                 value = domain + '.'
-        elif name_lc == 'domain':
+        elif name == 'domain':
             value = domain
-        elif name_lc == 'host':
+        elif name == 'host':
             value = host
-        elif name_lc in params:
-            value = params[name_lc]
+        elif name in params:
+            value = params[name]
         else:
             raise MissingParameter("No value for parameter '" + name + "'")
 
@@ -753,12 +753,6 @@ class DomainConnect(object):
         domain = domain.lower()
         host = host.lower()
 
-        # Convert the params to all lower case
-        newParams = {}
-        for k in params:
-            newParams[k.lower()] = params[k]
-        params = newParams
-
         # If the template requires a host, return
         if ('hostRequired' in self.data and
             self.data['hostRequired'] and
@@ -781,7 +775,7 @@ class DomainConnect(object):
                 multi_instance = self.data['multiInstance']
             
         # Process the records in the template
-        return process_records(self.data['records'], zone_records,
+        return process_records(copy.deepcopy(self.data['records']), zone_records,
                                domain, host, params, group_ids,
                                multi_aware, multi_instance,
                                self.provider_id, self.service_id, unique_id)

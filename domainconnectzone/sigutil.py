@@ -16,11 +16,7 @@ def verify_sig(public_key, signature, data):
             backend=default_backend()
         )
 
-        verifier = pk.verifier(b64decode(signature), padding.PKCS1v15(), hashes.SHA256())
-
-        verifier.update(data.encode())
-
-        verifier.verify()
+        pk.verify(b64decode(signature), data.encode(), padding.PKCS1v15(), hashes.SHA256())
 
     except:
         return False
