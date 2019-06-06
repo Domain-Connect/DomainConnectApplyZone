@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 
 setup(name='domainconnectzone',
-      version='2.0',
+      version='2.1',
       description='Domain Connect Zone Utility',
       author='domainconnect.org',
       url='https://github.com/Domain-Connect/domainconnectzone',
