@@ -751,7 +751,8 @@ class DomainConnect(object):
 
         # Domain and host should be lower cased
         domain = domain.lower()
-        host = host.lower()
+        if host:
+            host = host.lower()
 
         # If the template requires a host, return
         if ('hostRequired' in self.data and
