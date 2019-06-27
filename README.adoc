@@ -1,6 +1,6 @@
-# DomainConnectApplyZone
+= DomainConnectApplyZone
 
-## Introduction
+== Introduction
 
 This module implements the logic for applying a Domain Connect template to a zone.
 
@@ -9,12 +9,12 @@ providerId/serviceId), variable values, and additional parameters; the
 library will calculate changes to the zone.
 
 Authorization of the user, verification that the user owns the domain, and the UX to
-gain consent from the user are left to the DNS Provider.  But all the logic for handling
+gain consent from the user are left to the DNS Provider. But all the logic for handling
 the application of the template, including conflict detection, parameter processing,
 signature verification and more are handled in this library.
 
 The library works by taking as canonical input the current content of the zone file
-corresponding to the domain name being processed.  And it returns the modified zone file
+corresponding to the domain name being processed. And it returns the modified zone file
 in the same canonical format. It is up to the implementation to translate to and from
 this canonical format.
 
@@ -26,12 +26,12 @@ in their UX.
 This library can deal with both types of DNS Providers. If a DNS Provider wishes to remember
 template state in its zone, it simply needs to read/write this additional state with the records.
 
-## domainconnectzone
+=== domainconnectzone
 
 This is a Python module and corresponding class that can handle applying a
 template to a zone of records.
 
-The object is initialized with a (service)providerId and serviceId.
+The object is initialized with a providerId, serviceId, and templateDir.
 
 [source]
 ----
@@ -39,9 +39,9 @@ import domainconnectzone
 dc = domainconnectzone.DomainConnect(<provider_id>, <service_id>, <template_dir>)
 ----
 
-The provider id and service id map to the template name. Tempaltes can be found
-in the github project at https://github.com/Domain-Connect/templates.  Individual
-template files are named <service_id>.<provider_id>.json.
+The provider id and service id map to the template name. Templates can be found
+in the github project at https://github.com/Domain-Connect/templates. Individual
+template files are named `<service_id>.<provider_id>.json`.
 
 The location of the templates are a parameter to the object.
 
@@ -49,20 +49,20 @@ If the template cannot be found, an InvalidTemplate exception is thrown.
 
 There are several other methods on this class/object.
 
-### apply_template(...)
+=== apply_template(...)
 
 The first (and more common) method is to apply changes to a zone based on the
-template.  
+template.
 
 Input takes a list of records that exist in the zone, the domain, the host, and
 additional parameters for the template as a dictionary of key/value pairs.
 It optionally takes a query string, sig, and key to verify the signature. And an
 optional flag indicating if the DNS Provider is multi-template-aware.
 
-#### Parameters
+==== Parameters
 
-[cols=",",options="header",]
-|=======================================================================
+[%header,cols=3*]
+|===
 |Parameter
 |Type
 |Description
@@ -106,11 +106,10 @@ it is largely intended for internal tooling and testing. This defaults to False.
 |*Multi Template Aware (multi_aware) *
 |Boolean
 |(optional) This tells the system that the DNS Provider wishes to engage the multi-template processing. It defaults to False.
+|===
 
-|=======================================================================
 
-
-#### Example
+==== Example
 
 [source]
 ----
@@ -135,16 +134,15 @@ The third is the list of final (complete) records that should be written to the 
 
 Calling this function can throw any of a number of exceptions.
 
-#### Exceptions
+==== Exceptions
 
-[cols=",",options="header",]
-|=======================================================================
+[%header,cols=2*]
+|===
 |Exception
 |Description
 
 |*HostRequired*
-|This is raised when the template requires a host, but no host (subdomain)
-is provided
+|This is raised when the template requires a host, but no host (subdomain) is provided
 
 |*InvalidSignature*
 |This is raised when the template requires a signature and verification fails.
@@ -155,18 +153,17 @@ is provided
 |*InvalidData*
 |This is raised when invalid data is passed into the template. Usually this is a
 parameter that results in malformed DNS data.
+|===
 
-|=======================================================================
-
-### data
+=== data
 
 This attribute returns the template in json form.
 
-### is_signature_required
+=== is_signature_required
 
 This attribute returns True if the template requires signatures, False if not.
 
-## Records
+== Records
 
 Records passed into and returned from the Apply method represent DNS records. These
 are implemented using a simple list of dictionary, with each dictionary representing a
@@ -176,11 +173,11 @@ All records have a type (A, AAAA, CNAME, NS, TXT, MX, or SRV). Depending on the 
 are other attributes.
 
 If the DNS Provider wishes to implement template state in DNS, an set of fields is required
-in this data structure. This will be a dictionary.  It is recommended that the DNS Provider
+in this data structure. This will be a dictionary. It is recommended that the DNS Provider
 store this by serializing the dictionary into a string.
 
-[cols=",,",options="header",]
-|=======================================================================
+[%header,cols=3*]
+|===
 |Field
 |Type
 |Description
@@ -192,7 +189,7 @@ store this by serializing the dictionary into a string.
 |*name*
 |string
 |This is the name/host of the record. This exists for all types. The must contain data
-that is relative to the root zone.  For example, in the domain foo.com the name for the resolution
+that is relative to the root zone. For example, in the domain foo.com the name for the resolution
 of www.bar.foo.com would contain "www.bar". A value of @ or None would indicate the apex.
 
 |*data*
@@ -251,20 +248,19 @@ Fields in here are interesting to the DNS Provider and are documented below.
 |Largely internal, this indicates that the essential property on the record when applied. This
 is used for conflict detection when overwriting.
 
-|=======================================================================
+|===
 
 An example zone:
 
 [source,json]
 ----
 [
-{"type": "A","name": "@","data": "127.0.0.1","ttl": 3000},
-{"type": "CNAME","name": "www","data": "@","ttl": 3000}
+    {"type": "A","name": "@","data": "127.0.0.1","ttl": 3000},
+    {"type": "CNAME","name": "www","data": "@","ttl": 3000}
 ]
-	
 ----
 
-### verify_sig()
+=== verify_sig()
 
 In addition to being used by the apply_template method, this independent method can be used to 
 validate a query string against a signature and key.
@@ -283,7 +279,7 @@ dc.verify_sig(qs, sig, key)
 
 If the signature fails, an InvalidSignature exception is raised
 
-### prompt
+=== prompt
 
 This method is useful for testing. It will prompt the user for all values for all
 variables in the template. These are added as key/values in a dictionary
@@ -296,14 +292,14 @@ dc = domainconnectzone.DomainConnect(provider_id, service_id)
 params = dc.prompt()
 ----
 
-## Query String Utilities
+== Query String Utilities
 
 Several helper functions are included for dealing with query strings.
 
-### qs2dict(qs, filter=[])
+=== qs2dict(qs, filter=[])
 
 This will convert a query string (qs) of the form a=1&b=2&c=3&d=4 to a dictionary of the form
-{'a': '1', 'b': '2', 'c': '3', 'd': '4'}.
+`{'a': '1', 'b': '2', 'c': '3', 'd': '4'}`.
 
 This is useful for converting a query string to a dictionary, filtering out the
 values not useful as parameters (e.g. domain, host, sig, key).
@@ -317,7 +313,7 @@ params = domainconnectzone.QSUtil.qs2dict(qs, ['c', 'd']
 # params contains {'a': '1', 'b': '2'}
 ----
 
-### qsfilter(qs, filter=[])
+=== qsfilter(qs, filter=[])
 
 This is similar to the above but returns the results as a string.
 
@@ -330,9 +326,9 @@ qs2 = domainconnectzone.QSUtil.qsfilter(qs, ['c', 'd']
 # qs2 contains 'a=1&b=2'
 ----
 
-## Test
+== Test
 
-This contains a series of simple tests.  Run them by:
+This contains a series of simple tests. Run them by:
 
 [source]
 ----
@@ -340,7 +336,7 @@ import Test
 Test.run()
 ----
 
-## GDTest
+== GDTest
 
 This module is GoDaddy specific. This will prompt the user for domain/host/providerId/serviceId and GoDaddy API Key. It will
 read the template, prompt for all variable values, and apply the changes to the zone. This is done by using the API Key to read
@@ -352,12 +348,15 @@ import GDTest
 GDTest.run()
 ----
 
-## Instalation/Dependencies
+== Installation/Dependencies
 
 To install run:
 
+[source]
+----
 python setup.py build
 python setup.py install
+----
 
 Dependencies include cryptography, dnspython, and IPy
 
