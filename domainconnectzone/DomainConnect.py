@@ -46,7 +46,7 @@ with records.
 
 _dc is a dictionary and contains:
 
-id: A unique id identifiying the specific template applied
+id: A unique id identifying the specific template applied
 providerId: The original service providerId of the template
 serviceId: The original serviceId of the template
 host: The original host used when applying the template
@@ -102,7 +102,7 @@ def resolve_variables(input_, domain, host, params, recordKey):
     For example, a domain of foo.com and host of bar with a template host/name of xyz
     will convert relative to the domain as xyz.bar.
 
-    In other words, the output of this will 'nromalize" the host relative to the root zone.
+    In other words, the output of this will 'normalize" the host relative to the root zone.
 
     When the value is the pointsTo/target a null or empty value will resolve to the fqdn.
     """
@@ -497,23 +497,20 @@ def process_records(template_records, zone_records, domain, host, params,
         new_record = None
 
         if template_record_type in ['SPFM']:
-            new_record = process_spfm_record(template_record, zone_records,
-                                      new_records)
+            new_record = process_spfm_record(template_record, zone_records)
         elif template_record_type in ['TXT']:
-            new_record = process_txt_record(template_record, zone_records, new_records)
+            new_record = process_txt_record(template_record, zone_records)
         elif template_record_type in ['SRV']:
-            new_record = process_srv_record(template_record, zone_records, new_records)
+            new_record = process_srv_record(template_record, zone_records)
         else:
             if (template_record_type in ['CNAME', 'NS'] and
                     template_record['host'] == '@'):
                 raise HostRequired('Cannot have APEX CNAME or NS without host')
 
             if template_record_type in ['NS']:
-                new_record = process_ns(template_record, zone_records,
-                                        new_records)
+                new_record = process_ns(template_record, zone_records)
             else:
-                new_record = process_other_record(template_record, zone_records,
-                                           new_records)
+                new_record = process_other_record(template_record, zone_records)
 
         # If we didn't get a new record there is nothing else to do
         if not new_record:
@@ -698,8 +695,8 @@ class DomainConnect(object):
         The public key is published in DNS in the zone specified in
         syncPubKeyDomain from the template at the host <key>.
 
-        This method will raise an execption if the signature fails.
-        It will return if it suceeds.
+        This method will raise an exception if the signature fails.
+        It will return if it succeeds.
         """
 
         if ignore_signature:
