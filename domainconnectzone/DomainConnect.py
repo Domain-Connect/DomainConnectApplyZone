@@ -162,7 +162,7 @@ def resolve_variables(input_, domain, host, params, recordKey):
 
     return input_
 
-def process_txt_record(template_record, zone_records, new_records):
+def process_txt_record(template_record, zone_records):
     """
     Will process a txt record from a template.
 
@@ -212,7 +212,7 @@ def process_txt_record(template_record, zone_records, new_records):
 
     return new_record
 
-def process_spfm_record(template_record, zone_records, new_records):
+def process_spfm_record(template_record, zone_records):
     """
     Will process an spfm record from a template.
 
@@ -264,7 +264,7 @@ def process_spfm_record(template_record, zone_records, new_records):
         
     return new_record
 
-def process_srv_record(template_record, zone_records, new_records):
+def process_srv_record(template_record, zone_records):
     """
     Will process an srv record from a template.
 
@@ -293,7 +293,7 @@ def process_srv_record(template_record, zone_records, new_records):
     return new_record
 
 
-def process_ns(template_record, zone_records, new_records):
+def process_ns(template_record, zone_records):
     """
     Will process a NS template record. The host is always set for an NS record
     (it will not be @)
@@ -330,7 +330,7 @@ _delete_map = {
     'CNAME' : ['A', 'AAAA', 'CNAME', 'MX', 'TXT']
 }
 
-def process_other_record(template_record, zone_records, new_records):
+def process_other_record(template_record, zone_records):
     """
     Will process all other record types from a template. This includes A, AAAA,
     MX, and CNAME.
@@ -675,12 +675,13 @@ class DomainConnect(object):
                 directory = template_path
 
             basename = provider_id.lower() + '.' + service_id.lower() + '.json'
-            filename = os.path.join(directory, basename)
+            filepath = os.path.join(directory, basename)
 
-            with open(filename, 'r') as file_:
+            if not os.path.isfile(filepath) or not os.access(filepath, os.R_OK):
+                raise InvalidTemplate('Template file \'{}\' not found or unreadable'.format(filepath))
+
+            with open(filepath, 'r') as file_:
                 self.data = json.load(file_)
-        #except:
-        #    raise InvalidTemplate
 
     def verify_sig(self, qs, sig, key, ignore_signature=False):
         """

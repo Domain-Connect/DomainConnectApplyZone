@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import io
 import os
 
-import distutils.cmd
+from distutils.cmd import Command
 from setuptools import setup, find_packages
 
 # ----------------------------------------
@@ -21,14 +21,14 @@ try:
     with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
         LONG_DESCRIPTION = '\n' + f.read()
     LONG_DESCRIPTION_CONTENT_TYPE = 'text/plain',
-except FileNotFoundError:
+except IOError:
     pass
 
 
 # ----------------------------------------
 # Clean
 # ----------------------------------------
-class CleanCommand(distutils.cmd.Command):
+class CleanCommand(Command):
     description = "A better cleaner."
     user_options = []
 
@@ -52,7 +52,7 @@ class CleanCommand(distutils.cmd.Command):
 
 setup(
     name='domainconnectzone',
-    version='2.1',
+    version='2.1.1',
     description=DESCRIPTION,
     author='domainconnect.org',
     url='https://github.com/Domain-Connect/domainconnectzone',
