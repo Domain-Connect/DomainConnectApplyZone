@@ -119,6 +119,7 @@ def resolve_variables(input_, domain, host, params, recordKey):
         name = input_[start:end]
 
         # Calculate the value
+        value = None
         if name == 'fqdn':
             if host:
                 value = host + '.' + domain
@@ -130,13 +131,14 @@ def resolve_variables(input_, domain, host, params, recordKey):
             value = host
         elif name in params:
             value = params[name]
-        else:
+
+        if value is None:
             raise MissingParameter("No value for parameter '" + name + "'")
 
         # Place the value into the input string
         input_ = input_.replace('%' + name + '%', value)
 
-        # Advance passt this, as the value might have had a % 
+        # Advance past this, as the value might have had a %
         ci = start + len(input_)
 
     # If we are processing the name/host field from the template, modify the
