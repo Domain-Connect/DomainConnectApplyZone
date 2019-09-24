@@ -261,7 +261,7 @@ def process_spfm_record(template_record, zone_records):
     if not found_spf:
         new_record = {'type': 'TXT',
                       'name': template_record['host'],
-                      'data': 'v=spf1 ' + template_record['spfRules'] + ' -all',
+                      'data': 'v=spf1 ' + template_record['spfRules'] + ' ~all',
                       'ttl': 6000}
         
     return new_record

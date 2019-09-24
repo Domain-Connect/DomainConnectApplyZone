@@ -194,7 +194,7 @@ def SPFMTests():
     expected_records = [
         {'type': 'A', 'name': '@', 'data': 'old.old.old.old', 'ttl': 500},
         {'type': 'AAAA', 'name': '@', 'data': 'bog.bog.bog.bog', 'ttl': 200},
-        {'type': 'TXT', 'name': '@', 'data' : 'v=spf1 foo -all', 'ttl': 6000}
+        {'type': 'TXT', 'name': '@', 'data' : 'v=spf1 foo ~all', 'ttl': 6000}
     ]
     TestRecords('SPF Merge New', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
 
