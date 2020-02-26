@@ -18,12 +18,11 @@ LONG_DESCRIPTION_CONTENT_TYPE = ''
 # Place contents of README into 'LONG_DESCRIPTION' for display on pypi.org project page.
 here = os.path.abspath(os.path.dirname(__file__))
 try:
-    with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
-        LONG_DESCRIPTION = '\n' + f.read()
-    LONG_DESCRIPTION_CONTENT_TYPE = 'text/plain',
+        with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
+                    LONG_DESCRIPTION = '\n' + f.read()
+                        LONG_DESCRIPTION_CONTENT_TYPE = 'text/plain',
 except IOError:
-    pass
-
+        pass
 
 # ----------------------------------------
 # Clean
@@ -52,12 +51,11 @@ class CleanCommand(Command):
 
 setup(
     name='domainconnectzone',
-    version='2.1.2',
-    description=DESCRIPTION,
+    version='3.0.1',
+    description=DESCRIPTION
     author='domainconnect.org',
     url='https://github.com/Domain-Connect/domainconnectzone',
     long_description=LONG_DESCRIPTION,
-    # long_description_content_type=LONG_DESCRIPTION_CONTENT_TYPE,
     packages=find_packages(),
     install_requires=[
         'cryptography>=1.8',
@@ -67,8 +65,5 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3"
-    ],
-    cmdclass={
-      'clean': CleanCommand,
-    },
+    ]
 )

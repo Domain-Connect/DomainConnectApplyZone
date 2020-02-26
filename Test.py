@@ -1,7 +1,6 @@
 import json
 
-from DomainConnect import *
-
+from domainconnectzone import DomainConnect
 
 class bcolors:
     HEADER = '\033[95m'
@@ -13,7 +12,8 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-template_dir = '/root/templates'
+#template_dir = '~/templates'
+template_dir = '/home/arnoldb/templates'
 
 class TestResults:
 
@@ -47,7 +47,7 @@ _testResults = TestResults()
 
 def TestSig(title, provider_id, service_id, qs, sig, key, ignore_signature, expected, verbose=False):
 
-    dc = DomainConnect(provider_id, service_id, template_dir)
+    dc = DomainConnect.DomainConnect(provider_id, service_id, template_dir)
 
     passed = False
 
@@ -55,7 +55,7 @@ def TestSig(title, provider_id, service_id, qs, sig, key, ignore_signature, expe
         dc.verify_sig(qs, sig, key, ignore_signature)
         if expected:
             passed = True
-    except InvalidSignature:
+    except DomainConnect.InvalidSignature:
         if not expected:
             passed = True
 
@@ -71,7 +71,7 @@ def TestRecordsException(title, template_records, zone_records, domain, host, pa
 
     try:
         new_records = []
-        new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, [])
+        new_records, deleted_records, final_records = DomainConnect.process_records(template_records, zone_records, domain, host, params, [])
         _testResults.Fail()
     except exception as e:
         _testResults.Pass(str(e))
@@ -87,7 +87,7 @@ def TestTemplate(title, zone_records, provider_id, service_id, domain, host, par
         print('ServiceId' + service_id)
         print('Params = ' + str(params))
 
-    dc = DomainConnect(provider_id, service_id, template_dir)
+    dc = DomainConnect.DomainConnect(provider_id, service_id, template_dir)
 
     new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params, group_ids=group_ids, qs=qs, sig=sig, key=key, ignore_signature=ignore_signature)
 
@@ -125,7 +125,7 @@ def TestRecords(title, template_records, zone_records, domain, host, params, exp
         print('Template = ' + str(template_records))
         print('Params = ' + str(params))
 
-    new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, group_ids, multi_aware=multi_aware, multi_instance=multi_instance, provider_id=provider_id, service_id=service_id, unique_id=unique_id)
+    new_records, deleted_records, final_records = DomainConnect.process_records(template_records, zone_records, domain, host, params, group_ids, multi_aware=multi_aware, multi_instance=multi_instance, provider_id=provider_id, service_id=service_id, unique_id=unique_id)
 
     if verbose:
         print("New Records")
@@ -331,7 +331,7 @@ def GroupTests():
 def ExceptionTests():
     zone_records = []
     template_records = [{'type': 'CNAME', 'host': '@', 'pointsTo': 'foo.com', 'ttl': 400}]
-    TestRecordsException("CNAME at Apex Test", template_records, zone_records, 'foo.com', '', {}, InvalidData)
+    TestRecordsException("CNAME at Apex Test", template_records, zone_records, 'foo.com', '', {}, DomainConnect.InvalidData)
 
 
 def SigTests():
@@ -392,7 +392,7 @@ def ParameterTests():
 
     zone_records = []
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '%missing%', 'ttl': 600}]
-    TestRecordsException('Missing Parameter Test', template_records, zone_records, 'foo.com', 'bar', {},  MissingParameter)
+    TestRecordsException('Missing Parameter Test', template_records, zone_records, 'foo.com', 'bar', {},  DomainConnect.MissingParameter)
 
 
 def PercentParameterTests():
@@ -442,35 +442,35 @@ def MultiTests():
 def BadParameterTests():
     zone_records = []
     template_records = [{'type': 'A', 'host': '-abc', 'pointsTo': '127.0.0.1', 'ttl': 400}]
-    TestRecordsException('Bad host name', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsException('Bad host name', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, DomainConnect.InvalidData)
 
     zone_records = []
     template_records = [{'type': 'CNAME', 'host': 'abc', 'pointsTo': '127.0.0.1-', 'ttl': 400}]
-    TestRecordsException('Bad MX/CNAME/NS pointsTo', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsException('Bad MX/CNAME/NS pointsTo', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, DomainConnect.InvalidData)
 
     zone_records = []
     template_records = [{'type': 'A', 'host': 'abc', 'pointsTo': 'foo.com', 'ttl': 400}]
-    TestRecordsException('Bad A pointsTo', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsException('Bad A pointsTo', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, DomainConnect.InvalidData)
 
     zone_records = []
     template_records = [{'type': 'AAAA', 'host': 'abc', 'pointsTo': '127.0.0.1', 'ttl': 400}]
-    TestRecordsException('Bad AAAA pointsTo', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsException('Bad AAAA pointsTo', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, DomainConnect.InvalidData)
 
     zone_records = []
     template_records = [{'type': 'SRV', 'name': 'abc-', 'target': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
-    TestRecordsException('Bad SRV Name', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsException('Bad SRV Name', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, DomainConnect.InvalidData)
 
     zone_records = []
     template_records = [{'type': 'SRV', 'name': 'abc', 'target': '127.0.0.1-', 'protocol': 'UDP', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
-    TestRecordsException('Bad SRV Target', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsException('Bad SRV Target', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, DomainConnect.InvalidData)
 
     zone_records = []
     template_records = [{'type': 'SRV', 'name': 'abc', 'target': '127.0.0.1', 'protocol': 'FFF', 'service': 'foo.com', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
-    TestRecordsException('Bad SRV Protocol', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsException('Bad SRV Protocol', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, DomainConnect.InvalidData)
 
     zone_records = []
     template_records = [{'type': 'SRV', 'name': 'abc', 'target': '127.0.0.1', 'protocol': 'TCP', 'service': 'foo.com-', 'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
-    TestRecordsException('Bad SRV Service', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, InvalidData)
+    TestRecordsException('Bad SRV Service', template_records, zone_records, 'foo.com', 'bar', {'v1': '1'}, DomainConnect.InvalidData)
 
 
 def TemplateTests():

@@ -2,8 +2,13 @@ import json
 import os
 import copy
 import uuid
-from sigutil import get_publickey, verify_sig
-from validate import *
+from domainconnectzone.sigutil import get_publickey, verify_sig
+from domainconnectzone.validate import *
+
+try:
+    raw_input
+except:
+    raw_input = input
 
 """
 Zone
@@ -675,6 +680,8 @@ class DomainConnect(object):
 
             basename = provider_id.lower() + '.' + service_id.lower() + '.json'
             filepath = os.path.join(directory, basename)
+
+            print(filepath)
 
             if not os.path.isfile(filepath) or not os.access(filepath, os.R_OK):
                 raise InvalidTemplate('Template file \'{}\' not found or unreadable'.format(filepath))

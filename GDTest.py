@@ -1,9 +1,14 @@
 import json
 import requests
 
-from DomainConnect import *
+from domainconnectzone.DomainConnect import *
 
-template_dir = '/root/templates'
+try:
+    raw_input
+except:
+    raw_input = input
+
+template_dir = '/home/arnoldb/templates'
 
 def ReadZoneRecords(domain, apiKeySecret):
     r = requests.get('https://api.godaddy.com/v1/domains/' + domain + '/records', headers={'Authorization' : 'sso-key ' + apiKeySecret})
@@ -50,7 +55,7 @@ def run():
         return
 
     # Now use the domain connect object to prompt for variables
-    params = dc.Prompt()
+    params = dc.prompt()
 
     # Apply the zone
     new_r, deleted_r, final_r = dc.apply_template(zone_records, domain, host, params, ignore_signature=True)
@@ -69,4 +74,4 @@ def run():
 
     print("Template applied")
 
-Test()
+
