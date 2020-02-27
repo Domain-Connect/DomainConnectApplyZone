@@ -681,8 +681,6 @@ class DomainConnect(object):
             basename = provider_id.lower() + '.' + service_id.lower() + '.json'
             filepath = os.path.join(directory, basename)
 
-            print(filepath)
-
             if not os.path.isfile(filepath) or not os.access(filepath, os.R_OK):
                 raise InvalidTemplate('Template file \'{}\' not found or unreadable'.format(filepath))
 
