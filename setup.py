@@ -20,7 +20,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 try:
         with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
                     LONG_DESCRIPTION = '\n' + f.read()
-                        LONG_DESCRIPTION_CONTENT_TYPE = 'text/plain',
+        LONG_DESCRIPTION_CONTENT_TYPE = 'text/plain',
 except IOError:
         pass
 
@@ -51,8 +51,8 @@ class CleanCommand(Command):
 
 setup(
     name='domainconnectzone',
-    version='3.0.1',
-    description=DESCRIPTION
+    version='3.0.2',
+    description=DESCRIPTION,
     author='domainconnect.org',
     url='https://github.com/Domain-Connect/domainconnectzone',
     long_description=LONG_DESCRIPTION,
