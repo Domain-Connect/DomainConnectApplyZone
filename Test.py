@@ -12,8 +12,8 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-#template_dir = '~/templates'
-template_dir = '/home/arnoldb/templates'
+template_dir = '../templates'
+#template_dir = '/home/arnoldb/templates'
 
 class TestResults:
 
@@ -288,7 +288,6 @@ def ATests():
     ]
     TestRecords('CNAME Delete', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=3)
 
-
 def GroupTests():
     zone_records = [
         {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
@@ -350,6 +349,17 @@ def SigTests():
 
 
 def ParameterTests():
+    zone_records = []
+    template_records = [
+        {'type': 'A', 'host': '%domain%.', 'pointsTo': '127.0.0.1', 'ttl': 600},
+        {'type': 'CNAME', 'host' : '@', 'pointsTo': 'foo.bar.com', 'ttl': 600}
+    ]
+    expected_records = [
+        {'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 600},
+        {'type': 'CNAME', 'name': 'foo', 'data': 'foo.bar.com', 'ttl': 600}
+    ]
+    TestRecords('Host set to domain only Test', template_records, zone_records, 'example.com', 'foo', {}, expected_records, new_count=2, delete_count=0)
+    
     zone_records = []
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '127.0.0.1', 'ttl': 400}]
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 400}]
