@@ -51,7 +51,7 @@ class CleanCommand(Command):
 
 setup(
     name='domainconnectzone',
-    version='3.0.2',
+    version='3.1.0',
     description=DESCRIPTION,
     author='domainconnect.org',
     url='https://github.com/Domain-Connect/domainconnectzone',
