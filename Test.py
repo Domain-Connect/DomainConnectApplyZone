@@ -146,6 +146,9 @@ def TestRecords(title, template_records, zone_records, domain, host, params, exp
     if (new_count is not None and len(new_records) != new_count) or \
        (delete_count is not None and len(deleted_records) != delete_count) or \
        (expected_records is not None and expected_records != final_records):
+        print(new_count is not None and len(new_records) != new_count)
+        print(new_count)
+        print(len(new_records))
         _testResults.Fail()
     else:
         _testResults.Pass()
@@ -359,7 +362,32 @@ def ParameterTests():
         {'type': 'CNAME', 'name': 'foo', 'data': 'foo.bar.com', 'ttl': 600}
     ]
     TestRecords('Host set to domain only Test', template_records, zone_records, 'example.com', 'foo', {}, expected_records, new_count=2, delete_count=0)
-    
+
+    zone_records = []
+    template_records = [{'type': 'A', 'host': 'foo.bar.x.y.foo.com.', 'pointsTo': '127.0.0.1', 'ttl': 600}]
+    expected_records = [{'type': 'A', 'name': 'foo.bar.x.y', 'data': '127.0.0.1', 'ttl': 600}]
+    TestRecords('Long domain fully qualified test', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
+
+    zone_records = []
+    template_records = [{'type': 'A', 'host': '%host%.%domain%', 'pointsTo': '127.0.0.1', 'ttl': 600}]
+    expected_records = [{'type': 'A', 'name': 'bar.foo.com.bar', 'data': '127.0.0.1', 'ttl': 600}]
+    TestRecords('%host%.%domain% without .', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
+
+    zone_records = []
+    template_records = [{'type': 'A', 'host': '%host%.%domain%.', 'pointsTo': '127.0.0.1', 'ttl': 600}]
+    expected_records = [{'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 600}]
+    TestRecords('%host%.%domain% with .', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
+
+    zone_records = []
+    template_records = [{'type': 'A', 'host': '%fqdn%', 'pointsTo': '127.0.0.1', 'ttl': 600}]
+    expected_records = [{'type': 'A', 'name': 'bar.foo.com.bar', 'data': '127.0.0.1', 'ttl': 600}]
+    TestRecords('fqdn without .', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
+
+    zone_records = []
+    template_records = [{'type': 'A', 'host': '%fqdn%.', 'pointsTo': '127.0.0.1', 'ttl': 600}]
+    expected_records = [{'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 600}]
+    TestRecords('fqdn with .', template_records, zone_records, 'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
+
     zone_records = []
     template_records = [{'type': 'A', 'host': '@', 'pointsTo': '127.0.0.1', 'ttl': 400}]
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 400}]

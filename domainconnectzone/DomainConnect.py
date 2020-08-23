@@ -138,7 +138,7 @@ def resolve_variables(input_, domain, host, params, recordKey):
         start = input_.find('%', ci) + 1
         end = input_.find('%', start)
 
-        # Grab the variable name (both original and lower case)
+        # Grab the variable name
         name = input_[start:end]
 
         # Calculate the value
@@ -162,7 +162,7 @@ def resolve_variables(input_, domain, host, params, recordKey):
         input_ = input_.replace('%' + name + '%', value)
 
         # Advance past this, as the value might have had a %
-        ci = start + len(input_)
+        ci = start + len(value)
 
     # If we are processing the name/host field from the template, modify the
     # path to be relative to the host being applied, unless it was fully qualified (ends with a .)
@@ -172,6 +172,8 @@ def resolve_variables(input_, domain, host, params, recordKey):
                 input_ = input_ + '.' + host
         elif input_ == domain + '.':
             input_ = '@'
+        elif input_.endswith(domain + '.'):
+            input_ = input_[0:len(input_) - len(domain + '.') - 1]
 
     return input_
 
