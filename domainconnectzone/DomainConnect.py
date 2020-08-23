@@ -112,15 +112,33 @@ def resolve_variables(input_, domain, host, params, recordKey):
     When the value is the pointsTo/target a null or empty value will resolve to the fqdn.
     """
 
-    ci = 0
+    # Empty or @ has special meaning for some fields. 
+    if not input_ or input_ == '' or input_ == '@':
 
+        # In the name/host field, @ in the template is a shortcut to being relative to
+        # the host/domain (it is a shortcut for "%fqdn%."). We can return the result
+        # in bind format for the full domain name.
+        if recordKey in ['name', 'host']:
+            if host:
+                return host # Same as "host.example.com."
+            else:
+                return '@'  # Bind format for "example.com."
+
+        # For a pointsTo or target they are never relative; so we fill in the values
+        elif recordKey in ['target', 'pointsTo']:
+            if host:
+                return host + '.' + domain
+            else:
+                return domain
+
+    ci = 0
     while input_.find('%', ci) != -1:
 
         # Find the next variable to process
         start = input_.find('%', ci) + 1
         end = input_.find('%', start)
 
-        # Grab the variable name (both original and lower case)
+        # Grab the variable name
         name = input_[start:end]
 
         # Calculate the value
@@ -129,7 +147,7 @@ def resolve_variables(input_, domain, host, params, recordKey):
             if host:
                 value = host + '.' + domain
             else:
-                value = domain + '.'
+                value = domain
         elif name == 'domain':
             value = domain
         elif name == 'host':
@@ -144,28 +162,18 @@ def resolve_variables(input_, domain, host, params, recordKey):
         input_ = input_.replace('%' + name + '%', value)
 
         # Advance past this, as the value might have had a %
-        ci = start + len(input_)
+        ci = start + len(value)
 
     # If we are processing the name/host field from the template, modify the
-    # path to be relative to the host being applied.
-    if recordKey == 'name' or recordKey == 'host':
-        if not input_ or input_ == '@':
-            if host:
-                input_ = host
-            else:
-                input_ = '@'
-        else:
+    # path to be relative to the host being applied, unless it was fully qualified (ends with a .)
+    if recordKey in ['name', 'host']:
+        if not input_.endswith('.'):
             if host:
                 input_ = input_ + '.' + host
-
-    # If we are processing the target/pointsTo, a null or empty maps to the
-    # fqdn being applied
-    elif recordKey == 'target' or recordKey == 'pointsTo':
-        if not input_ or input_ == '@':
-            if host:
-                input_ = host + '.' + domain
-            else:
-                input_ = domain
+        elif input_ == domain + '.':
+            input_ = '@'
+        elif input_.endswith(domain + '.'):
+            input_ = input_[0:len(input_) - len(domain + '.') - 1]
 
     return input_
 
