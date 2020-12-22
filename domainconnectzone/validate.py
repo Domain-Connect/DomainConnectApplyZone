@@ -73,12 +73,10 @@ def is_valid_host_cname(input):
     if len(input) > 253:
         return False
 
-    input = input.lstrip('_') #allow a leading underscore.
-
     if input[-1] == ".":
         input = input[:-1] # strip exactly one dot from the right, if present
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-    return all(allowed.match(x) for x in input.split("."))
+    return all(allowed.match(x.lstrip('_')) for x in input.split(".")) #allows for leading underscores
 
 
 def is_valid_host_srv(input):
