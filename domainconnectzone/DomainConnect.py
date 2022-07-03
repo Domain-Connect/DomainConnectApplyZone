@@ -668,6 +668,35 @@ def prompt_records(template_records):
     return params
 
 
+class DomainConnectTemplates(object):
+    def __init__(self, template_path=None):
+        if not template_path:
+            self._template_path = os.path.dirname(os.path.realpath(__file__)) + '/templates'
+        else:
+            self._template_path = template_path
+        if not os.path.isdir(self._template_path) or not os.access(self._template_path, os.R_OK):
+            raise InvalidTemplate('Template dir \'{}\' not found or unreadable'.format(self._template_path))
+
+    @property
+    def templates(self):
+        templates = []
+        for file_to_check in [r for r in os.listdir(self._template_path) if r.endswith('.json')]:
+            with open(os.path.join(self._template_path, file_to_check)) as f:
+                template_json = json.load(f)
+                expected_filename = '{}.{}.json'.format(template_json['providerId'].lower(),
+                                                        template_json['serviceId'].lower())
+                # if file contains other providerId/serviceId - ignore
+                if expected_filename != file_to_check:
+                    continue
+                templates += [{
+                    "providerId": template_json['providerId'],
+                    "serviceId": template_json['serviceId'],
+                    "fileName": file_to_check,
+                    "template": template_json
+                }]
+        return templates
+
+
 class DomainConnect(object):
     """
     Two main entry points.
