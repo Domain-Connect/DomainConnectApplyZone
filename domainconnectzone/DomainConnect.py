@@ -696,6 +696,16 @@ class DomainConnectTemplates(object):
                 }]
         return templates
 
+    def update_template(self, template):
+        if not os.access(self._template_path, os.W_OK):
+            raise EnvironmentError("Cannot write to the configured template folder.")
+        templ = self.templates
+        for t in templ:
+            if t["providerId"] == template["providerId"] and t["serviceId"] == template["serviceId"]:
+                with open(os.path.join(self._template_path, t["fileName"]), "w") as f:
+                    json.dump(template, f, indent=2)
+                return
+        raise InvalidTemplate(f"Cannot find template {template['providerId']} / {template['serviceId']}")
 
 class DomainConnect(object):
     """
