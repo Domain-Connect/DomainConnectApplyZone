@@ -10,6 +10,9 @@ try:
 except:
     raw_input = input
 
+from re import search
+from jsonschema import validate
+
 """
 Zone
 
@@ -676,6 +679,11 @@ class DomainConnectTemplates(object):
             self._template_path = template_path
         if not os.path.isdir(self._template_path) or not os.access(self._template_path, os.R_OK):
             raise InvalidTemplate('Template dir \'{}\' not found or unreadable'.format(self._template_path))
+        self._schema = None
+        schema_path = os.path.join(self._template_path, 'template.schema')
+        if os.path.isfile(schema_path) and os.access(schema_path, os.R_OK):
+            with open(schema_path, 'r') as f:
+                self._schema = json.load(f)
 
     @property
     def templates(self):
@@ -699,6 +707,8 @@ class DomainConnectTemplates(object):
     def update_template(self, template):
         if not os.access(self._template_path, os.W_OK):
             raise EnvironmentError("Cannot write to the configured template folder.")
+        if self._schema is not None:
+            validate(template, self._schema)
         templ = self.templates
         for t in templ:
             if t["providerId"] == template["providerId"] and t["serviceId"] == template["serviceId"]:
@@ -710,13 +720,18 @@ class DomainConnectTemplates(object):
     def create_template(self, template):
         if not os.access(self._template_path, os.W_OK):
             raise EnvironmentError("Cannot write to the configured template folder.")
+        if search(r'^[a-zA-Z0-9.]+$', template["providerId"]) is None \
+                or search(r'^[a-zA-Z0-9.]+$', template["serviceId"]) is None:
+            raise InvalidData("Invalid ServiceId or ProviderId")
+        if self._schema is not None:
+            validate(template, self._schema)
+
         templ = self.templates
         for t in templ:
             if t["providerId"] == template["providerId"] and t["serviceId"] == template["serviceId"]:
                 raise InvalidTemplate(f"Template {template['providerId']} / {template['serviceId']} already exists.")
-        with open(os.path.join(self._template_path, f"{template['providerId']}.{template['serviceId']}.json"), "w") as f:
+        with open(os.path.join(self._template_path, f"{template['providerId'].lower()}.{template['serviceId'].lower()}.json"), "w") as f:
             json.dump(template, f, indent=2)
-
 
 
 class DomainConnect(object):
