@@ -10,7 +10,7 @@ try:
 except:
     raw_input = input
 
-from re import search
+from re import search, compile
 from jsonschema import validate
 
 """
@@ -704,11 +704,28 @@ class DomainConnectTemplates(object):
                 }]
         return templates
 
+    @staticmethod
+    def _validate_domain_name(label, name):
+        dom_val = compile("^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,63}$")
+        if dom_val.search(name) is None:
+            raise InvalidData(f"{name} is not a valid domain name in label {label}")
+
+    def _validate_template(self, template):
+        if search(r'^[a-zA-Z0-9.]+$', template["providerId"]) is None \
+                or search(r'^[a-zA-Z0-9.]+$', template["serviceId"]) is None:
+            raise InvalidData("Invalid ServiceId or ProviderId")
+        if 'syncPubKeyDomain' in template:
+            self._validate_domain_name('syncPubKeyDomain', template['syncPubKeyDomain'])
+        if 'syncRedirectDomain' in template:
+            for dom in template['syncRedirectDomain'].split(','):
+                self._validate_domain_name('syncRedirectDomain', dom)
+        if self._schema is not None:
+            validate(template, self._schema)
+
     def update_template(self, template):
         if not os.access(self._template_path, os.W_OK):
             raise EnvironmentError("Cannot write to the configured template folder.")
-        if self._schema is not None:
-            validate(template, self._schema)
+        self._validate_template(template)
         templ = self.templates
         for t in templ:
             if t["providerId"] == template["providerId"] and t["serviceId"] == template["serviceId"]:
@@ -720,11 +737,7 @@ class DomainConnectTemplates(object):
     def create_template(self, template):
         if not os.access(self._template_path, os.W_OK):
             raise EnvironmentError("Cannot write to the configured template folder.")
-        if search(r'^[a-zA-Z0-9.]+$', template["providerId"]) is None \
-                or search(r'^[a-zA-Z0-9.]+$', template["serviceId"]) is None:
-            raise InvalidData("Invalid ServiceId or ProviderId")
-        if self._schema is not None:
-            validate(template, self._schema)
+        self._validate_template(template)
 
         templ = self.templates
         for t in templ:
@@ -732,6 +745,8 @@ class DomainConnectTemplates(object):
                 raise InvalidTemplate(f"Template {template['providerId']} / {template['serviceId']} already exists.")
         with open(os.path.join(self._template_path, f"{template['providerId'].lower()}.{template['serviceId'].lower()}.json"), "w") as f:
             json.dump(template, f, indent=2)
+
+
 
 
 class DomainConnect(object):
