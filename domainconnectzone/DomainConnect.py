@@ -707,6 +707,18 @@ class DomainConnectTemplates(object):
                 return
         raise InvalidTemplate(f"Cannot find template {template['providerId']} / {template['serviceId']}")
 
+    def create_template(self, template):
+        if not os.access(self._template_path, os.W_OK):
+            raise EnvironmentError("Cannot write to the configured template folder.")
+        templ = self.templates
+        for t in templ:
+            if t["providerId"] == template["providerId"] and t["serviceId"] == template["serviceId"]:
+                raise InvalidTemplate(f"Template {template['providerId']} / {template['serviceId']} already exists.")
+        with open(os.path.join(self._template_path, f"template['providerId'].template['serviceId'].json"), "w") as f:
+            json.dump(template, f, indent=2)
+
+
+
 class DomainConnect(object):
     """
     Two main entry points.
