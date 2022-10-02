@@ -746,7 +746,21 @@ class DomainConnectTemplates(object):
         with open(os.path.join(self._template_path, f"{template['providerId'].lower()}.{template['serviceId'].lower()}.json"), "w") as f:
             json.dump(template, f, indent=2)
 
-
+    def get_variable_names(self, template):
+        self._validate_template(template)
+        global raw_input
+        try:
+            old_raw_input = raw_input
+            raw_input = lambda: ''
+            params = prompt_records(template['records'])
+        finally:
+            raw_input = old_raw_input
+        pars = {
+            'domain': '',
+            'host': '',
+            'group': ''
+        }
+        return pars | params
 
 
 class DomainConnect(object):
