@@ -714,7 +714,7 @@ class DomainConnectTemplates(object):
         for t in templ:
             if t["providerId"] == template["providerId"] and t["serviceId"] == template["serviceId"]:
                 raise InvalidTemplate(f"Template {template['providerId']} / {template['serviceId']} already exists.")
-        with open(os.path.join(self._template_path, f"template['providerId'].template['serviceId'].json"), "w") as f:
+        with open(os.path.join(self._template_path, f"{template['providerId']}.{template['serviceId']}.json"), "w") as f:
             json.dump(template, f, indent=2)
 
 
