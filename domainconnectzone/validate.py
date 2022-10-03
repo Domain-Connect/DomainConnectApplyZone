@@ -83,12 +83,9 @@ def is_valid_host_srv(input):
     if len(input) > 253:
         return False
 
-    if not input.startswith('_'):
-        return False
-
-    input = input[1:]
-
-    if input[-1] == ".":
+    if len(input) >= 1 and input[-1] == ".":
         input = input[:-1] # strip exactly one dot from the right, if present
+    if input == "@":
+        return True # APEX is allowed as a name in SRV
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in input.split("."))

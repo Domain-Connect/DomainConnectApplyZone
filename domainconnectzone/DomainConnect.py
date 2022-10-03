@@ -436,11 +436,13 @@ def process_records(template_records, zone_records, domain, host, params,
                                   template_record['name'])
 
         else:
+            orig_host = template_record['host']
             template_record['host'] = resolve_variables(
                 template_record['host'], domain, host, params, 'host')
 
             err_msg = ('Invalid data for ' + template_record_type +
-                       ' host: ' + template_record['host'])
+                       ' host: ' + template_record['host'] +
+                       ' (from ' + orig_host + ')')
             if template_record_type in ['A', 'AAAA', 'MX', 'NS']:
                 if not is_valid_host_other(template_record['host'],
                                                     False):
@@ -455,6 +457,7 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # Points To / Target
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
+            orig_pointsto = template_record['pointsTo']
             template_record['pointsTo'] = resolve_variables(
                 template_record['pointsTo'], domain, host, params, 'pointsTo')
 
@@ -463,28 +466,34 @@ def process_records(template_records, zone_records, domain, host, params,
                         template_record['pointsTo']):
                     raise InvalidData('Invalid data for ' +
                                       template_record_type + ' pointsTo: ' +
-                                      template_record['pointsTo'])
+                                      template_record['pointsTo'] +
+                                      ' (from ' + orig_pointsto + ')')
             elif template_record_type == 'A':
                 if not is_valid_pointsTo_ip(
                         template_record['pointsTo'], 4):
                     raise InvalidData('Invalid data for A pointsTo: ' +
-                                      template_record['pointsTo'])
+                                      template_record['pointsTo'] +
+                                      ' (from ' + orig_pointsto + ')')
             elif template_record_type == 'AAAA':
                 if not is_valid_pointsTo_ip(
                         template_record['pointsTo'], 6):
                     raise InvalidData('Invalid data for AAAA pointsTo: ' +
-                                      template_record['pointsTo'])
+                                      template_record['pointsTo'] +
+                                      ' (from ' + orig_pointsto + ')')
 
         elif template_record_type == 'SRV':
+            orig_target = template_record['target']
             template_record['target'] = resolve_variables(
                 template_record['target'], domain, host, params, 'target')
 
             if not is_valid_pointsTo_host(template_record['target']):
                 raise InvalidData('Invalid data for SRV target: ' +
-                                  template_record['target'])
+                                  template_record['target'] +
+                                      ' (from ' + orig_target + ')')
 
         # SRV has a few more records that need to be processed and validated
         if template_record_type == 'SRV':
+            orig_protocol = template_record['protocol']
             template_record['protocol'] = resolve_variables(
                 template_record['protocol'], domain, host, params, 'protocol')
 
@@ -493,13 +502,16 @@ def process_records(template_records, zone_records, domain, host, params,
                 protocol = protocol[1:]
             if protocol not in ['tcp', 'udp', 'tls']:
                 raise InvalidData('Invalid data for SRV protocol: ' +
-                                  template_record['protocol'])
+                                  template_record['protocol'] +
+                                  ' (from ' + orig_protocol + ')')
 
+            orig_service = template_record['service']
             template_record['service'] = resolve_variables(
                 template_record['service'], domain, host, params, 'service')
             if not is_valid_pointsTo_host(template_record['service']):
                 raise InvalidData('Invalid data for SRV service: ' +
-                                  template_record['service'])
+                                  template_record['service'] +
+                                  ' (from ' + orig_service + ')')
 
         # Handle variables in a TXT and SPFM record
         if template_record_type == 'TXT':
