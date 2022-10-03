@@ -711,14 +711,15 @@ class DomainConnectTemplates(object):
             raise InvalidData(f"{name} is not a valid domain name in label {label}")
 
     def _validate_template(self, template):
-        if search(r'^[a-zA-Z0-9.]+$', template["providerId"]) is None \
-                or search(r'^[a-zA-Z0-9.]+$', template["serviceId"]) is None:
+        if search(r'^[a-zA-Z0-9._-]+$', template["providerId"]) is None \
+                or search(r'^[a-zA-Z0-9._-]+$', template["serviceId"]) is None:
             raise InvalidData("Invalid ServiceId or ProviderId")
         if 'syncPubKeyDomain' in template:
             self._validate_domain_name('syncPubKeyDomain', template['syncPubKeyDomain'])
         if 'syncRedirectDomain' in template:
-            for dom in template['syncRedirectDomain'].split(','):
-                self._validate_domain_name('syncRedirectDomain', dom)
+            for dom in [x.strip() for x in template['syncRedirectDomain'].split(',')]:
+                if dom != "":
+                    self._validate_domain_name('syncRedirectDomain', dom)
         if self._schema is not None:
             validate(template, self._schema)
 
@@ -746,8 +747,8 @@ class DomainConnectTemplates(object):
         with open(os.path.join(self._template_path, f"{template['providerId'].lower()}.{template['serviceId'].lower()}.json"), "w") as f:
             json.dump(template, f, indent=2)
 
-    def get_variable_names(self, template):
-        self._validate_template(template)
+    @staticmethod
+    def get_variable_names(template):
         global raw_input
         try:
             old_raw_input = raw_input
