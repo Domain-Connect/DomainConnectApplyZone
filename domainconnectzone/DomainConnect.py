@@ -710,7 +710,7 @@ class DomainConnectTemplates(object):
         if dom_val.search(name) is None:
             raise InvalidData(f"{name} is not a valid domain name in label {label}")
 
-    def _validate_template(self, template):
+    def validate_template(self, template):
         if search(r'^[a-zA-Z0-9._-]+$', template["providerId"]) is None \
                 or search(r'^[a-zA-Z0-9._-]+$', template["serviceId"]) is None:
             raise InvalidData("Invalid ServiceId or ProviderId")
@@ -726,7 +726,7 @@ class DomainConnectTemplates(object):
     def update_template(self, template):
         if not os.access(self._template_path, os.W_OK):
             raise EnvironmentError("Cannot write to the configured template folder.")
-        self._validate_template(template)
+        self.validate_template(template)
         templ = self.templates
         for t in templ:
             if t["providerId"] == template["providerId"] and t["serviceId"] == template["serviceId"]:
@@ -738,7 +738,7 @@ class DomainConnectTemplates(object):
     def create_template(self, template):
         if not os.access(self._template_path, os.W_OK):
             raise EnvironmentError("Cannot write to the configured template folder.")
-        self._validate_template(template)
+        self.validate_template(template)
 
         templ = self.templates
         for t in templ:
@@ -748,7 +748,7 @@ class DomainConnectTemplates(object):
             json.dump(template, f, indent=2)
 
     @staticmethod
-    def get_variable_names(template):
+    def get_variable_names(template, variables=None):
         global raw_input
         try:
             old_raw_input = raw_input
@@ -761,8 +761,12 @@ class DomainConnectTemplates(object):
             'host': '',
             'group': ''
         }
-        return pars | params
-
+        params = pars | params
+        if variables is not None:
+            for label in params:
+                if label in variables:
+                    params[label] = variables[label]
+        return params
 
 class DomainConnect(object):
     """
@@ -771,12 +775,12 @@ class DomainConnect(object):
     The other to prompt for variables in a template /!\ deprecated!
     """
 
-    def __init__(self, provider_id, service_id, template_path=None):
+    def __init__(self, provider_id, service_id, template_path=None, template=None):
         self.provider_id = provider_id
         self.service_id = service_id
 
         # Read in the template
-        if True:
+        if template is None:
             if not template_path:
                 directory = os.path.dirname(os.path.realpath(__file__)) + '/templates'
             else:
@@ -790,6 +794,8 @@ class DomainConnect(object):
 
             with open(filepath, 'r') as file_:
                 self.data = json.load(file_)
+        else:
+            self.data = template
 
     def verify_sig(self, qs, sig, key, ignore_signature=False):
         """
