@@ -773,7 +773,7 @@ class DomainConnectTemplates(object):
             'host': '',
             'group': ''
         }
-        params = pars | params
+        params = {**pars, **params}
         if variables is not None:
             for label in params:
                 if label in variables:
