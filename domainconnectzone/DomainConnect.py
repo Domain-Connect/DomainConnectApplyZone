@@ -12,6 +12,7 @@ except:
 
 from re import search, compile
 from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 """
 Zone
@@ -115,31 +116,17 @@ def resolve_variables(input_, domain, host, params, recordKey):
     When the value is the pointsTo/target a null or empty value will resolve to the fqdn.
     """
 
-    # Empty or @ has special meaning for some fields. 
-    if not input_ or input_ == '' or input_ == '@':
-
-        # In the name/host field, @ in the template is a shortcut to being relative to
-        # the host/domain (it is a shortcut for "%fqdn%."). We can return the result
-        # in bind format for the full domain name.
-        if recordKey in ['name', 'host']:
-            if host:
-                return host # Same as "host.example.com."
-            else:
-                return '@'  # Bind format for "example.com."
-
-        # For a pointsTo or target they are never relative; so we fill in the values
-        elif recordKey in ['target', 'pointsTo']:
-            if host:
-                return host + '.' + domain
-            else:
-                return domain
-
     ci = 0
+    originalinput = input_
     while input_.find('%', ci) != -1:
 
         # Find the next variable to process
         start = input_.find('%', ci) + 1
         end = input_.find('%', start)
+        if -1 == end:
+            raise InvalidTemplate(f"Unpaired variable delimiter in "
+                                  f"{recordKey['host']} {recordKey['type'].upper()}:"
+                                  f" {originalinput}")
 
         # Grab the variable name
         name = input_[start:end]
@@ -166,6 +153,27 @@ def resolve_variables(input_, domain, host, params, recordKey):
 
         # Advance past this, as the value might have had a %
         ci = start + len(value)
+
+    # Empty or @ has special meaning for some fields. This processing shall take place after the variables are processed.
+    if not input_ or input_ == '' or input_ == '@':
+
+        # In the name/host field, @ in the template is a shortcut to being relative to
+        # the host/domain (it is a shortcut for "%fqdn%."). We can return the result
+        # in bind format for the full domain name.
+        if recordKey in ['name', 'host']:
+            if host:
+                return host # Same as "host.example.com."
+            else:
+                return '@'  # Bind format for "example.com."
+
+        # For a pointsTo or target they are never relative; so we fill in the values
+        elif recordKey in ['target', 'pointsTo']:
+            if host:
+                return host + '.' + domain
+            else:
+                return domain
+
+
 
     # If we are processing the name/host field from the template, modify the
     # path to be relative to the host being applied, unless it was fully qualified (ends with a .)
@@ -437,7 +445,7 @@ def process_records(template_records, zone_records, domain, host, params,
 
         else:
             orig_host = template_record['host']
-            template_record['host'] = resolve_variables(
+            template_record['host'] =   resolve_variables(
                 template_record['host'], domain, host, params, 'host')
 
             err_msg = ('Invalid data for ' + template_record_type +
@@ -631,11 +639,16 @@ def process_records(template_records, zone_records, domain, host, params,
 def prompt_variables(template_record, value, params):
                     
     leading = False
-    while value.find('%') != -1:
+    value_processing = value
+    while value_processing.find('%') != -1:
 
-        start = value.find('%') + 1
-        end = value.find('%', start)
-        name = value[start:end]
+        start = value_processing.find('%') + 1
+        end = value_processing.find('%', start)
+        if -1 == end:
+            raise InvalidTemplate(f"Unpaired variable delimiter in "
+                              f"{template_record['host']} {template_record['type'].upper()}:"
+                              f" {value}")
+        name = value_processing[start:end]
 
         if (name not in ['fqdn', 'domain', 'host', '@'] and
                 name not in params):
@@ -647,7 +660,7 @@ def prompt_variables(template_record, value, params):
             v = raw_input()
             params[name] = v
 
-        value = value.replace('%' + name + '%', '')
+        value_processing = value_processing.replace('%' + name + '%', '')
 
 
 #--------------------------------------------------------
@@ -733,7 +746,16 @@ class DomainConnectTemplates(object):
                 if dom != "":
                     self._validate_domain_name('syncRedirectDomain', dom)
         if self._schema is not None:
-            validate(template, self._schema)
+            try:
+                validate(template, self._schema)
+            except ValidationError as ve:
+                raise InvalidTemplate(f"{ve.message}")
+        #check for fields which should never contain variables
+        for r in template["records"]:
+            for field in ["groupId", "type", "ttl", "essential", "txtConflictMatchingMode", "txtConflictMatchingPrefix",
+                          "weight", "port"]:
+                if field in r and f'{r[field]}'.find("%") != -1:
+                    raise InvalidTemplate(f'Forbidden variable in record {r["type"].upper()} field {field.upper()}: {r[field]}')
 
     def update_template(self, template):
         if not os.access(self._template_path, os.W_OK):

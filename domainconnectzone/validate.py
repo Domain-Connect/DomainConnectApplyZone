@@ -51,7 +51,7 @@ def is_valid_hostname(input, allow_apex, allow_underscores):
 
 
 def is_valid_host_other(input, allow_underscores):
-    if not input or input == '@':
+    if not input or input == '@' or input == '':
         return True
 
     if len(input) > 253:
