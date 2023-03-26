@@ -12,7 +12,7 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-template_dir = '../templates'
+template_dir = 'domainconnectzone/templates'
 #template_dir = '/home/arnoldb/templates'
 
 class TestResults:
@@ -531,6 +531,7 @@ def TemplateTests():
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '132.148.25', 'ttl': 1800}, {'type': 'TXT', 'name': 'bar', 'data': 'shm:1551036164:hello', 'ttl': 1800}, {'type': 'CNAME', 'name': 'whd.bar', 'data': 'bar.foo.com', 'ttl': 600}]
     TestTemplate('Sig Template Test', zone_records, 'exampleservice.domainconnect.org', 'template2', 'foo.com', 'bar', {'IP': '132.148.25', 'RANDOMTEXT': 'shm:1551036164:hello'}, None, 3, 0, expected_records, qs=qs, sig=sig, key=key)
 
+
 def run():
 
     _testResults.Reset()
@@ -551,3 +552,7 @@ def run():
 
     print("Failed Count = " + str(_testResults.failCount))
     print("Passed Count = " + str(_testResults.passCount))
+
+
+if __name__ == '__main__':
+    run()
