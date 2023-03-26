@@ -88,4 +88,4 @@ def is_valid_host_srv(input):
     if input == "@":
         return True # APEX is allowed as a name in SRV
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-    return all(allowed.match(x) for x in input.split("."))
+    return all(allowed.match(x.lstrip('_')) for x in input.split(".")) #allows for leading underscores
