@@ -216,17 +216,41 @@ def SPFMTests():
 
 
 def TXTTests():
+    zone_records = [
+    ]
+    template_records = [{'type': 'TXT', 'host': '_bar.sub', 'data': 'abcnew', 'ttl': 600}]
+    expected_records = [
+        {'type': 'TXT', 'name': '_bar.sub', 'data': 'abcnew', 'ttl': 600}
+    ]
+    TestRecords('TXT underscore first', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
 
     zone_records = [
-	{'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
-	{'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
-	{'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
+    ]
+    template_records = [{'type': 'TXT', 'host': 'bar._sub', 'data': 'abcnew', 'ttl': 600}]
+    expected_records = [
+        {'type': 'TXT', 'name': 'bar._sub', 'data': 'abcnew', 'ttl': 600}
+    ]
+    TestRecords('TXT underscore middle', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
+
+    zone_records = [
+    ]
+    template_records = [{'type': 'TXT', 'host': '_bar._sub', 'data': 'abcnew', 'ttl': 600}]
+    expected_records = [
+        {'type': 'TXT', 'name': '_bar._sub', 'data': 'abcnew', 'ttl': 600}
+    ]
+    TestRecords('TXT underscore both', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
+
+
+    zone_records = [
+        {'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
     ]
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abcnew', 'ttl': 600, 'txtConflictMatchingMode': 'None'}]
     expected_records = [
-	{'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
-	{'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
-	{'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
         {'type': 'TXT', 'name': '@', 'data': 'abcnew', 'ttl': 600}
     ]
 
