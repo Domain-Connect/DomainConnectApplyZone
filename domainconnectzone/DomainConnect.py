@@ -455,11 +455,15 @@ def process_records(template_records, zone_records, domain, host, params,
                 if not is_valid_host_other(template_record['host'],
                                                     False):
                     raise InvalidData(err_msg)
-            elif template_record_type in ['TXT', 'SPFM']:
-                if not is_valid_host_other(template_record['host'],
-                                                    True):
+            elif template_record_type in ['SPFM']:
+                if not is_valid_host_other(template_record['host'], False):
                     raise InvalidData(err_msg)
-            elif template_record_type == 'CNAME':
+
+            elif template_record_type in ['TXT']:
+                if not is_valid_host_other(template_record['host'], True):
+                    raise InvalidData(err_msg)
+
+            elif template_record_type in ['CNAME']:
                 if not is_valid_host_cname(template_record['host']):
                     raise InvalidData(err_msg)
 
