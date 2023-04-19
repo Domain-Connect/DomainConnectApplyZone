@@ -806,6 +806,16 @@ class DomainConnectTemplates(object):
                     params[label] = variables[label]
         return params
 
+    @staticmethod
+    def get_group_ids(template):
+        groups = []
+        if 'records' in template:
+            for record in template['records']:
+                if 'groupId' in record and not record['groupId'] in groups:
+                    groups += [record['groupId']]
+        return groups
+
+
 class DomainConnect(object):
     """
     Two main entry points.
