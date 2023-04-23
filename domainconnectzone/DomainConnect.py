@@ -386,6 +386,52 @@ def process_other_record(template_record, zone_records):
 
     return new_record
 
+
+def process_records_with_redirect(template_records, zone_records, domain, host, params,
+                    group_ids, multi_aware=False, multi_instance=False,
+                    provider_id=None, service_id=None, unique_id=None,
+                    create_redirect=None):
+
+    # first resolve REDIR301/REDIR302 records to their corresponding equivalents
+    template_records_org = template_records.copy()
+    template_records = []
+    redirects = []
+    for template_record in template_records_org:
+        if template_record['type'] in ['REDIR301', 'REDIR302']:
+            if create_redirect is None:
+                raise InvalidTemplate('REDIR301/REDIR302 record types not implemented by the client. create_redirect parameter missing.')
+            repl_records = create_redirect(template_record)
+            params = template_record.copy()
+            del params['type']
+            if 'data' in params:
+                del params['data']
+            if 'target' in params:
+                del params['target']
+            for r in repl_records:
+                r.update(params)
+            if 'groupId' not in template_record \
+                    or group_ids is None \
+                    or group_ids == [] \
+                    or template_record['groupId'] in group_ids:
+                name = resolve_variables(template_record['host'], domain, host, params, 'name')
+                redirects += [
+                    {
+                        'type': template_record['type'][5:],
+                        'name': domain if name in ['@', ''] else f'{name}.{domain}',
+                        'target': resolve_variables(
+                            template_record['target'], domain, host, params, 'target')
+                    }
+                ]
+            template_records += repl_records
+        else:
+            template_records += [template_record]
+    new_records, deleted_records, final_records = process_records(
+        template_records, zone_records, domain, host, params,
+        group_ids, multi_aware, multi_instance,
+        provider_id, service_id, unique_id
+    )
+    return new_records, deleted_records, final_records, redirects
+
 def process_records(template_records, zone_records, domain, host, params,
                     group_ids, multi_aware=False, multi_instance=False,
                     provider_id=None, service_id=None, unique_id=None):
@@ -445,7 +491,7 @@ def process_records(template_records, zone_records, domain, host, params,
 
         else:
             orig_host = template_record['host']
-            template_record['host'] =   resolve_variables(
+            template_record['host'] = resolve_variables(
                 template_record['host'], domain, host, params, 'host')
 
             err_msg = ('Invalid data for ' + template_record_type +

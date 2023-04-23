@@ -114,7 +114,10 @@ def TestTemplate(title, zone_records, provider_id, service_id, domain, host, par
     else:
         _testResults.Pass()
 
-def TestRecords(title, template_records, zone_records, domain, host, params, expected_records, group_ids=[], new_count=None, delete_count=None, verbose=False, multi_aware=False, multi_instance=False, provider_id=None, service_id=None, unique_id=None):
+def TestRecords(title, template_records, zone_records, domain, host, params, expected_records, group_ids=[],
+                new_count=None, delete_count=None, verbose=False, multi_aware=False, multi_instance=False,
+                provider_id=None, service_id=None, unique_id=None,
+                create_redirect_records=None, expected_redirects=None):
 
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
@@ -125,7 +128,20 @@ def TestRecords(title, template_records, zone_records, domain, host, params, exp
         print('Template = ' + str(template_records))
         print('Params = ' + str(params))
 
-    new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, group_ids, multi_aware=multi_aware, multi_instance=multi_instance, provider_id=provider_id, service_id=service_id, unique_id=unique_id)
+    redirects = None
+    if create_redirect_records is None:
+        new_records, deleted_records, final_records = \
+            process_records(template_records, zone_records,
+                            domain, host, params, group_ids,
+                            multi_aware=multi_aware, multi_instance=multi_instance,
+                            provider_id=provider_id, service_id=service_id, unique_id=unique_id)
+    else:
+        new_records, deleted_records, final_records, redirects = \
+            process_records_with_redirect(template_records, zone_records,
+                            domain, host, params, group_ids,
+                            multi_aware=multi_aware, multi_instance=multi_instance,
+                            provider_id=provider_id, service_id=service_id, unique_id=unique_id,
+                            create_redirect=create_redirect_records)
 
     if verbose:
         print("New Records")
@@ -142,10 +158,14 @@ def TestRecords(title, template_records, zone_records, domain, host, params, exp
 
     if final_records is not None:
         final_records = sorted(final_records, key = lambda i : (i['type'], i['name'], i['ttl'], i['data']))
-        
+
+    if redirects is not None:
+        redirects = sorted(redirects, key=lambda i: (i['name'], i['target']))
+
     if (new_count is not None and len(new_records) != new_count) or \
        (delete_count is not None and len(deleted_records) != delete_count) or \
-       (expected_records is not None and expected_records != final_records):
+       (expected_records is not None and expected_records != final_records) or \
+       (expected_redirects is not None and expected_redirects != redirects):
         print(new_count is not None and len(new_records) != new_count)
         print(new_count)
         print(len(new_records))
@@ -556,6 +576,79 @@ def TemplateTests():
     TestTemplate('Sig Template Test', zone_records, 'exampleservice.domainconnect.org', 'template2', 'foo.com', 'bar', {'IP': '132.148.25', 'RANDOMTEXT': 'shm:1551036164:hello'}, None, 3, 0, expected_records, qs=qs, sig=sig, key=key)
 
 
+def CREATERedirectRecords(redir_record):
+    return [
+        {'type': 'A', 'pointsTo': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'pointsTo': '::1', 'ttl': 600}
+    ]
+
+
+def REDIRTests():
+    zone_records = [
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'AAAA', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'CNAME', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    template_records = [
+        {'type': 'REDIR301', 'host': '@', 'target': 'http://example.com'}
+    ]
+    expected_records = [
+        {'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'name': 'bar', 'data': '::1', 'ttl': 600},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    expected_redirects = [
+        {
+            'type': '301', 'name': 'bar.foo.com', 'target': 'http://example.com'
+        }
+    ]
+    TestRecords('REDIR301 test', template_records, zone_records, 'foo.com', 'bar', {}, expected_records,
+                new_count=2, delete_count=3,
+                create_redirect_records=CREATERedirectRecords, expected_redirects=expected_redirects)
+
+    zone_records = [
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    template_records = [
+        {'type': 'REDIR301', 'host': '@', 'target': 'http://example.com', 'groupId': 'b'}
+    ]
+    expected_records = [
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    expected_redirects = [
+    ]
+    TestRecords('REDIR301 test with groupid', template_records, zone_records, 'foo.com', 'bar', {}, expected_records,
+                group_ids=['a'], new_count=0, delete_count=0,
+                create_redirect_records=CREATERedirectRecords, expected_redirects=expected_redirects)
+
+
+    zone_records = [
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'AAAA', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'CNAME', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    template_records = [
+        {'type': 'REDIR302', 'host': '@', 'target': 'http://example.com'}
+    ]
+    expected_records = [
+        {'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'name': 'bar', 'data': '::1', 'ttl': 600},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    expected_redirects = [
+        {
+            'type': '302', 'name': 'bar.foo.com', 'target': 'http://example.com'
+        }
+    ]
+    TestRecords('REDIR302 test', template_records, zone_records, 'foo.com', 'bar', {}, expected_records,
+                new_count=2, delete_count=3,
+                create_redirect_records=CREATERedirectRecords, expected_redirects=expected_redirects)
+
+
 def run():
 
     _testResults.Reset()
@@ -573,6 +666,7 @@ def run():
     PercentParameterTests()
     TemplateTests()
     MultiTests()
+    REDIRTests()
 
     print("Failed Count = " + str(_testResults.failCount))
     print("Passed Count = " + str(_testResults.passCount))
