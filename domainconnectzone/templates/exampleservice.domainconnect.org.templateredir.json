@@ -1,0 +1,32 @@
+{  
+   "providerId":"exampleservice.domainconnect.org",
+   "providerName":"Example Domain Connect Service",
+   "serviceId":"templateredir",
+   "serviceName":"Stateless Hosting Secondary with redirect",
+   "version": 3,
+   "logoUrl":"https://www.domainconnect.org/wp-content/uploads/2018/11/DomainConnectSquareBlack.png",
+   "description":"Example service for stateless hosting, alternative template with redirect",
+   "variableDescription":"IP is the IP address of the service A record. RANDOMTEXT is the value for a TXT record in DNS. Should be prefixed with shm:",
+   "records":[  
+      {  
+         "type":"A",
+         "host":"www",
+         "pointsTo":"%IP%",
+         "ttl":1800
+      },
+      {  
+         "type":"TXT",
+         "host":"www",
+         "data":"%RANDOMTEXT%",
+         "ttl":1800,
+         "txtConflictMatchingMode": "Prefix",
+         "txtConflictMatchingPrefix" : "shm:"
+      },
+      {
+        "type": "REDIR301",
+        "host": "@",
+        "target": "http://www.%fqdn%",
+        "ttl": 600
+       }
+   ]
+}
