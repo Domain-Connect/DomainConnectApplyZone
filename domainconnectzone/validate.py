@@ -1,4 +1,6 @@
 import re
+from urllib.parse import urlparse
+
 import IPy
 
 
@@ -86,3 +88,14 @@ def is_valid_host_srv(input):
         return True # APEX is allowed as a name in SRV
     allowed = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x.lstrip('_')) for x in input.split(".")) #allows for leading underscores
+
+
+def is_valid_target_redir(input):
+    try:
+        result = urlparse(input)
+        if all([result.scheme, result.netloc]):
+            return True
+        else:
+            return False
+    except ValueError:
+        return False
