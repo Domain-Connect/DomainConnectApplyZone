@@ -784,6 +784,12 @@ class DomainConnectTemplates(object):
         if os.path.isfile(schema_path) and os.access(schema_path, os.R_OK):
             with open(schema_path, 'r') as f:
                 self._schema = json.load(f)
+        else:
+            self._schema = None
+
+    @property
+    def schema(self):
+        return self._schema
 
     @property
     def templates(self):
