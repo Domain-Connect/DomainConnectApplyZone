@@ -740,11 +740,13 @@ def prompt_variables(template_record, value, params):
 #
 # Will prompt for the variable values in each record in the template
 #
-def prompt_records(template_records):
+def prompt_records(template_records, group=None):
 
     params = {}
 
     for template_record in template_records:
+        if group is not None and ('groupId' not in template_record or template_record['groupId'] != group):
+            continue
         template_record_type = template_record['type']
 
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS', 'TXT', 'SPFM', 'REDIR301', 'REDIR302']:
@@ -863,19 +865,22 @@ class DomainConnectTemplates(object):
             json.dump(template, f, indent=2)
 
     @staticmethod
-    def get_variable_names(template, variables=None):
+    def get_variable_names(template, variables=None, group=None):
         global raw_input
         try:
             old_raw_input = raw_input
             raw_input = lambda: ''
-            params = prompt_records(template['records'])
+            params = prompt_records(template['records'], group)
         finally:
             raw_input = old_raw_input
-        pars = {
-            'domain': '',
-            'host': '',
-            'group': ''
-        }
+        if group is None:
+            pars = {
+                'domain': '',
+                'host': '',
+                'group': ''
+            }
+        else:
+            pars = {}
         params = {**pars, **params}
         if variables is not None:
             for label in params:
