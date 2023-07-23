@@ -166,7 +166,7 @@ def resolve_variables(input_, domain, host, params, recordKey):
                 return '@'  # Bind format for "example.com."
 
         # For a pointsTo or target they are never relative; so we fill in the values
-        elif recordKey in ['target', 'pointsTo']:
+        elif recordKey in ['target', 'pointsTo'] and input_ == '@':
             if host:
                 return host + '.' + domain
             else:

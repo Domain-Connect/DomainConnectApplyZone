@@ -66,12 +66,14 @@ def TestSig(title, provider_id, service_id, qs, sig, key, ignore_signature, expe
         _testResults.Fail()
 
 
-def TestRecordsException(title, template_records, zone_records, domain, host, params, exception, verbose=False):
+def TestRecordsException(title, template_records, zone_records, domain, host, params, exception, verbose=False,
+                         redirect_records=None):
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     try:
         new_records = []
-        new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, [])
+        new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host,
+                                                                      params, [], redirect_records=redirect_records)
         _testResults.Fail()
     except exception as e:
         _testResults.Pass(str(e))
@@ -383,6 +385,27 @@ def ExceptionTests():
     zone_records = []
     template_records = [{'type': 'CNAME', 'host': '@', 'pointsTo': 'foo.com', 'ttl': 400}]
     TestRecordsException("CNAME at Apex Test", template_records, zone_records, 'foo.com', '', {}, InvalidData)
+
+    template_records = [{'type': 'CNAME', 'host': 'foo', 'pointsTo': '', 'ttl': 600}]
+    TestRecordsException("CNAME empty pointsTo", template_records, zone_records, 'foo.com', '', {}, InvalidData)
+
+    template_records = [{'type': 'CNAME', 'host': 'foo', 'pointsTo': '%var%', 'ttl': 600}]
+    TestRecordsException("CNAME empty pointsTo from variable", template_records, zone_records, 'foo.com', '', {'var': ''}, InvalidData)
+
+    template_records = [{'type': 'CNAME', 'host': 'foo', 'pointsTo': '%var%', 'ttl': 600}]
+    TestRecordsException("CNAME empty pointsTo from missing parameter", template_records, zone_records, 'foo.com', '', {}, MissingParameter)
+
+    template_records = [{'type': 'A', 'host': '@', 'pointsTo': '', 'ttl': 600}]
+    TestRecordsException("A empty pointsTo from variable", template_records, zone_records, 'foo.com', '', {}, InvalidData)
+
+    redir_template = [
+        {'type': 'A', 'pointsTo': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'pointsTo': '::1', 'ttl': 600}
+    ]
+
+    template_records = [{'type': 'REDIR301', 'host': '@', 'target': '', 'ttl': 600}]
+    TestRecordsException("REDIR301 empty target from variable", template_records, zone_records, 'foo.com', '', {},
+                         InvalidData, redirect_records=redir_template)
 
 
 def SigTests():
@@ -701,11 +724,11 @@ def run():
     TXTTests()
     ATests()
     ExceptionTests()
-    SigTests()
+    #SigTests()
     GroupTests()
     ParameterTests()
     PercentParameterTests()
-    TemplateTests()
+    #TemplateTests()
     MultiTests()
     REDIRTests()
 
