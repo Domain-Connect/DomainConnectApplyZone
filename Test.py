@@ -724,11 +724,11 @@ def run():
     TXTTests()
     ATests()
     ExceptionTests()
-    #SigTests()
+    SigTests()
     GroupTests()
     ParameterTests()
     PercentParameterTests()
-    #TemplateTests()
+    TemplateTests()
     MultiTests()
     REDIRTests()
 
