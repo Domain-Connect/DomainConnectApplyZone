@@ -12,7 +12,7 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-template_dir = 'domainconnectzone/templates'
+template_dir = 'test/templates'
 #template_dir = '/home/arnoldb/templates'
 
 class TestResults:

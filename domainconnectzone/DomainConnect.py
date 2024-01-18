@@ -496,9 +496,13 @@ def process_records(template_records, zone_records, domain, host, params,
             template_record['name'] = resolve_variables(
                 template_record['name'], domain, host, params, 'name')
 
-            if not is_valid_host_srv(template_record['name']):
+            if not is_valid_name_srv(template_record['name']):
                 raise InvalidData('Invalid data for SRV name: ' +
                                   template_record['name'])
+            srvhost = f"_{template_record['protocol'].lower()}.{template_record['name']}"
+            if not is_valid_host_srv(srvhost):
+                raise InvalidData('Invalid data for SRV host: ' +
+                                  srvhost)
 
         else:
             orig_host = template_record['host']
@@ -923,7 +927,7 @@ class DomainConnect(object):
             filepath = os.path.join(directory, basename)
 
             if not os.path.isfile(filepath) or not os.access(filepath, os.R_OK):
-                raise InvalidTemplate('Template file \'{}\' not found or unreadable'.format(filepath))
+                raise InvalidTemplate('Template file \'{}\' not found or unreadable'.format(os.path.abspath(filepath)))
 
             with open(filepath, 'r') as file_:
                 self.data = json.load(file_)
