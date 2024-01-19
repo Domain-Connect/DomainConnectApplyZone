@@ -2,6 +2,8 @@ import json
 import os
 import copy
 import uuid
+from json import JSONDecodeError
+
 from domainconnectzone.sigutil import get_publickey, verify_sig
 from domainconnectzone.validate import *
 
@@ -784,7 +786,7 @@ class DomainConnectTemplates(object):
         else:
             self._template_path = template_path
         if not os.path.isdir(self._template_path) or not os.access(self._template_path, os.R_OK):
-            raise InvalidTemplate('Template dir \'{}\' not found or unreadable'.format(self._template_path))
+            raise InvalidTemplate('Template dir \'{}\' not found or unreadable'.format(os.path.abspath(self._template_path)))
         self._schema = None
         schema_path = os.path.join(self._template_path, 'template.schema')
         if os.path.isfile(schema_path) and os.access(schema_path, os.R_OK):
@@ -802,9 +804,17 @@ class DomainConnectTemplates(object):
         templates = []
         for file_to_check in [r for r in os.listdir(self._template_path) if r.endswith('.json')]:
             with open(os.path.join(self._template_path, file_to_check)) as f:
-                template_json = json.load(f)
-                expected_filename = '{}.{}.json'.format(template_json['providerId'].lower(),
-                                                        template_json['serviceId'].lower())
+                try:
+                    template_json = json.load(f)
+                except JSONDecodeError:
+                    # skip invalid template files
+                    continue
+                try:
+                    expected_filename = '{}.{}.json'.format(template_json['providerId'].lower(),
+                                                            template_json['serviceId'].lower())
+                except KeyError:
+                    # skip templates without required fields providerId and serviceId
+                    continue
                 # if file contains other providerId/serviceId - ignore
                 if expected_filename != file_to_check:
                     continue
