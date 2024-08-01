@@ -139,7 +139,7 @@ def TestRecords(title, template_records, zone_records, domain, host, params, exp
     if verbose:
         print('Zone = ' + str(zone_records))
         print('Domain = ' + domain)
-        print( 'Host = ' + host)
+        print('Host = ' + host)
         print('Template = ' + str(template_records))
         print('Params = ' + str(params))
 

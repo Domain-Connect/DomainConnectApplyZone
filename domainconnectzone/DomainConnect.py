@@ -205,7 +205,7 @@ def process_txt_record(template_record, zone_records):
 
     new_record = {'type': 'TXT',
                   'name': template_record['host'],
-                  'data' : template_record['data'],
+                  'data': template_record['data'],
                   'ttl': int(template_record['ttl'])}
 
     # Handle any conflicting deletes
@@ -322,6 +322,7 @@ def process_spfm_record(template_record, zone_records):
         
     return new_record
 
+
 def process_srv_record(template_record, zone_records):
     """
     Will process an srv record from a template.
@@ -336,7 +337,9 @@ def process_srv_record(template_record, zone_records):
                   'name': template_record['name'],
                   'data': template_record['target'],
                   'ttl': int(template_record['ttl']),
-                  'protocol': template_record['protocol'],
+                  'protocol': template_record['protocol']
+                  if template_record['protocol'][0] != '_'
+                  else template_record['protocol'][1:],
                   'service': template_record['service'],
                   'priority': int(template_record['priority']),
                   'weight': int(template_record['weight']),
@@ -345,7 +348,7 @@ def process_srv_record(template_record, zone_records):
     for zone_record in zone_records:
         if (zone_record['type'].upper() == 'SRV' and
             zone_record['name'].lower() == template_record['name'].lower() and
-            '_replace' not in zone_record):
+                '_replace' not in zone_record):
             zone_record['_delete'] = 1
 
     return new_record
@@ -389,6 +392,7 @@ _delete_map = {
     'REDIR301': ['A', 'AAAA', 'CNAME'],
     'REDIR302': ['A', 'AAAA', 'CNAME'],
 }
+
 
 def process_other_record(template_record, zone_records):
     """
@@ -526,8 +530,8 @@ def process_records(template_records, zone_records, domain, host, params,
                 if not is_valid_host_other(template_record['host'], True):
                     raise InvalidData(err_msg)
 
-            elif template_record_type in ['CNAME']:
-                if not is_valid_host_cname(template_record['host']):
+            elif template_record_type in ['CNAME', 'NS']:
+                if not is_valid_host_cname_or_ns(template_record['host']):
                     raise InvalidData(err_msg)
 
         # Points To / Target
@@ -608,8 +612,6 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # Handle the proper processing for each template record type
 
-        new_record = None
-
         if template_record_type in ['SPFM']:
             new_record = process_spfm_record(template_record, zone_records)
         elif template_record_type in ['TXT']:
@@ -619,19 +621,10 @@ def process_records(template_records, zone_records, domain, host, params,
         elif template_record_type in ['REDIR301', 'REDIR302']:
             new_record = process_redir_record(template_record, zone_records)
         else:
-            if (template_record_type in ['CNAME', 'NS'] and
-                    template_record['host'] == '@'):
-                raise HostRequired('Cannot have APEX CNAME or NS without host')
-
             if template_record_type in ['NS']:
                 new_record = process_ns(template_record, zone_records)
             else:
                 new_record = process_other_record(template_record, zone_records)
-
-        # If we didn't get a new record there is nothing else to do
-        if not new_record:
-            continue
-
 
         # Setting any record type that isn't an NS record has an extra delete
         # rule.
@@ -714,7 +707,7 @@ def process_records(template_records, zone_records, domain, host, params,
 #
 # Given an input string will prompt for a variable value, adding the key/value to the passed in dictionary
 #
-def prompt_variables(template_record, value, params):
+def get_record_variables(template_record, value, params):
                     
     leading = False
     value_processing = value
@@ -734,9 +727,7 @@ def prompt_variables(template_record, value, params):
                 print(template_record)
                 leading = True
 
-            print('Enter value for ' + name + ':')
-            v = raw_input()
-            params[name] = v
+            params[name] = None
 
         value_processing = value_processing.replace('%' + name + '%', '')
 
@@ -746,7 +737,7 @@ def prompt_variables(template_record, value, params):
 #
 # Will prompt for the variable values in each record in the template
 #
-def prompt_records(template_records, group=None):
+def get_records_variables(template_records, group=None):
 
     params = {}
 
@@ -756,25 +747,25 @@ def prompt_records(template_records, group=None):
         template_record_type = template_record['type']
 
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS', 'TXT', 'SPFM', 'REDIR301', 'REDIR302']:
-            prompt_variables(template_record, template_record['host'], params)
+            get_record_variables(template_record, template_record['host'], params)
 
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
-            prompt_variables(template_record, template_record['pointsTo'], params)
+            get_record_variables(template_record, template_record['pointsTo'], params)
 
         if template_record_type in ['TXT']:
-            prompt_variables(template_record, template_record['data'], params)
+            get_record_variables(template_record, template_record['data'], params)
 
         if template_record_type in ['SPFM']:
-            prompt_variables(template_record, template_record['spfRules'], params)
+            get_record_variables(template_record, template_record['spfRules'], params)
 
         if template_record_type in ['SRV']:
-            prompt_variables(template_record, template_record['name'], params)
-            prompt_variables(template_record, template_record['target'], params)
-            prompt_variables(template_record, template_record['protocol'], params)
-            prompt_variables(template_record, template_record['service'], params)
+            get_record_variables(template_record, template_record['name'], params)
+            get_record_variables(template_record, template_record['target'], params)
+            get_record_variables(template_record, template_record['protocol'], params)
+            get_record_variables(template_record, template_record['service'], params)
 
         if template_record_type in ['REDIR301', 'REDIR302']:
-            prompt_variables(template_record, template_record['target'], params)
+            get_record_variables(template_record, template_record['target'], params)
 
     return params
 
@@ -847,12 +838,16 @@ class DomainConnectTemplates(object):
                 validate(template, self._schema)
             except ValidationError as ve:
                 raise InvalidTemplate(f"{ve.message}")
+
         #check for fields which should never contain variables
         for r in template["records"]:
             for field in ["groupId", "type", "ttl", "essential", "txtConflictMatchingMode", "txtConflictMatchingPrefix",
                           "weight", "port"]:
                 if field in r and f'{r[field]}'.find("%") != -1:
                     raise InvalidTemplate(f'Forbidden variable in record {r["type"].upper()} field {field.upper()}: {r[field]}')
+
+        #validate if all variables can be extracted
+        DomainConnectTemplates.get_variable_names(template)
 
     def update_template(self, template):
         if not os.access(self._template_path, os.W_OK):
@@ -880,13 +875,7 @@ class DomainConnectTemplates(object):
 
     @staticmethod
     def get_variable_names(template, variables=None, group=None):
-        global raw_input
-        try:
-            old_raw_input = raw_input
-            raw_input = lambda: ''
-            params = prompt_records(template['records'], group)
-        finally:
-            raw_input = old_raw_input
+        params = get_records_variables(template['records'], group)
         if group is None:
             pars = {
                 'domain': '',
@@ -1057,4 +1046,9 @@ class DomainConnect(object):
             print(self.data['variableDescription'])
 
         # Prompt for records in the template
-        return prompt_records(self.data['records'])
+        params = get_records_variables(self.data['records'])
+        for param in params:
+            print('Enter value for ' + param + ':')
+            params[param] = raw_input()
+        return params
+

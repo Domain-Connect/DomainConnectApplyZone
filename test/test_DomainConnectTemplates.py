@@ -1,7 +1,7 @@
 import json
 import unittest
 from unittest.mock import patch, mock_open, MagicMock
-from domainconnectzone import DomainConnectTemplates, InvalidData, InvalidTemplate, raw_input
+from domainconnectzone import DomainConnectTemplates, InvalidData, InvalidTemplate
 from jsonschema import validate, ValidationError
 
 class TestDomainConnectTemplates(unittest.TestCase):
@@ -13,7 +13,14 @@ class TestDomainConnectTemplates(unittest.TestCase):
                 "serviceId": "Service",
                 "serviceName": "Service Name",
                 "syncRedirectDomain": "foo.com,bar.net",
-                "records": [{"type": "A", "groupId": "1", "host": "@", "pointsTo": "127.0.0.1", "ttl": 300}]
+                "records": [
+                    {"type": "A", "groupId": "1", "host": "@", "pointsTo": "127.0.0.1", "ttl": 300},
+                    {"type": "TXT", "groupId": "1", "host": "@", "data": "foo", "ttl": 300},
+                    {"type": "SPFM", "groupId": "1", "host": "@", "spfRules": "include:foo.com", "ttl": 300},
+                    {'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com',
+                     'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400},
+                    {'type': 'REDIR301', 'host': 'bar', 'target': 'http://www.bar.foo.com'},
+                ]
             }
         self.dct = DomainConnectTemplates('./test/templates')
 
@@ -161,6 +168,13 @@ class TestDomainConnectTemplates(unittest.TestCase):
         with self.assertRaises(InvalidTemplate):
             self.dct.validate_template(invalid_template)
 
+    def test_invalid_variable_in_records(self):
+        # Test forbidden variable presence in records
+        invalid_template = self.template_base.copy()
+        invalid_template["records"][0]["host"] = "%invalid"
+        with self.assertRaises(InvalidTemplate):
+            self.dct.validate_template(invalid_template)
+
     def test_forbidden_domain_in_syncRedirectDomain(self):
         # Test forbidden characters presence in syncRedirectDomain
         invalid_template = self.template_base.copy()
@@ -189,18 +203,18 @@ class TestDomainConnectTemplatesVariableNames(unittest.TestCase):
     def test_get_variable_names_no_group_no_variables(self):
         # Test without group and variables
         result = DomainConnectTemplates.get_variable_names(self.template)
-        self.assertEqual(result, {"domain": "", "host": "", "group": "", "d": "", "h": ""})
+        self.assertEqual(result, {"domain": '', "host": '', "group": '', "d": None, "h": None})
 
     def test_get_variable_names_with_group(self):
         # Test with group
         result = DomainConnectTemplates.get_variable_names(self.template, group="a")
-        self.assertEqual(result, {"d": ""})
+        self.assertEqual(result, {"d": None})
 
     def test_get_variable_names_with_variables(self):
         # Test with provided variables
         variables = {"d": "customdomain.com", "newvar": "value"}
         result = DomainConnectTemplates.get_variable_names(self.template, variables=variables)
-        self.assertEqual(result, {"domain": "", "host": "", "group": "", "d": "customdomain.com", "h": ""})
+        self.assertEqual(result, {"domain": '', "host": '', "group": '', "d": "customdomain.com", "h": None})
 
 
 class TestDomainConnectTemplatesGetGroupIDs(unittest.TestCase):

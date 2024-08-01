@@ -41,7 +41,7 @@ def is_valid_host_other(input, allow_underscores):
     return all(allowed.match(x.lstrip('_')) if allow_underscores else allowed.match(x) for x in input.split("."))
 
 
-def is_valid_host_cname(input):
+def is_valid_host_cname_or_ns(input):
     """
     Will validate the input as a valid host value for a cname
     """

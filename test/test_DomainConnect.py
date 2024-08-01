@@ -114,12 +114,33 @@ class DomainConnectTests(unittest.TestCase):
         zone_records = []
         template_records = [
             {'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400},
+            {'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': 'TCP', 'service': 'foo.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400},
+            {'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': 'TLS', 'service': 'foo.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400},
+        ]
+        expected_records = [
+            {'type': 'SRV', 'name': '_abc.bar', 'data': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400},
+            {'type': 'SRV', 'name': '_abc.bar', 'data': '127.0.0.1', 'protocol': 'TCP', 'service': 'foo.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400},
+            {'type': 'SRV', 'name': '_abc.bar', 'data': '127.0.0.1', 'protocol': 'TLS', 'service': 'foo.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}
+        ]
+
+        self._test_records('SRV Add', template_records, zone_records, 'foo.com', 'bar',
+                           {'v1': '1'}, expected_records, new_count=3, delete_count=0)
+
+        zone_records = []
+        template_records = [
+            {'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': '_UDP', 'service': 'foo.com',
              'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
         expected_records = [
             {'type': 'SRV', 'name': '_abc.bar', 'data': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com',
              'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
 
-        self._test_records('SRV Add', template_records, zone_records, 'foo.com', 'bar',
+        self._test_records('SRV Add remove underscore in protocol', template_records, zone_records, 'foo.com', 'bar',
                            {'v1': '1'}, expected_records, new_count=1, delete_count=0)
 
         zone_records = []
@@ -132,6 +153,22 @@ class DomainConnectTests(unittest.TestCase):
 
         self._test_records('SRV Add with @ name on subdomain', template_records, zone_records, 'foo.com', 'bar',
                            {'v1': '1'}, expected_records, new_count=1, delete_count=0)
+
+        zone_records = [
+            {'type': 'SRV', 'name': '_abc.bar', 'data': '127.0.0.1', 'protocol': 'UDP', 'service': 'foo.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}
+        ]
+        template_records = [
+            {'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': 'UDP', 'service': 'bar.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
+        expected_records = [
+            {'type': 'SRV', 'name': '_abc.bar', 'data': '127.0.0.1', 'protocol': 'UDP', 'service': 'bar.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}
+        ]
+
+        self._test_records('SRV replace', template_records, zone_records, 'foo.com', 'bar',
+                           {'v1': '1'}, expected_records, new_count=1, delete_count=1)
+
 
     def test_SPFM(self):
         zone_records = [
@@ -232,6 +269,24 @@ class DomainConnectTests(unittest.TestCase):
         zone_records = [
             {'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
             {'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
+            {'type': 'CNAME', 'name': 'foo', 'data': 'foo.com', 'ttl': 500},
+        ]
+        template_records = [
+            {'type': 'TXT', 'host': '@', 'data': 'abcnew', 'ttl': 600}
+        ]
+        expected_records = [
+            {'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
+            {'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
+            {'type': 'TXT', 'name': 'foo', 'data': 'abcnew', 'ttl': 600}
+        ]
+
+        self._test_records('TXT conflict CNAME', template_records, zone_records, 'foo.com', 'foo', {},
+                           expected_records,
+                           new_count=1, delete_count=1)
+
+        zone_records = [
+            {'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
+            {'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
             {'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
         ]
         template_records = [
@@ -294,6 +349,25 @@ class DomainConnectTests(unittest.TestCase):
         ]
         self._test_records('CNAME Delete', template_records, zone_records, 'foo.com', 'bar', {}, expected_records,
                            new_count=1, delete_count=3)
+
+
+    def test_MX(self):
+        zone_records = [
+            {'type': 'MX', 'name': '@', 'data': 'mx1', 'ttl': 400, 'priority': 4},
+            {'type': 'MX', 'name': '@', 'data': 'mx2', 'ttl': 400, 'priority': 10},
+            {'type': 'CNAME', 'name': 'foo', 'data': 'abc', 'ttl': 400},
+            {'type': 'A', 'name': '@', 'data': 'abc', 'ttl': 400}
+        ]
+        template_records = [
+            {'type': 'MX', 'host': '@', 'pointsTo': 'newmx', 'ttl': 400, 'priority': 5},
+        ]
+        expected_records = [
+            {'type': 'MX', 'name': '@', 'data': 'newmx', 'ttl': 400, 'priority': 5},
+            {'type': 'CNAME', 'name': 'foo', 'data': 'abc', 'ttl': 400},
+            {'type': 'A', 'name': '@', 'data': 'abc', 'ttl': 400}
+        ]
+        self._test_records('MX conflict replace', template_records, zone_records, 'foo.com', '', {}, expected_records,
+                           new_count=1, delete_count=2)
 
     def test_exception(self):
         zone_records = []
@@ -416,6 +490,59 @@ class DomainConnectTests(unittest.TestCase):
                                      '', {},
                                      InvalidData, redirect_records=redir_template)
 
+        template_records = [{'type': 'REDIR301', 'host': '@', 'target': '', 'ttl': 600}]
+        self._test_records_exception("REDIR301 missing redirect_records", template_records, zone_records, 'foo.com',
+                                     '', {},
+                                     InvalidTemplate)
+
+        template_records = [{'type': 'CAA', 'host': '@', 'data': 'xxx', 'ttl': 600}]
+        self._test_records_exception("CAA template not supported exception", template_records, zone_records, 'foo.com',
+                                     '', {},
+                                     TypeError)
+
+        template_records = [{'type': 'TXT', 'host': '@', 'data': '%var', 'ttl': 600}]
+        self._test_records_exception("Variable not closed", template_records, zone_records, 'foo.com',
+                                     '', {},
+                                     InvalidTemplate)
+
+        zone_records = [
+        ]
+        template_records = [{'type': 'SPFM', 'host': '_underscore', 'spfRules': 'foo'}]
+        self._test_records_exception('SPFM with invalid underscore host', template_records, zone_records, 'foo.com', '',
+                           {}, InvalidData)
+
+        zone_records = [
+        ]
+        template_records = [{'type': 'TXT', 'host': 'with space', 'data': 'foo'}]
+        self._test_records_exception('TXT with invalid host', template_records, zone_records, 'foo.com', '',
+                           {}, InvalidData)
+
+        zone_records = [
+        ]
+        template_records = [
+            {'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': 'UDP', 'service': 'this is invalid host',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
+        self._test_records_exception('SRV invalid service host', template_records, zone_records, 'foo.com', 'bar',
+                           {}, InvalidData)
+
+        zone_records = [
+        ]
+        template_records = [
+            {'type': 'SRV', 'name': '_abc', 'target': 'this is invalid', 'protocol': 'UDP', 'service': 'foo.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
+        self._test_records_exception('SRV invalid target host', template_records, zone_records, 'foo.com', 'bar',
+                           {}, InvalidData)
+
+        zone_records = [
+        ]
+        template_records = [
+            {'type': 'SRV', 'name': '_abc', 'target': '127.0.0.1', 'protocol': 'bla', 'service': 'foo.com',
+             'priority': 10, 'weight': 10, 'port': 5, 'ttl': 400}]
+        self._test_records_exception('SRV invalid protocol', template_records, zone_records, 'foo.com', 'bar',
+                           {}, InvalidData)
+
+
+
     def test_group(self):
         zone_records = [
             {'type': 'A', 'name': 'bar', 'data': 'abc', 'ttl': 400},
@@ -458,6 +585,7 @@ class DomainConnectTests(unittest.TestCase):
         self._test_records('Apply Group 1 and 2', template_records, zone_records, 'foo.com', 'bar', {},
                            expected_records,
                            group_ids=['1', '2'], new_count=2, delete_count=1)
+
 
     def test_parameter(self):
         zone_records = []
