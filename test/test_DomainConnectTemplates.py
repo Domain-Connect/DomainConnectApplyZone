@@ -1,6 +1,6 @@
 import json
 import unittest
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, mock_open, MagicMock, call
 from domainconnectzone import DomainConnectTemplates, InvalidData, InvalidTemplate
 from jsonschema import validate, ValidationError
 
@@ -257,6 +257,74 @@ class TestDomainConnectTemplatesGetGroupIDs(unittest.TestCase):
         }
         groups = DomainConnectTemplates.get_group_ids(template)
         self.assertEqual(groups, ["group1"])
+
+
+class TestDomainConnectTemplatesUpdate(unittest.TestCase):
+    @patch('os.listdir', return_value=['provider1.service1.json', 'invalid.json', 'provider2.service2.json'])
+    @patch('os.path.isfile', return_value=True)
+    @patch('os.path.isdir', return_value=True)
+    @patch('os.access', return_value=True)
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps({
+        "providerId": "provider1", "serviceId": "service1", "records": []
+    }))
+    def test_update_existing_template(self,  mock_open, mock_access, mock_isfile, mock_isdir, mock_listdir):
+        dct = DomainConnectTemplates('/valid/path')
+        template = {"providerId": "provider1", "serviceId": "service1", "description": "foo", "records": []}
+
+        with patch.object(dct, 'validate_template') as mock_validate:
+            dct.update_template(template)
+            mock_validate.assert_called_once_with(template)
+            mock_open.assert_called_with('/valid/path/provider1.service1.json', "w")
+            mock_open().write.assert_has_calls(
+                [call('{'),
+                 call('\n  '),
+                 call('"providerId"'),
+                 call(': '),
+                 call('"provider1"'),
+                 call(',\n  '),
+                 call('"serviceId"'),
+                 call(': '),
+                 call('"service1"'),
+                 call(',\n  '),
+                 call('"description"'),
+                 call(': '),
+                 call('"foo"'),
+                 call(',\n  '),
+                 call('"records"'),
+                 call(': '),
+                 call('[]'),
+                 call('\n'),
+                 call('}')]
+            )
+
+    @patch('os.path.isdir', return_value=True)
+    @patch('os.access', side_effect=[True, False])
+    @patch('os.listdir', return_value=['provider1.service1.json', 'invalid.json', 'provider2.service2.json'])
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps({
+        "providerId": "provider1", "serviceId": "service1", "records": []
+    }))
+    def test_update_template_folder_not_writable(self, mock_open, mock_listdir, mock_access, mock_isdir):
+        dct = DomainConnectTemplates('/valid/path')
+        template = {"providerId": "provider1", "serviceId": "service1", "description": "new", "records": []}
+
+        with self.assertRaises(EnvironmentError) as context:
+            dct.update_template(template)
+        self.assertEqual(str(context.exception), "Cannot write to the configured template folder.")
+
+    @patch('os.path.isdir', return_value=True)
+    @patch('os.access', side_effect=[True, True])
+    @patch('os.listdir', return_value=['provider1.service1.json', 'invalid.json', 'provider2.service2.json'])
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps({
+        "providerId": "provider1", "serviceId": "service1", "records": []
+    }))
+    def test_update_template_not_found(self, mock_open, mock_listdir, mock_access, mock_isdir):
+        dct = DomainConnectTemplates('/valid/path')
+        template = {"providerId": "provider3", "serviceId": "service3", "records": []}
+
+        with self.assertRaises(InvalidTemplate) as context:
+            dct.update_template(template)
+        self.assertEqual(str(context.exception), "Cannot find template provider3 / service3")
+
 
 if __name__ == '__main__':
     unittest.main()

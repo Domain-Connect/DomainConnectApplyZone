@@ -65,7 +65,7 @@ def get_publickey(domain):
                 elif kv.startswith('t=') and kv != 't=x509':
                     return None
 
-            if index != -1 and indexData != None:
+            if index != -1 and indexData is not None:
                 segments[index] = indexData
 
         keys = segments.keys()

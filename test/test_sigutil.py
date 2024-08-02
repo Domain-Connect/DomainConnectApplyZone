@@ -107,7 +107,9 @@ class TestGetPublicKey(unittest.TestCase):
         record1.strings = [b'a=RS256,t=x509,p=0,d=MIIBIjANBg']
         record2 = MagicMock()
         record2.strings = [b'a=RS256,t=x509,p=1,d=kqG9w0BAQEFAAOCAQ8AMIIBCgKCAQE']
-        mock_records.__iter__.return_value = [record1, record2]
+        record3 = MagicMock()
+        record3.strings = [b'p=2']
+        mock_records.__iter__.return_value = [record1, record2, record3]
         mock_query.return_value = mock_records
 
         # Test get_publickey function with fully specified parameters
