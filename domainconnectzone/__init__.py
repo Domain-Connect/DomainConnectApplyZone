@@ -3,4 +3,5 @@ from domainconnectzone.qsutil import qs2dict, qsfilter
 from domainconnectzone.DomainConnect import \
     DomainConnect, process_records, \
     InvalidTemplate, HostRequired, \
-    InvalidSignature, MissingParameter, InvalidData, resolve_variables, DomainConnectTemplates
+    InvalidSignature, MissingParameter, InvalidData, resolve_variables
+from domainconnectzone.DomainConnectTemplates import DomainConnectTemplates

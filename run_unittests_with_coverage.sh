@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+
 # contents of test_coverage.sh
 coverage erase
 coverage run -m unittest discover ./test

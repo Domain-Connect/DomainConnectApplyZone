@@ -4,8 +4,38 @@ from unittest.mock import patch, mock_open, MagicMock, call
 from domainconnectzone import DomainConnectTemplates, InvalidData, InvalidTemplate
 from jsonschema import validate, ValidationError
 
+
 class TestDomainConnectTemplates(unittest.TestCase):
-    def setUp(self):
+    @patch('os.path.isfile', return_value=True)
+    @patch('os.path.isdir', return_value=True)
+    @patch('os.access', return_value=True)
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps(
+        {
+            "properties": {
+                "providerId": {
+                    "type": "string"
+                },
+                "providerName": {
+                    "type": "string"
+                },
+                "serviceId": {
+                    "type": "string"
+                },
+                "serviceName": {
+                    "type": "string"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                }
+            },
+            "required": ["providerId", "providerName", "serviceId", "serviceName"]
+        }
+    ))
+    def setUp(self, mock_open, mock_access, mock_isfile, mock_isdir):
+        self._dct = DomainConnectTemplates('./test/templatesh')
         self.template_base = \
             {
                 "providerId": "Provider",
@@ -22,7 +52,6 @@ class TestDomainConnectTemplates(unittest.TestCase):
                     {'type': 'REDIR301', 'host': 'bar', 'target': 'http://www.bar.foo.com'},
                 ]
             }
-        self.dct = DomainConnectTemplates('./test/templates')
 
     @patch('os.path.isdir')
     @patch('os.access')
@@ -143,7 +172,7 @@ class TestDomainConnectTemplates(unittest.TestCase):
 
     def test_validate_template_success(self):
         # Test successful template validation
-        self.dct.validate_template(self.template_base)
+        self._dct.validate_template(self.template_base)
 
     def test_invalid_provider_service_id(self):
         # Test with invalid providerId and serviceId
@@ -151,7 +180,7 @@ class TestDomainConnectTemplates(unittest.TestCase):
         invalid_template["providerId"] = "invalid provider!"
         invalid_template["serviceId"] = "invalid service!"
         with self.assertRaises(InvalidData):
-            self.dct.validate_template(invalid_template)
+            self._dct.validate_template(invalid_template)
 
     def test_invalid_domain_names(self):
         # Test with invalid domain names in syncPubKeyDomain and syncRedirectDomain
@@ -159,35 +188,35 @@ class TestDomainConnectTemplates(unittest.TestCase):
         invalid_template["syncPubKeyDomain"] = "invalid-domain..com"
         invalid_template["syncRedirectDomain"] = "another-invalid-domain..com"
         with self.assertRaises(InvalidData):
-            self.dct.validate_template(invalid_template)
+            self._dct.validate_template(invalid_template)
 
     def test_forbidden_variable_in_records(self):
         # Test forbidden variable presence in records
         invalid_template = self.template_base.copy()
         invalid_template["records"][0]["groupId"] = "%invalid%"
         with self.assertRaises(InvalidTemplate):
-            self.dct.validate_template(invalid_template)
+            self._dct.validate_template(invalid_template)
 
     def test_invalid_variable_in_records(self):
         # Test forbidden variable presence in records
         invalid_template = self.template_base.copy()
         invalid_template["records"][0]["host"] = "%invalid"
         with self.assertRaises(InvalidTemplate):
-            self.dct.validate_template(invalid_template)
+            self._dct.validate_template(invalid_template)
 
     def test_forbidden_domain_in_syncRedirectDomain(self):
         # Test forbidden characters presence in syncRedirectDomain
         invalid_template = self.template_base.copy()
         invalid_template["syncRedirectDomain"] = "foo.&pl"
         with self.assertRaises(InvalidData):
-            self.dct.validate_template(invalid_template)
+            self._dct.validate_template(invalid_template)
 
     def test_schema_validation_error(self):
         # Test invalid template
         invalid_template = self.template_base.copy()
         del invalid_template["providerName"]
         with self.assertRaises(InvalidTemplate):
-            self.dct.validate_template(invalid_template)
+            self._dct.validate_template(invalid_template)
 
 
 class TestDomainConnectTemplatesVariableNames(unittest.TestCase):
@@ -324,6 +353,65 @@ class TestDomainConnectTemplatesUpdate(unittest.TestCase):
         with self.assertRaises(InvalidTemplate) as context:
             dct.update_template(template)
         self.assertEqual(str(context.exception), "Cannot find template provider3 / service3")
+
+
+class TestDomainConnectTemplatesCreate(unittest.TestCase):
+    @patch('os.path.isfile', return_value=True)
+    @patch('os.path.isdir', return_value=True)
+    @patch('os.access', return_value=True)
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps({}))
+    def setUp(self, mock_open, mock_access, mock_isfile, mock_isdir):
+        self._dct = DomainConnectTemplates('/valid/path')
+
+    @patch('os.listdir', return_value=[])
+    @patch('os.access', return_value=True)
+    @patch('builtins.open', new_callable=mock_open)
+    def test_create_new_template(self, mock_open, mock_access, mock_listdir):
+        template = {"providerId": "provider2", "serviceId": "service2", "records": []}
+
+        with patch.object(self._dct, 'validate_template') as mock_validate:
+            self._dct.create_template(template)
+            mock_validate.assert_called_once_with(template)
+            mock_open.assert_has_calls([call('/valid/path/provider2.service2.json', "w")])
+            mock_open().write.assert_has_calls([
+                call('{'),
+                call('\n  '),
+                call('"providerId"'),
+                call(': '),
+                call('"provider2"'),
+                call(',\n  '),
+                call('"serviceId"'),
+                call(': '),
+                call('"service2"'),
+                call(',\n  '),
+                call('"records"'),
+                call(': '),
+                call('[]'),
+                call('\n'),
+                call('}')
+            ])
+
+    @patch('os.listdir', return_value=[])
+    @patch('os.access', return_value=False)
+    @patch('builtins.open', new_callable=mock_open)
+    def test_create_template_folder_not_writable(self, mock_open, mock_access, mock_listdir):
+        template = {"providerId": "provider2", "serviceId": "service2", "content": "new content"}
+
+        with self.assertRaises(EnvironmentError) as context:
+            self._dct.create_template(template)
+        self.assertEqual(str(context.exception), "Cannot write to the configured template folder.")
+
+    @patch('os.listdir', return_value=["provider1.service1.json"])
+    @patch('os.access', return_value=True)
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps(
+        {"providerId": "provider1", "serviceId": "service1", "records": []}
+    ))
+    def test_create_template_already_exists(self, mock_open, mock_access, mock_listdir):
+        template = {"providerId": "provider1", "serviceId": "service1", "records": [], "description": "foo"}
+
+        with self.assertRaises(InvalidTemplate) as context:
+            self._dct.create_template(template)
+        self.assertEqual(str(context.exception), "Template provider1 / service1 already exists.")
 
 
 if __name__ == '__main__':

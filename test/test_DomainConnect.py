@@ -1,5 +1,6 @@
 import unittest
 from domainconnectzone import *
+import os
 
 HOST_TOO_LONG = '0123456789.123456789.123456789.123456789.123456789.123456789.123456789' \
       '.123456789.123456789.123456789.123456789.123456789.123456789.123456789' \
@@ -10,7 +11,7 @@ HOST_TOO_LONG = '0123456789.123456789.123456789.123456789.123456789.123456789.12
 class DomainConnectTests(unittest.TestCase):
     def setUp(self):
         # Setup common to all test (if any)
-        self.template_dir = './test/templates'
+        self.template_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
         # Additional setup ...
 
     def tearDown(self):
@@ -732,6 +733,42 @@ class DomainConnectTests(unittest.TestCase):
         if expected_records is not None:
             self.assertEqual(expected_records, final_records, title)
 
+    def test_DomainConnectClass_not_existing_template_default_dir(self):
+        with self.assertRaises(InvalidTemplate):
+            DomainConnect('foo', "bar")
+
+    def test_DomainConnectClass_custom_template(self):
+        dc = DomainConnect(None, None, template={"providerId": "foo"})
+        self.assertEqual(dc.data, {"providerId": "foo"})
+
+    def test_DomainConnectClass_verify_sig(self):
+        dc = DomainConnect(None, None, template={"providerId": "foo", "syncPubKeyDomain": "exampleservice.domainconnect.org"})
+        query_string = "a=1&b=2&ip=10.10.10.10&domain=foobar.com"
+        signature = "rxWqGP0qPPzaj+9zukKC/jZqz4ic7bHO62GyGlxqcnz6s9/tEPJccwJfku8jD9ofK3eTJpKJLTsYN00SN9qyx0YXVT8baPtkavMpT+epcuDaUbcyXo270s7RQmwPAo0C8I1NLodGbzTUvTktwdgZPRT3Oda1Hyk7eFJetmocLv6iGICAsPkCf32C8EcQcxYjQ56ytINInFQwKOLuZr8g3AMNOVX73Qu3rnuB4Zl2BKOQi9dikzUxOyAsOLMUrWLbXthpwJ2cl5ek2QSg9KX+2WhEyQmaaJWveYVkYCRL1ckMkq35pIq++RJI48CbTIQPPh2VdqZsUSu16fKztrt9pw=="
+        key = "_dck1"
+        dc.verify_sig(query_string, signature, key)
+
+        with self.assertRaises(InvalidSignature) as ex:
+            dc.verify_sig(None, signature, key)
+        self.assertEqual("Missing data for signature verification", str(ex.exception))
+
+        with self.assertRaises(InvalidSignature) as ex:
+            dc.verify_sig(query_string, None, key)
+        self.assertEqual("Missing data for signature verification", str(ex.exception))
+
+        with self.assertRaises(InvalidSignature) as ex:
+            dc.verify_sig(query_string, signature, None)
+        self.assertEqual("Missing data for signature verification", str(ex.exception))
+
+        with self.assertRaises(InvalidSignature) as ex:
+            dc.verify_sig(query_string, signature, "_not_existing_key")
+        self.assertEqual("Unable to get public key for template/key from _not_existing_key.exampleservice.domainconnect.org", str(ex.exception))
+
+        with self.assertRaises(InvalidSignature) as ex:
+            dc.verify_sig(query_string + "&blah=blah", signature, key)
+        self.assertEqual("Signature not valid", str(ex.exception))
+
+
     def test_template(self):
         zone_records = []
         expected_records = [{'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 1800},
@@ -797,6 +834,23 @@ class DomainConnectTests(unittest.TestCase):
                             'bar', {'IP': '132.148.25', 'RANDOMTEXT': 'shm:1551036164:hello'}, None, 3, 0,
                             expected_records,
                             qs=qs, sig=sig, key=key)
+
+        zone_records = []
+        expected_records = [{'type': 'CNAME', 'name': 'bar', 'data': 'foo.com', 'ttl': 1800}]
+        self._test_template('Template with hostRequiredTest, host OK', zone_records, 'exampleservice.domainconnect.org',
+                            'templatehostrequired',
+                            'foo.com',
+                            'bar', {}, None, 1, 0,
+                            expected_records)
+
+        with self.assertRaises(HostRequired) as ex:
+            self._test_template('Template with hostRequiredTest, host empty', zone_records, 'exampleservice.domainconnect.org',
+                                'templatehostrequired',
+                                'foo.com',
+                                None, {}, None, 1, 0,
+                                expected_records)
+        self.assertEqual("Template requires a host name", str(ex.exception))
+
 
     def test_multi(self):
         zone_records = [{'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 400,
