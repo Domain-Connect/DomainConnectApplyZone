@@ -2,7 +2,12 @@
 import unittest
 from domainconnectzone import *
 import os
-from unittest.mock import patch
+import sys
+
+if sys.version_info >= (3, 3):
+    from unittest.mock import patch
+else:
+    from mock import patch
 
 HOST_TOO_LONG = '0123456789.123456789.123456789.123456789.123456789.123456789.123456789' \
       '.123456789.123456789.123456789.123456789.123456789.123456789.123456789' \

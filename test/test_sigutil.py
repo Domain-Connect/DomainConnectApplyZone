@@ -1,5 +1,10 @@
 import unittest
-from unittest.mock import patch, MagicMock
+
+import sys
+if sys.version_info >= (3, 3):
+    from unittest.mock import patch, MagicMock
+else:
+    from mock import patch, MagicMock
 
 from domainconnectzone.sigutil import verify_sig, generate_sig, get_publickey
 
