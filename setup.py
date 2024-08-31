@@ -56,7 +56,7 @@ setup(
     author='domainconnect.org',
     url='https://github.com/Domain-Connect/domainconnectzone',
     long_description=LONG_DESCRIPTION,
-    packages=find_packages(),
+    packages=find_packages(exclude=["test", "test.*"]),
     install_requires=[
         'ipy>=1.1',
         'six>=1.16.0',
