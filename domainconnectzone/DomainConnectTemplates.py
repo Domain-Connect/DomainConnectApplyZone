@@ -1,6 +1,5 @@
 import json
 import os
-from json import JSONDecodeError
 from re import compile, search
 
 from jsonschema import validate, ValidationError
@@ -36,7 +35,7 @@ class DomainConnectTemplates(object):
             with open(os.path.join(self._template_path, file_to_check)) as f:
                 try:
                     template_json = json.load(f)
-                except JSONDecodeError:
+                except ValueError:
                     # skip invalid template files
                     continue
                 try:
