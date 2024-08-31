@@ -1,0 +1,16 @@
+{
+  "providerId": "exampleservice.domainconnect.org",
+  "providerName": "Example Domain Connect Service",
+  "serviceId": "testmultiinstance",
+  "serviceName": "Test multi instance template",
+  "multiInstance": true,
+  "version": 1,
+  "records": [
+    {
+      "type": "TXT",
+      "host": "@",
+      "data": "%test%",
+      "ttl": 1800
+    }
+  ]
+}

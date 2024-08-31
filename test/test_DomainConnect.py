@@ -702,7 +702,9 @@ class DomainConnectTests(unittest.TestCase):
 
     def _test_template(self, title, zone_records, provider_id, service_id, domain, host, params, group_ids, new_count,
                        delete_count,
-                       expected_records, verbose=False, qs=None, sig=None, key=None, ignore_signature=False):
+                       expected_records, verbose=False,
+                       qs=None, sig=None, key=None, ignore_signature=False,
+                       multi_aware=False, unique_id=None):
 
         dc = DomainConnect(provider_id, service_id, self.template_dir,
                            redir_template_records=[
@@ -712,7 +714,8 @@ class DomainConnectTests(unittest.TestCase):
 
         new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params,
                                                                         group_ids=group_ids, qs=qs, sig=sig,
-                                                                        key=key, ignore_signature=ignore_signature)
+                                                                        key=key, ignore_signature=ignore_signature,
+                                                                        multi_aware=multi_aware, unique_id=unique_id)
 
         if expected_records is not None:
             expected_records = sorted(expected_records, key=lambda i: (i['type'], i['name'],
@@ -767,7 +770,6 @@ class DomainConnectTests(unittest.TestCase):
         with self.assertRaises(InvalidSignature) as ex:
             dc.verify_sig(query_string + "&blah=blah", signature, key)
         self.assertEqual("Signature not valid", str(ex.exception))
-
 
     def test_template(self):
         zone_records = []
@@ -851,6 +853,72 @@ class DomainConnectTests(unittest.TestCase):
                                 expected_records)
         self.assertEqual("Template requires a host name", str(ex.exception))
 
+    def test_template_multiinstance(self):
+        zone_records = []
+        expected_records = [{'type': 'TXT', 'name': '@', 'data': 'foo', 'ttl': 1800,
+                             '_dc': {'essential': 'Always', 'host': '', 'id': 'id1', 'providerId': 'exampleservice.domainconnect.org', 'serviceId': 'testmultiinstance'}}]
+        self._test_template('Apply Template Test - multi simple', zone_records,
+                            'exampleservice.domainconnect.org', 'testmultiinstance',
+                            'foo.com',
+                            '', {'IP': '127.0.0.1', 'test': 'foo'}, None, 1, 0, expected_records,
+                            multi_aware=True, unique_id='id1')
+
+        zone_records = [
+            {'_dc': {'essential': 'Always',
+                                  'host': '',
+                                  'id': 'id1',
+                                  'providerId': 'exampleservice.domainconnect.org',
+                                  'serviceId': 'template1'},
+              'data': '127.0.0.1',
+              'name': '@',
+              'ttl': 1800,
+              'type': 'A'},
+             {'_dc': {'essential': 'Always',
+                      'host': '',
+                      'id': 'id1',
+                      'providerId': 'exampleservice.domainconnect.org',
+                      'serviceId': 'template1'},
+              'data': 'foo',
+              'name': '@',
+              'ttl': 1800,
+              'type': 'TXT'}]
+        expected_records = [
+            {'_dc': {'essential': 'Always',
+                                  'host': '',
+                                  'id': 'id2',
+                                  'providerId': 'exampleservice.domainconnect.org',
+                                  'serviceId': 'template1'},
+              'data': '127.0.0.1',
+              'name': '@',
+              'ttl': 1800,
+              'type': 'A'},
+             {'_dc': {'essential': 'Always',
+                      'host': '',
+                      'id': 'id2',
+                      'providerId': 'exampleservice.domainconnect.org',
+                      'serviceId': 'template1'},
+              'data': 'bar',
+              'name': '@',
+              'ttl': 1800,
+              'type': 'TXT'}]
+        self._test_template('Apply Template Test - multi aware normal re-apply', zone_records,
+                            'exampleservice.domainconnect.org', 'template1',
+                            'foo.com',
+                            '', {'IP': '127.0.0.1', 'RANDOMTEXT': 'bar'}, None, 2, 2, expected_records,
+                            multi_aware=True, unique_id='id2')
+
+        zone_records = [{'type': 'TXT', 'name': '@', 'data': 'foo', 'ttl': 1800,
+                             '_dc': {'essential': 'Always', 'host': '', 'id': 'id1', 'providerId': 'exampleservice.domainconnect.org', 'serviceId': 'testmultiinstance'}}]
+        expected_records = [
+            {'type': 'TXT', 'name': '@', 'data': 'foo', 'ttl': 1800,
+                             '_dc': {'essential': 'Always', 'host': '', 'id': 'id1', 'providerId': 'exampleservice.domainconnect.org', 'serviceId': 'testmultiinstance'}},
+            {'type': 'TXT', 'name': '@', 'data': 'bar', 'ttl': 1800,
+                             '_dc': {'essential': 'Always', 'host': '', 'id': 'id2', 'providerId': 'exampleservice.domainconnect.org', 'serviceId': 'testmultiinstance'}},
+        ]
+        self._test_template('Apply Template Test - multi add not conflict', zone_records,
+                            'exampleservice.domainconnect.org', 'testmultiinstance',
+                            'foo.com',
+                            '', {'IP': '127.0.0.1', 'test': 'bar'}, None, 1, 0, expected_records, multi_aware=True, unique_id='id2')
 
     def test_multi(self):
         zone_records = [{'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 400,

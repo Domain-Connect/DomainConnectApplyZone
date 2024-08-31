@@ -835,7 +835,8 @@ class DomainConnect(object):
 
     def apply_template(self, zone_records, domain, host, params,
                        group_ids=None, qs=None, sig=None, key=None,
-                       ignore_signature=False, multi_aware=False):
+                       ignore_signature=False, multi_aware=False,
+                       unique_id=None):
         """
         Will apply the template to the zone
 
@@ -850,6 +851,10 @@ class DomainConnect(object):
         params contains the parameters for variable substitution.
 
         qs/sig/key are passed in if signature verification is required
+
+        multi_aware determines if template engine should persist template integrity
+
+        unique_id determines the id of the template instance if provided. Only relevant if multi_aware==True.
 
         Output:
 
@@ -882,10 +887,10 @@ class DomainConnect(object):
 
         # If we are mulit-template aware, generate a unique id for application of this template
         # and determine if the template supports multi-instance
-        unique_id = None
         multi_instance = False
         if multi_aware:
-            unique_id = str(uuid.uuid4())
+            if unique_id is None:
+                unique_id = str(uuid.uuid4())
 
             if 'multiInstance' in self.data:
                 multi_instance = self.data['multiInstance']
