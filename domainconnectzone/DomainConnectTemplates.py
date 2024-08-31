@@ -6,7 +6,7 @@ from re import compile, search
 from jsonschema import validate, ValidationError
 
 from domainconnectzone import InvalidTemplate, InvalidData
-from domainconnectzone.DomainConnect import get_records_variables
+from domainconnectzone.DomainConnectImpl import get_records_variables
 
 
 class DomainConnectTemplates(object):

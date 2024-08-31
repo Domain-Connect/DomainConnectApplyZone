@@ -1,7 +1,7 @@
 import json
 import requests
 
-from domainconnectzone.DomainConnect import *
+from domainconnectzone.DomainConnectImpl import *
 
 try:
     raw_input

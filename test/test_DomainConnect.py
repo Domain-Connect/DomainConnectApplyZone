@@ -1,6 +1,7 @@
 import unittest
 from domainconnectzone import *
 import os
+from unittest.mock import patch
 
 HOST_TOO_LONG = '0123456789.123456789.123456789.123456789.123456789.123456789.123456789' \
       '.123456789.123456789.123456789.123456789.123456789.123456789.123456789' \
@@ -745,11 +746,11 @@ class DomainConnectTests(unittest.TestCase):
             DomainConnect('foo', "bar")
 
     def test_DomainConnectClass_custom_template(self):
-        dc = DomainConnect(None, None, template={"providerId": "foo"})
-        self.assertEqual(dc.data, {"providerId": "foo"})
+        dc = DomainConnect(None, None, template={"providerId": "foo", 'serviceId': "ser"})
+        self.assertEqual(dc.data, {"providerId": "foo", 'serviceId': "ser"})
 
     def test_DomainConnectClass_verify_sig(self):
-        dc = DomainConnect(None, None, template={"providerId": "foo", "syncPubKeyDomain": "exampleservice.domainconnect.org"})
+        dc = DomainConnect(None, None, template={"providerId": "foo", 'serviceId': "ser", "syncPubKeyDomain": "exampleservice.domainconnect.org"})
         query_string = "a=1&b=2&ip=10.10.10.10&domain=foobar.com"
         signature = "rxWqGP0qPPzaj+9zukKC/jZqz4ic7bHO62GyGlxqcnz6s9/tEPJccwJfku8jD9ofK3eTJpKJLTsYN00SN9qyx0YXVT8baPtkavMpT+epcuDaUbcyXo270s7RQmwPAo0C8I1NLodGbzTUvTktwdgZPRT3Oda1Hyk7eFJetmocLv6iGICAsPkCf32C8EcQcxYjQ56ytINInFQwKOLuZr8g3AMNOVX73Qu3rnuB4Zl2BKOQi9dikzUxOyAsOLMUrWLbXthpwJ2cl5ek2QSg9KX+2WhEyQmaaJWveYVkYCRL1ckMkq35pIq++RJI48CbTIQPPh2VdqZsUSu16fKztrt9pw=="
         key = "_dck1"
@@ -1084,6 +1085,92 @@ class DomainConnectTests(unittest.TestCase):
                            new_count=3, delete_count=3,
                            redirect_records=redir_template)
 
+    def test_is_sig_required(self):
+        data = {
+            'providerId': "foo.com",
+            'serviceId': "bar",
+            'syncPubKeyDomain': 'example.com'
+        }
+        dc = DomainConnect(template=data)
+        self.assertTrue(dc.is_sig_required(), "case: signature is required")
+
+        data = {
+            'providerId': "foo.com",
+            'serviceId': "bar"
+        }
+        dc = DomainConnect(template=data)
+        self.assertFalse(dc.is_sig_required(), "case: signature is not required")
+
+    def test_domain_connect_class_constructor(self):
+        with self.assertRaises(InvalidTemplate, msg="No paramaters"):
+            DomainConnect()
+        with self.assertRaises(InvalidTemplate, msg="Just serviceId"):
+            DomainConnect(service_id='foo')
+        with self.assertRaises(InvalidTemplate, msg="Just providerId"):
+            DomainConnect(provider_id='bar')
+        with self.assertRaises(InvalidTemplate, msg="Just providerId positional"):
+            DomainConnect('foo')
+
+        # ok creator with data folder
+        dc = DomainConnect('exampleservice.domainconnect.org', 'template1', self.template_dir)
+        self.assertEqual(dc.provider_id, "exampleservice.domainconnect.org")
+        self.assertEqual(dc.service_id, "template1")
+
+        # ok creator with tempalte data
+        dc = DomainConnect(
+            template = {
+                'providerId': "foo.com",
+                'providerName': 'Foo provider',
+                'serviceId': "bar",
+                'serviceName': 'Bar service',
+                'variableDescription': 'Variable description',
+                'records': [
+                    {
+                        "type": "TXT",
+                        "host": "@",
+                        "data": "%param1%",
+                        "ttl": 1800
+                    },
+                    {
+                        "type": "TXT",
+                        "host": "@",
+                        "data": "%param2%",
+                        "ttl": 1800
+                    }
+                ]
+            }
+        )
+        self.assertEqual(dc.provider_id, "foo.com")
+        self.assertEqual(dc.service_id, "bar")
+
+    @patch('domainconnectzone.DomainConnectImpl.raw_input', side_effect=['value1', 'value2'])
+    def test_prompt(self, mock_input):
+        data = {
+            'providerId': "foo.com",
+            'providerName': 'Foo provider',
+            'serviceId': "bar",
+            'serviceName': 'Bar service',
+            'variableDescription': 'Variable description',
+            'records': [
+                {
+                    "type": "TXT",
+                    "host": "@",
+                    "data": "%param1%",
+                    "ttl": 1800
+                },
+                {
+                    "type": "TXT",
+                    "host": "@",
+                    "data": "%param2%",
+                    "ttl": 1800
+                }
+            ]
+        }
+        dc = DomainConnect(template=data)
+        params = dc.prompt()
+
+        # Ensure the correct values were returned
+        self.assertEqual(params, {'param1': 'value1', 'param2': 'value2'})
 
 if __name__ == '__main__':
     unittest.main()

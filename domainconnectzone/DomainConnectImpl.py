@@ -7,8 +7,8 @@ from domainconnectzone.sigutil import get_publickey, verify_sig
 from domainconnectzone.validate import *
 
 try:
-    raw_input
-except:
+    raw_input = raw_input
+except NameError:
     raw_input = input
 
 """
@@ -772,15 +772,18 @@ class DomainConnect(object):
     The other to prompt for variables in a template /!\ deprecated!
     """
 
-    def __init__(self, provider_id, service_id, template_path=None,
+    def __init__(self, provider_id=None, service_id=None, template_path=None,
                  template=None, redir_template_records=None, apply_redir=None):
-        self.provider_id = provider_id
-        self.service_id = service_id
+        if (provider_id is None or service_id is None) and template is None:
+            raise InvalidTemplate("Provide either providerId and ServiceId or template.")
         self._redir_template_records = redir_template_records
         self._apply_redir = apply_redir
 
         # Read in the template
         if template is None:
+            self.provider_id = provider_id
+            self.service_id = service_id
+
             if not template_path:
                 directory = os.path.dirname(os.path.realpath(__file__)) + '/templates'
             else:
@@ -796,6 +799,9 @@ class DomainConnect(object):
                 self.data = json.load(file_)
         else:
             self.data = template
+            self.provider_id = template['providerId']
+            self.service_id = template['serviceId']
+
 
     def verify_sig(self, qs, sig, key, ignore_signature=False):
         """
