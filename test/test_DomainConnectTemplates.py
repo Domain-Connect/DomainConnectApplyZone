@@ -1,9 +1,13 @@
 import json
 import unittest
-from unittest.mock import patch, mock_open, MagicMock, call
 from domainconnectzone import DomainConnectTemplates, InvalidData, InvalidTemplate
 from jsonschema import validate, ValidationError
 
+import sys
+if sys.version_info >= (3, 3):
+    from unittest.mock import patch, mock_open, call
+else:
+    from mock import patch, mock_open, call
 
 class TestDomainConnectTemplates(unittest.TestCase):
     @patch('os.path.isfile', return_value=True)
