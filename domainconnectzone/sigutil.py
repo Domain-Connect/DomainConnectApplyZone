@@ -7,7 +7,9 @@ from cryptography.hazmat.backends import default_backend
 
 from base64 import b64decode, b64encode
 
-
+from dns.exception import (
+    DNSException
+)
 def verify_sig(public_key, signature, data):
     """ Verifies a signature """
     try:
@@ -47,32 +49,35 @@ def get_publickey(domain):
 
         pembits = ''
 
-        records = dns.resolver.query(domain, 'TXT') # Get all text records
-        record_strings = []
-        for record in records:
-            text = record.strings[0].decode('utf-8')
-            record_strings.append(text)
-            split_text = text.split(',')
-            index = -1
-            indexData = None
-            for kv in split_text:
-                if kv.startswith('p='):
-                    index = int(kv[2:])
-                elif kv.startswith('d='):
-                    indexData = kv[2:]
-                elif kv.startswith('a=') and kv != 'a=RS256':
-                    return None
-                elif kv.startswith('t=') and kv != 't=x509':
-                    return None
+        try:
+            records = dns.resolver.query(domain, 'TXT') # Get all text records
+            record_strings = []
+            for record in records:
+                text = record.strings[0].decode('utf-8')
+                record_strings.append(text)
+                split_text = text.split(',')
+                index = -1
+                indexData = None
+                for kv in split_text:
+                    if kv.startswith('p='):
+                        index = int(kv[2:])
+                    elif kv.startswith('d='):
+                        indexData = kv[2:]
+                    elif kv.startswith('a=') and kv != 'a=RS256':
+                        return None
+                    elif kv.startswith('t=') and kv != 't=x509':
+                        return None
 
-            if index != -1 and indexData != None:
-                segments[index] = indexData
+                if index != -1 and indexData is not None:
+                    segments[index] = indexData
 
-        keys = segments.keys()
-        keys = sorted(keys)
+            keys = segments.keys()
+            keys = sorted(keys)
 
-        # Concatenate all of the key segments
-        for key in keys:
-            pembits = pembits + segments[key].strip('\n').strip('\\n').strip()
+            # Concatenate all of the key segments
+            for key in keys:
+                pembits = pembits + segments[key].strip('\n').strip('\\n').strip()
 
-        return '-----BEGIN PUBLIC KEY-----\n' + pembits + '\n-----END PUBLIC KEY-----\n'
+            return '-----BEGIN PUBLIC KEY-----\n' + pembits + '\n-----END PUBLIC KEY-----\n'
+        except DNSException:
+            return None

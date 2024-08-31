@@ -12,7 +12,7 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-template_dir = '../templates'
+template_dir = 'test/templates'
 #template_dir = '/home/arnoldb/templates'
 
 class TestResults:
@@ -66,17 +66,21 @@ def TestSig(title, provider_id, service_id, qs, sig, key, ignore_signature, expe
         _testResults.Fail()
 
 
-def TestRecordsException(title, template_records, zone_records, domain, host, params, exception, verbose=False):
+def TestRecordsException(title, template_records, zone_records, domain, host, params, exception, verbose=False,
+                         redirect_records=None):
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     try:
         new_records = []
-        new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, [])
+        new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host,
+                                                                      params, [], redirect_records=redirect_records)
         _testResults.Fail()
     except exception as e:
         _testResults.Pass(str(e))
 
-def TestTemplate(title, zone_records, provider_id, service_id, domain, host, params, group_ids, new_count, delete_count, expected_records, verbose=False, qs=None, sig=None, key=None, ignore_signature=False):
+
+def TestTemplate(title, zone_records, provider_id, service_id, domain, host, params, group_ids, new_count, delete_count,
+                 expected_records, verbose=False, qs=None, sig=None, key=None, ignore_signature=False):
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     if verbose:
@@ -87,9 +91,15 @@ def TestTemplate(title, zone_records, provider_id, service_id, domain, host, par
         print('ServiceId' + service_id)
         print('Params = ' + str(params))
 
-    dc = DomainConnect(provider_id, service_id, template_dir)
+    dc = DomainConnect(provider_id, service_id, template_dir,
+                       redir_template_records=[
+                           {'type': 'A', 'pointsTo': '127.0.0.1', 'ttl': 600},
+                           {'type': 'AAAA', 'pointsTo': '::1', 'ttl': 600}
+                       ])
 
-    new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params, group_ids=group_ids, qs=qs, sig=sig, key=key, ignore_signature=ignore_signature)
+    new_records, deleted_records, final_records = dc.apply_template(zone_records, domain, host, params,
+                                                                    group_ids=group_ids, qs=qs, sig=sig,
+                                                                    key=key, ignore_signature=ignore_signature)
 
     if verbose:
         print("New Records")
@@ -102,10 +112,14 @@ def TestTemplate(title, zone_records, provider_id, service_id, domain, host, par
         print(json.dumps(expected_records, indent=2))
 
     if expected_records is not None:
-        expected_records = sorted(expected_records, key = lambda i : (i['type'], i['name'], i['ttl'], i['data']))
+        expected_records = sorted(expected_records, key = lambda i : (i['type'], i['name'],
+                                                                      i['ttl'] if 'ttl' in i else 0,
+                                                                      i['data']))
 
     if final_records is not None:
-        final_records = sorted(final_records, key = lambda i : (i['type'], i['name'], i['ttl'], i['data']))
+        final_records = sorted(final_records, key = lambda i : (i['type'], i['name'],
+                                                                i['ttl'] if 'ttl' in i else 0,
+                                                                i['data']))
 
     if (new_count is not None and len(new_records) != new_count) or \
        (delete_count is not None and len(deleted_records) != delete_count) or \
@@ -114,18 +128,37 @@ def TestTemplate(title, zone_records, provider_id, service_id, domain, host, par
     else:
         _testResults.Pass()
 
-def TestRecords(title, template_records, zone_records, domain, host, params, expected_records, group_ids=[], new_count=None, delete_count=None, verbose=False, multi_aware=False, multi_instance=False, provider_id=None, service_id=None, unique_id=None):
+
+def TestRecords(title, template_records, zone_records, domain, host, params, expected_records, group_ids=[],
+                new_count=None, delete_count=None, verbose=False, multi_aware=False, multi_instance=False,
+                provider_id=None, service_id=None, unique_id=None,
+                redirect_records=None):
 
     print(bcolors.OKBLUE + "Test: " + bcolors.ENDC + title)
 
     if verbose:
         print('Zone = ' + str(zone_records))
         print('Domain = ' + domain)
-        print( 'Host = ' + host)
+        print('Host = ' + host)
         print('Template = ' + str(template_records))
         print('Params = ' + str(params))
 
-    new_records, deleted_records, final_records = process_records(template_records, zone_records, domain, host, params, group_ids, multi_aware=multi_aware, multi_instance=multi_instance, provider_id=provider_id, service_id=service_id, unique_id=unique_id)
+    new_records, deleted_records, final_records = \
+        process_records(template_records, zone_records,
+                        domain, host, params, group_ids,
+                        multi_aware=multi_aware, multi_instance=multi_instance,
+                        provider_id=provider_id, service_id=service_id, unique_id=unique_id,
+                        redirect_records=redirect_records)
+
+    if expected_records is not None:
+        expected_records = sorted(expected_records, key = lambda i : (i['type'], i['name'],
+                                                                      i['ttl'] if 'ttl' in i else 0,
+                                                                      i['data']))
+
+    if final_records is not None:
+        final_records = sorted(final_records, key = lambda i : (i['type'], i['name'],
+                                                                i['ttl'] if 'ttl' in i else 0,
+                                                                i['data']))
 
     if verbose:
         print("New Records")
@@ -137,12 +170,6 @@ def TestRecords(title, template_records, zone_records, domain, host, params, exp
         print("Expected Records")
         print(json.dumps(expected_records, indent=2))
 
-    if expected_records is not None:
-        expected_records = sorted(expected_records, key = lambda i : (i['type'], i['name'], i['ttl'], i['data']))
-
-    if final_records is not None:
-        final_records = sorted(final_records, key = lambda i : (i['type'], i['name'], i['ttl'], i['data']))
-        
     if (new_count is not None and len(new_records) != new_count) or \
        (delete_count is not None and len(deleted_records) != delete_count) or \
        (expected_records is not None and expected_records != final_records):
@@ -216,17 +243,41 @@ def SPFMTests():
 
 
 def TXTTests():
+    zone_records = [
+    ]
+    template_records = [{'type': 'TXT', 'host': '_bar.sub', 'data': 'abcnew', 'ttl': 600}]
+    expected_records = [
+        {'type': 'TXT', 'name': '_bar.sub', 'data': 'abcnew', 'ttl': 600}
+    ]
+    TestRecords('TXT underscore first', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
 
     zone_records = [
-	{'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
-	{'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
-	{'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
+    ]
+    template_records = [{'type': 'TXT', 'host': 'bar._sub', 'data': 'abcnew', 'ttl': 600}]
+    expected_records = [
+        {'type': 'TXT', 'name': 'bar._sub', 'data': 'abcnew', 'ttl': 600}
+    ]
+    TestRecords('TXT underscore middle', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
+
+    zone_records = [
+    ]
+    template_records = [{'type': 'TXT', 'host': '_bar._sub', 'data': 'abcnew', 'ttl': 600}]
+    expected_records = [
+        {'type': 'TXT', 'name': '_bar._sub', 'data': 'abcnew', 'ttl': 600}
+    ]
+    TestRecords('TXT underscore both', template_records, zone_records, 'foo.com', '', {}, expected_records, new_count=1, delete_count=0)
+
+
+    zone_records = [
+        {'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
     ]
     template_records = [{'type': 'TXT', 'host': '@', 'data': 'abcnew', 'ttl': 600, 'txtConflictMatchingMode': 'None'}]
     expected_records = [
-	{'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
-	{'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
-	{'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': 'abc456', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': 'abc123', 'ttl': 500},
+        {'type': 'TXT', 'name': '@', 'data': '789', 'ttl': 500},
         {'type': 'TXT', 'name': '@', 'data': 'abcnew', 'ttl': 600}
     ]
 
@@ -334,6 +385,27 @@ def ExceptionTests():
     zone_records = []
     template_records = [{'type': 'CNAME', 'host': '@', 'pointsTo': 'foo.com', 'ttl': 400}]
     TestRecordsException("CNAME at Apex Test", template_records, zone_records, 'foo.com', '', {}, InvalidData)
+
+    template_records = [{'type': 'CNAME', 'host': 'foo', 'pointsTo': '', 'ttl': 600}]
+    TestRecordsException("CNAME empty pointsTo", template_records, zone_records, 'foo.com', '', {}, InvalidData)
+
+    template_records = [{'type': 'CNAME', 'host': 'foo', 'pointsTo': '%var%', 'ttl': 600}]
+    TestRecordsException("CNAME empty pointsTo from variable", template_records, zone_records, 'foo.com', '', {'var': ''}, InvalidData)
+
+    template_records = [{'type': 'CNAME', 'host': 'foo', 'pointsTo': '%var%', 'ttl': 600}]
+    TestRecordsException("CNAME empty pointsTo from missing parameter", template_records, zone_records, 'foo.com', '', {}, MissingParameter)
+
+    template_records = [{'type': 'A', 'host': '@', 'pointsTo': '', 'ttl': 600}]
+    TestRecordsException("A empty pointsTo from variable", template_records, zone_records, 'foo.com', '', {}, InvalidData)
+
+    redir_template = [
+        {'type': 'A', 'pointsTo': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'pointsTo': '::1', 'ttl': 600}
+    ]
+
+    template_records = [{'type': 'REDIR301', 'host': '@', 'target': '', 'ttl': 600}]
+    TestRecordsException("REDIR301 empty target from variable", template_records, zone_records, 'foo.com', '', {},
+                         InvalidData, redirect_records=redir_template)
 
 
 def SigTests():
@@ -524,12 +596,122 @@ def TemplateTests():
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 1800}, {'type': 'TXT', 'name': 'bar', 'data': 'foobar', 'ttl': 1800}, {'type': 'CNAME', 'name': 'whd.bar', 'data': 'bar.foo.com', 'ttl': 600}]
     TestTemplate('Random Case on provider, domain, host', zone_records, 'eXampleservice.domaincOnnect.org', 'template2', 'fOo.com', 'bAr', {'IP': '127.0.0.1', 'RANDOMTEXT': 'foobar'}, None, 3, 0, expected_records, ignore_signature=True)
 
+    zone_records = []
+    expected_records = [
+        {'type': 'A', 'name': 'www', 'data': '127.0.0.1', 'ttl': 1800},
+        {'type': 'TXT', 'name': 'www', 'data': 'foobar', 'ttl': 1800},
+        {'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'name': '@', 'data': '::1', 'ttl': 600},
+        {'type': 'REDIR301', 'name': '@', 'data': 'http://www.foo.com'}
+    ]
+    TestTemplate('Apply Redirect Template', zone_records, 'exampleservice.domainconnect.org',
+                 'templateredir', 'foo.com', '', {'IP': '127.0.0.1', 'RANDOMTEXT': 'foobar'},
+                 None, 5, 0, expected_records)
+
+    zone_records = [
+        {'type': 'A', 'name': 'bar', 'data': '1.1.1.1', 'ttl': 600},
+        {'type': 'REDIR302', 'name': 'bar', 'data': 'http://other.com'},
+        {'type': 'TXT', 'name': 'www.bar', 'data': 'shm:barfoo', 'ttl': 600}
+    ]
+    expected_records = [
+        {'type': 'A', 'name': 'www.bar', 'data': '127.0.0.1', 'ttl': 1800},
+        {'type': 'TXT', 'name': 'www.bar', 'data': 'shm:foobar', 'ttl': 1800},
+        {'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'name': 'bar', 'data': '::1', 'ttl': 600},
+        {'type': 'REDIR301', 'name': 'bar', 'data': 'http://www.bar.foo.com'}
+    ]
+    TestTemplate('Apply Redirect Template Subdomain and conflict', zone_records, 'exampleservice.domainconnect.org',
+                 'templateredir', 'foo.com', 'bar', {'IP': '127.0.0.1', 'RANDOMTEXT': 'shm:foobar'},
+                 None, 5, 3, expected_records)
+
+
     sig = 'LyCE+7H0zr/XHaxX36pdD1eSQENRiGTFxm79m7A5NLDPiUKLe71IrsEgnDLN76ndQcLTZlr4+HhpWzKZKyFl9ieEpNzZlDHRp35H83Erhm0eDctUmI1Zct51alZ8RuTL+aa29WC+AM7+gSpnL/AHl9mxckyeEuFFqXcl/3ShwK2F9x/7r+cICefiUEzsZN3EuqOvwqQkBSqcdVy/ohjNAG/InYAYSX+0fUK9UNQfQYkuPqOAptPRjX+hUnYsXUk/eQq16aX7TzhZm+eEq+En+oiEgh7qps1yvGbJm6QXKovan/sqng40R6FBP3R3dvfZC6QrfCUtGpQ8c0D0S5oLBw=='
     key = '_dck1'
     qs = 'domain=arnoldblinn.com&RANDOMTEXT=shm%3A1551036164%3Ahello&IP=132.148.25.185&host=bar'
     zone_records = []
     expected_records = [{'type': 'A', 'name': 'bar', 'data': '132.148.25', 'ttl': 1800}, {'type': 'TXT', 'name': 'bar', 'data': 'shm:1551036164:hello', 'ttl': 1800}, {'type': 'CNAME', 'name': 'whd.bar', 'data': 'bar.foo.com', 'ttl': 600}]
     TestTemplate('Sig Template Test', zone_records, 'exampleservice.domainconnect.org', 'template2', 'foo.com', 'bar', {'IP': '132.148.25', 'RANDOMTEXT': 'shm:1551036164:hello'}, None, 3, 0, expected_records, qs=qs, sig=sig, key=key)
+
+
+def REDIRTests():
+    redir_template = [
+        {'type': 'A', 'pointsTo': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'pointsTo': '::1', 'ttl': 600}
+    ]
+
+    zone_records = [
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'AAAA', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'CNAME', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    template_records = [
+        {'type': 'REDIR301', 'host': '@', 'target': 'http://%target%'}
+    ]
+    expected_records = [
+        {'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'name': 'bar', 'data': '::1', 'ttl': 600},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400},
+        {'type': 'REDIR301', 'name': 'bar', 'data': 'http://example.com'}
+    ]
+    TestRecords('REDIR301 test', template_records, zone_records, 'foo.com', 'bar', {"target": "example.com"},
+                expected_records, new_count=3, delete_count=3,
+                redirect_records=redir_template)
+
+    zone_records = [
+    ]
+    template_records = [
+        {'type': 'REDIR301', 'host': 'www', 'target': 'http://%target%'},
+        {'type': 'REDIR301', 'host': '@', 'target': 'http://www.%fqdn%'}
+    ]
+    expected_records = [
+        {'type': 'A', 'name': '@', 'data': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'name': '@', 'data': '::1', 'ttl': 600},
+        {'type': 'REDIR301', 'name': '@', 'data': 'http://www.foo.com'},
+        {'type': 'A', 'name': 'www', 'data': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'name': 'www', 'data': '::1', 'ttl': 600},
+        {'type': 'REDIR301', 'name': 'www', 'data': 'http://example.com'},
+    ]
+    TestRecords('Double REDIR301 test', template_records, zone_records, 'foo.com', '', {"target": "example.com"},
+                expected_records, new_count=6, delete_count=0,
+                redirect_records=redir_template)
+
+
+    zone_records = [
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    template_records = [
+        {'type': 'REDIR301', 'host': '@', 'target': 'http://example.com', 'groupId': 'b'}
+    ]
+    expected_records = [
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    TestRecords('REDIR301 test with groupid', template_records, zone_records, 'foo.com', 'bar', {}, expected_records,
+                group_ids=['a'], new_count=0, delete_count=0,
+                redirect_records=redir_template)
+
+
+    zone_records = [
+        {'type': 'A', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'AAAA', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'CNAME', 'name': 'bar', 'data':'abc', 'ttl': 400},
+        {'type': 'A', 'name': 'random.value', 'data':'abc', 'ttl': 400}
+    ]
+    template_records = [
+        {'type': 'REDIR302', 'host': '@', 'target': 'http://example.com'}
+    ]
+    expected_records = [
+        {'type': 'A', 'name': 'bar', 'data': '127.0.0.1', 'ttl': 600},
+        {'type': 'AAAA', 'name': 'bar', 'data': '::1', 'ttl': 600},
+        {'type': 'A', 'name': 'random.value', 'data': 'abc', 'ttl': 400},
+        {'type': 'REDIR302', 'name': 'bar', 'data': 'http://example.com'}
+    ]
+    TestRecords('REDIR302 test', template_records, zone_records, 'foo.com', 'bar', {}, expected_records,
+                new_count=3, delete_count=3,
+                redirect_records=redir_template)
+
 
 def run():
 
@@ -548,6 +730,11 @@ def run():
     PercentParameterTests()
     TemplateTests()
     MultiTests()
+    REDIRTests()
 
     print("Failed Count = " + str(_testResults.failCount))
     print("Passed Count = " + str(_testResults.passCount))
+
+
+if __name__ == '__main__':
+    run()

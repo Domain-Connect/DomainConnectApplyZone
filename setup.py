@@ -51,19 +51,60 @@ class CleanCommand(Command):
 
 setup(
     name='domainconnectzone',
-    version='3.1.0',
+    version='4.0.0',
     description=DESCRIPTION,
     author='domainconnect.org',
     url='https://github.com/Domain-Connect/domainconnectzone',
     long_description=LONG_DESCRIPTION,
-    packages=find_packages(),
+    packages=find_packages(exclude=["test", "test.*"]),
     install_requires=[
-        'cryptography>=1.8',
-        'dnspython>=1.16',
-        'IPy>=1.0'
+        'ipy>=1.1',
+        'six>=1.16.0',
     ],
+    extras_require={
+        'testing': [
+            'coverage>=5.5',
+            'pytest>=4.6; python_version == "2.7"',
+            'pytest>=7.0; python_version > "2.7"',
+            'mock>=3.0.5; python_version < "3.3"',
+        ],
+        ':python_version == "2.7"': [
+            'cryptography>=3.3.2',
+            'dnspython>=1.16.0',
+            'jsonschema>=3.2.0',
+            'requests>=2.27.1',
+            'validators>=0.14.2',
+        ],
+        ':python_version > "2.7" and python_version < "3.6"': [
+            'cryptography>=39.0.1',
+            'dnspython3>=1.15.0',
+            'jsonschema>=4.0.0',
+            'requests>=2.27.1',
+            'validators>=0.20.0',
+        ],
+        ':python_version >= "3.6" and python_version < "3.7"': [
+            'cryptography>=40.0.2',
+            'dnspython3>=1.15.0',
+            'jsonschema>=4.0.0',
+            'requests>=2.27.1',
+            'validators>=0.20.0',
+        ],
+        ':python_version >= "3.7"': [
+            'cryptography>=42.0.3',
+            'dnspython3>=1.15.0',
+            'jsonschema>=4.0.0',
+            'requests>=2.31.0',
+            'validators>=0.20.0',
+        ],
+    },
     classifiers=[
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 3"
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ]
 )

@@ -2,12 +2,13 @@ import json
 import os
 import copy
 import uuid
+
 from domainconnectzone.sigutil import get_publickey, verify_sig
 from domainconnectzone.validate import *
 
 try:
-    raw_input
-except:
+    raw_input = raw_input
+except NameError:
     raw_input = input
 
 """
@@ -112,31 +113,15 @@ def resolve_variables(input_, domain, host, params, recordKey):
     When the value is the pointsTo/target a null or empty value will resolve to the fqdn.
     """
 
-    # Empty or @ has special meaning for some fields. 
-    if not input_ or input_ == '' or input_ == '@':
-
-        # In the name/host field, @ in the template is a shortcut to being relative to
-        # the host/domain (it is a shortcut for "%fqdn%."). We can return the result
-        # in bind format for the full domain name.
-        if recordKey in ['name', 'host']:
-            if host:
-                return host # Same as "host.example.com."
-            else:
-                return '@'  # Bind format for "example.com."
-
-        # For a pointsTo or target they are never relative; so we fill in the values
-        elif recordKey in ['target', 'pointsTo']:
-            if host:
-                return host + '.' + domain
-            else:
-                return domain
-
     ci = 0
+    originalinput = input_
     while input_.find('%', ci) != -1:
 
         # Find the next variable to process
         start = input_.find('%', ci) + 1
         end = input_.find('%', start)
+        if -1 == end:
+            raise InvalidTemplate("Unpaired variable delimiter in {}: {}".format(recordKey, originalinput))
 
         # Grab the variable name
         name = input_[start:end]
@@ -163,6 +148,27 @@ def resolve_variables(input_, domain, host, params, recordKey):
 
         # Advance past this, as the value might have had a %
         ci = start + len(value)
+
+    # Empty or @ has special meaning for some fields. This processing shall take place after the variables are processed.
+    if not input_ or input_ == '' or input_ == '@':
+
+        # In the name/host field, @ in the template is a shortcut to being relative to
+        # the host/domain (it is a shortcut for "%fqdn%."). We can return the result
+        # in bind format for the full domain name.
+        if recordKey in ['name', 'host']:
+            if host:
+                return host # Same as "host.example.com."
+            else:
+                return '@'  # Bind format for "example.com."
+
+        # For a pointsTo or target they are never relative; so we fill in the values
+        elif recordKey in ['target', 'pointsTo'] and input_ == '@':
+            if host:
+                return host + '.' + domain
+            else:
+                return domain
+
+
 
     # If we are processing the name/host field from the template, modify the
     # path to be relative to the host being applied, unless it was fully qualified (ends with a .)
@@ -193,7 +199,7 @@ def process_txt_record(template_record, zone_records):
 
     new_record = {'type': 'TXT',
                   'name': template_record['host'],
-                  'data' : template_record['data'],
+                  'data': template_record['data'],
                   'ttl': int(template_record['ttl'])}
 
     # Handle any conflicting deletes
@@ -226,6 +232,37 @@ def process_txt_record(template_record, zone_records):
                 zone_record['_delete'] = 1
 
     return new_record
+
+def process_redir_record(template_record, zone_records):
+    """
+    Will process a REDIR301/REDIR302 record from a template.
+
+    This results in marking zone_records for deletion, and returning
+    the new record.
+
+    A REDIR301/REDIR302 record in the template will delete any CNAME in the zone of the same
+    host value.
+    """
+
+    new_record = {'type': template_record['type'],
+                  'name': template_record['host'],
+                  'data': template_record['target']}
+
+    # Handle any conflicting deletes
+    for zone_record in zone_records:
+        zone_record_type = zone_record['type'].upper()
+
+        # We conflict against REDIR301/302 or CNAME with the same host
+
+        if (zone_record_type not in ['CNAME', 'REDIR301', 'REDIR302'] or
+            zone_record['name'].lower() != template_record['host'].lower() or
+            '_replace' in zone_record):
+            continue
+
+        zone_record['_delete'] = 1
+
+    return new_record
+
 
 def process_spfm_record(template_record, zone_records):
     """
@@ -279,6 +316,7 @@ def process_spfm_record(template_record, zone_records):
         
     return new_record
 
+
 def process_srv_record(template_record, zone_records):
     """
     Will process an srv record from a template.
@@ -293,7 +331,9 @@ def process_srv_record(template_record, zone_records):
                   'name': template_record['name'],
                   'data': template_record['target'],
                   'ttl': int(template_record['ttl']),
-                  'protocol': template_record['protocol'],
+                  'protocol': template_record['protocol']
+                  if template_record['protocol'][0] != '_'
+                  else template_record['protocol'][1:],
                   'service': template_record['service'],
                   'priority': int(template_record['priority']),
                   'weight': int(template_record['weight']),
@@ -302,7 +342,7 @@ def process_srv_record(template_record, zone_records):
     for zone_record in zone_records:
         if (zone_record['type'].upper() == 'SRV' and
             zone_record['name'].lower() == template_record['name'].lower() and
-            '_replace' not in zone_record):
+                '_replace' not in zone_record):
             zone_record['_delete'] = 1
 
     return new_record
@@ -339,11 +379,14 @@ def process_ns(template_record, zone_records):
     return new_record
 
 _delete_map = {
-    'A' : ['A', 'AAAA', 'CNAME'],
-    'AAAA' : ['A', 'AAAA', 'CNAME'],
-    'MX' : ['MX', 'CNAME'],
-    'CNAME' : ['A', 'AAAA', 'CNAME', 'MX', 'TXT']
+    'A': ['A', 'AAAA', 'CNAME', 'REDIR301', 'REDIR302'],
+    'AAAA': ['A', 'AAAA', 'CNAME', 'REDIR301', 'REDIR302'],
+    'MX': ['MX', 'CNAME'],
+    'CNAME': ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'REDIR301', 'REDIR302'],
+    'REDIR301': ['A', 'AAAA', 'CNAME'],
+    'REDIR302': ['A', 'AAAA', 'CNAME'],
 }
+
 
 def process_other_record(template_record, zone_records):
     """
@@ -375,9 +418,32 @@ def process_other_record(template_record, zone_records):
 
     return new_record
 
+
 def process_records(template_records, zone_records, domain, host, params,
                     group_ids, multi_aware=False, multi_instance=False,
-                    provider_id=None, service_id=None, unique_id=None):
+                    provider_id=None, service_id=None, unique_id=None,
+                    redirect_records=None):
+
+    # first resolve REDIR301/REDIR302 records to their corresponding equivalents
+    template_records_org = list(template_records)
+    template_records = []
+    redirects = []
+    for template_record in template_records_org:
+        if template_record['type'] in ['REDIR301', 'REDIR302']:
+            if redirect_records is None:
+                raise InvalidTemplate('REDIR301/REDIR302 record types not implemented by the client. redirect_records parameter missing.')
+            repl_records = copy.deepcopy(redirect_records)
+            record_attributes = template_record.copy()
+            del record_attributes['type']
+            for attr in ['data', 'target', 'pointsTo']:
+                if attr in record_attributes:
+                    del record_attributes[attr]
+            for r in repl_records:
+                r.update(record_attributes)
+
+            template_records += repl_records
+        template_records += [template_record]
+
     """
     Will process the template records to the zone using the domain/host/params
     """
@@ -417,6 +483,8 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # We can only handle certain record types
         supported = ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'SPFM', 'NS']
+        if redirect_records is not None:
+            supported += ['REDIR301', 'REDIR302']
         if template_record_type not in supported:
             raise TypeError('Unknown record type (' + template_record_type +
                             ') in template')
@@ -428,30 +496,41 @@ def process_records(template_records, zone_records, domain, host, params,
             template_record['name'] = resolve_variables(
                 template_record['name'], domain, host, params, 'name')
 
-            if not is_valid_host_srv(template_record['name']):
+            if not is_valid_name_srv(template_record['name']):
                 raise InvalidData('Invalid data for SRV name: ' +
                                   template_record['name'])
+            srvhost = "_{}.{}".format(template_record['protocol'].lower(), template_record['name'])
+            if not is_valid_host_srv(srvhost):
+                raise InvalidData('Invalid data for SRV host: ' +
+                                  srvhost)
 
         else:
+            orig_host = template_record['host']
             template_record['host'] = resolve_variables(
                 template_record['host'], domain, host, params, 'host')
 
             err_msg = ('Invalid data for ' + template_record_type +
-                       ' host: ' + template_record['host'])
-            if template_record_type in ['A', 'AAAA', 'MX', 'NS']:
+                       ' host: ' + template_record['host'] +
+                       ' (from ' + orig_host + ')')
+            if template_record_type in ['A', 'AAAA', 'MX', 'NS', 'REDIR301', 'REDIR302']:
                 if not is_valid_host_other(template_record['host'],
                                                     False):
                     raise InvalidData(err_msg)
-            elif template_record_type in ['TXT', 'SPFM']:
-                if not is_valid_host_other(template_record['host'],
-                                                    True):
+            elif template_record_type in ['SPFM']:
+                if not is_valid_host_other(template_record['host'], False):
                     raise InvalidData(err_msg)
-            elif template_record_type == 'CNAME':
-                if not is_valid_host_cname(template_record['host']):
+
+            elif template_record_type in ['TXT']:
+                if not is_valid_host_other(template_record['host'], True):
+                    raise InvalidData(err_msg)
+
+            elif template_record_type in ['CNAME', 'NS']:
+                if not is_valid_host_cname_or_ns(template_record['host']):
                     raise InvalidData(err_msg)
 
         # Points To / Target
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
+            orig_pointsto = template_record['pointsTo']
             template_record['pointsTo'] = resolve_variables(
                 template_record['pointsTo'], domain, host, params, 'pointsTo')
 
@@ -460,28 +539,43 @@ def process_records(template_records, zone_records, domain, host, params,
                         template_record['pointsTo']):
                     raise InvalidData('Invalid data for ' +
                                       template_record_type + ' pointsTo: ' +
-                                      template_record['pointsTo'])
+                                      template_record['pointsTo'] +
+                                      ' (from ' + orig_pointsto + ')')
             elif template_record_type == 'A':
                 if not is_valid_pointsTo_ip(
                         template_record['pointsTo'], 4):
                     raise InvalidData('Invalid data for A pointsTo: ' +
-                                      template_record['pointsTo'])
+                                      template_record['pointsTo'] +
+                                      ' (from ' + orig_pointsto + ')')
             elif template_record_type == 'AAAA':
                 if not is_valid_pointsTo_ip(
                         template_record['pointsTo'], 6):
                     raise InvalidData('Invalid data for AAAA pointsTo: ' +
-                                      template_record['pointsTo'])
+                                      template_record['pointsTo'] +
+                                      ' (from ' + orig_pointsto + ')')
 
         elif template_record_type == 'SRV':
+            orig_target = template_record['target']
             template_record['target'] = resolve_variables(
                 template_record['target'], domain, host, params, 'target')
 
             if not is_valid_pointsTo_host(template_record['target']):
                 raise InvalidData('Invalid data for SRV target: ' +
-                                  template_record['target'])
+                                  template_record['target'] +
+                                      ' (from ' + orig_target + ')')
+        elif template_record_type in ['REDIR301', 'REDIR302']:
+            orig_target = template_record['target']
+            template_record['target'] = resolve_variables(
+                template_record['target'], domain, host, params, 'target')
+            if not is_valid_target_redir(template_record['target']):
+                raise InvalidData('Invalid data for {} '
+                                  'target: {} '
+                                  '(from {})'.format(template_record_type, template_record["target"], orig_target))
+
 
         # SRV has a few more records that need to be processed and validated
         if template_record_type == 'SRV':
+            orig_protocol = template_record['protocol']
             template_record['protocol'] = resolve_variables(
                 template_record['protocol'], domain, host, params, 'protocol')
 
@@ -490,13 +584,16 @@ def process_records(template_records, zone_records, domain, host, params,
                 protocol = protocol[1:]
             if protocol not in ['tcp', 'udp', 'tls']:
                 raise InvalidData('Invalid data for SRV protocol: ' +
-                                  template_record['protocol'])
+                                  template_record['protocol'] +
+                                  ' (from ' + orig_protocol + ')')
 
+            orig_service = template_record['service']
             template_record['service'] = resolve_variables(
                 template_record['service'], domain, host, params, 'service')
             if not is_valid_pointsTo_host(template_record['service']):
                 raise InvalidData('Invalid data for SRV service: ' +
-                                  template_record['service'])
+                                  template_record['service'] +
+                                  ' (from ' + orig_service + ')')
 
         # Handle variables in a TXT and SPFM record
         if template_record_type == 'TXT':
@@ -509,28 +606,19 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # Handle the proper processing for each template record type
 
-        new_record = None
-
         if template_record_type in ['SPFM']:
             new_record = process_spfm_record(template_record, zone_records)
         elif template_record_type in ['TXT']:
             new_record = process_txt_record(template_record, zone_records)
         elif template_record_type in ['SRV']:
             new_record = process_srv_record(template_record, zone_records)
+        elif template_record_type in ['REDIR301', 'REDIR302']:
+            new_record = process_redir_record(template_record, zone_records)
         else:
-            if (template_record_type in ['CNAME', 'NS'] and
-                    template_record['host'] == '@'):
-                raise HostRequired('Cannot have APEX CNAME or NS without host')
-
             if template_record_type in ['NS']:
                 new_record = process_ns(template_record, zone_records)
             else:
                 new_record = process_other_record(template_record, zone_records)
-
-        # If we didn't get a new record there is nothing else to do
-        if not new_record:
-            continue
-
 
         # Setting any record type that isn't an NS record has an extra delete
         # rule.
@@ -613,14 +701,17 @@ def process_records(template_records, zone_records, domain, host, params,
 #
 # Given an input string will prompt for a variable value, adding the key/value to the passed in dictionary
 #
-def prompt_variables(template_record, value, params):
+def get_record_variables(template_record, value, params):
                     
     leading = False
-    while value.find('%') != -1:
+    value_processing = value
+    while value_processing.find('%') != -1:
 
-        start = value.find('%') + 1
-        end = value.find('%', start)
-        name = value[start:end]
+        start = value_processing.find('%') + 1
+        end = value_processing.find('%', start)
+        if -1 == end:
+            raise InvalidTemplate("Unpaired variable delimiter in {} {}: {}".format(template_record['host'], template_record['type'].upper(), value))
+        name = value_processing[start:end]
 
         if (name not in ['fqdn', 'domain', 'host', '@'] and
                 name not in params):
@@ -628,11 +719,9 @@ def prompt_variables(template_record, value, params):
                 print(template_record)
                 leading = True
 
-            print('Enter value for ' + name + ':')
-            v = raw_input()
-            params[name] = v
+            params[name] = None
 
-        value = value.replace('%' + name + '%', '')
+        value_processing = value_processing.replace('%' + name + '%', '')
 
 
 #--------------------------------------------------------
@@ -640,30 +729,35 @@ def prompt_variables(template_record, value, params):
 #
 # Will prompt for the variable values in each record in the template
 #
-def prompt_records(template_records):
+def get_records_variables(template_records, group=None):
 
     params = {}
 
     for template_record in template_records:
+        if group is not None and ('groupId' not in template_record or template_record['groupId'] != group):
+            continue
         template_record_type = template_record['type']
 
-        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS', 'TXT', 'SPFM']:
-            prompt_variables(template_record, template_record['host'], params)
+        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS', 'TXT', 'SPFM', 'REDIR301', 'REDIR302']:
+            get_record_variables(template_record, template_record['host'], params)
 
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
-            prompt_variables(template_record, template_record['pointsTo'], params)
+            get_record_variables(template_record, template_record['pointsTo'], params)
 
         if template_record_type in ['TXT']:
-            prompt_variables(template_record, template_record['data'], params)
+            get_record_variables(template_record, template_record['data'], params)
 
         if template_record_type in ['SPFM']:
-            prompt_variables(template_record, template_record['spfRules'], params)
+            get_record_variables(template_record, template_record['spfRules'], params)
 
         if template_record_type in ['SRV']:
-            prompt_variables(template_record, template_record['name'], params)
-            prompt_variables(template_record, template_record['target'], params)
-            prompt_variables(template_record, template_record['protocol'], params)
-            prompt_variables(template_record, template_record['service'], params)
+            get_record_variables(template_record, template_record['name'], params)
+            get_record_variables(template_record, template_record['target'], params)
+            get_record_variables(template_record, template_record['protocol'], params)
+            get_record_variables(template_record, template_record['service'], params)
+
+        if template_record_type in ['REDIR301', 'REDIR302']:
+            get_record_variables(template_record, template_record['target'], params)
 
     return params
 
@@ -675,12 +769,18 @@ class DomainConnect(object):
     The other to prompt for variables in a template /!\ deprecated!
     """
 
-    def __init__(self, provider_id, service_id, template_path=None):
-        self.provider_id = provider_id
-        self.service_id = service_id
+    def __init__(self, provider_id=None, service_id=None, template_path=None,
+                 template=None, redir_template_records=None, apply_redir=None):
+        if (provider_id is None or service_id is None) and template is None:
+            raise InvalidTemplate("Provide either providerId and ServiceId or template.")
+        self._redir_template_records = redir_template_records
+        self._apply_redir = apply_redir
 
         # Read in the template
-        if True:
+        if template is None:
+            self.provider_id = provider_id
+            self.service_id = service_id
+
             if not template_path:
                 directory = os.path.dirname(os.path.realpath(__file__)) + '/templates'
             else:
@@ -690,10 +790,15 @@ class DomainConnect(object):
             filepath = os.path.join(directory, basename)
 
             if not os.path.isfile(filepath) or not os.access(filepath, os.R_OK):
-                raise InvalidTemplate('Template file \'{}\' not found or unreadable'.format(filepath))
+                raise InvalidTemplate('Template file \'{}\' not found or unreadable'.format(os.path.abspath(filepath)))
 
             with open(filepath, 'r') as file_:
                 self.data = json.load(file_)
+        else:
+            self.data = template
+            self.provider_id = template['providerId']
+            self.service_id = template['serviceId']
+
 
     def verify_sig(self, qs, sig, key, ignore_signature=False):
         """
@@ -733,7 +838,8 @@ class DomainConnect(object):
 
     def apply_template(self, zone_records, domain, host, params,
                        group_ids=None, qs=None, sig=None, key=None,
-                       ignore_signature=False, multi_aware=False):
+                       ignore_signature=False, multi_aware=False,
+                       unique_id=None):
         """
         Will apply the template to the zone
 
@@ -748,6 +854,10 @@ class DomainConnect(object):
         params contains the parameters for variable substitution.
 
         qs/sig/key are passed in if signature verification is required
+
+        multi_aware determines if template engine should persist template integrity
+
+        unique_id determines the id of the template instance if provided. Only relevant if multi_aware==True.
 
         Output:
 
@@ -780,10 +890,10 @@ class DomainConnect(object):
 
         # If we are mulit-template aware, generate a unique id for application of this template
         # and determine if the template supports multi-instance
-        unique_id = None
         multi_instance = False
         if multi_aware:
-            unique_id = str(uuid.uuid4())
+            if unique_id is None:
+                unique_id = str(uuid.uuid4())
 
             if 'multiInstance' in self.data:
                 multi_instance = self.data['multiInstance']
@@ -792,7 +902,8 @@ class DomainConnect(object):
         return process_records(copy.deepcopy(self.data['records']), zone_records,
                                domain, host, params, group_ids,
                                multi_aware, multi_instance,
-                               self.provider_id, self.service_id, unique_id)
+                               self.provider_id, self.service_id, unique_id,
+                               redirect_records=self._redir_template_records)
 
     def is_sig_required(self):
         """ Will indicate if the template requires a signature """
@@ -807,4 +918,9 @@ class DomainConnect(object):
             print(self.data['variableDescription'])
 
         # Prompt for records in the template
-        return prompt_records(self.data['records'])
+        params = get_records_variables(self.data['records'])
+        for param in params:
+            print('Enter value for ' + param + ':')
+            params[param] = raw_input()
+        return params
+

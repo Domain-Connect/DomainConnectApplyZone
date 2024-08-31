@@ -106,3 +106,7 @@ venv.bak/
 # IDEA/JetBrains IDE
 .idea/
 
+/node_modules/.yarn-integrity
+/yarn.lock
+
+.DS_Store

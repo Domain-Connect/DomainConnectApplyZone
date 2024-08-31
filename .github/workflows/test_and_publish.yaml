@@ -1,0 +1,163 @@
+name: Python package
+
+on:
+  push:
+    branches: [ master ]
+    tags:
+      - '*'
+  pull_request:
+    branches: [ master ]
+
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - python-version: 2.7
+            os: ubuntu-20.04
+          - python-version: 3.6
+            os: ubuntu-20.04
+          - python-version: 3.7
+            os: ubuntu-22.04
+          - python-version: 3.8
+            os: ubuntu-22.04
+          - python-version: 3.9
+            os: ubuntu-22.04
+          - python-version: "3.10"
+            os: ubuntu-22.04
+          - python-version: "3.11"
+            os: ubuntu-22.04
+          - python-version: "3.12"
+            os: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }} != 2.7
+      if: ${{ matrix.python-version != '2.7' }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Set up Python 2.7
+      if: ${{ matrix.python-version == '2.7' }}
+      run: | 
+        sudo ln -sf /usr/bin/python2.7 /usr/bin/python
+        curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
+        sudo python get-pip.py
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-test.txt
+
+    - name: Test with pytest
+      run: |
+        pytest
+
+  build-distribution:
+    needs: test
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.12
+
+    - name: Upgrade pip
+      run: python -m pip install --upgrade pip
+
+    - name: Install build dependencies
+      run: pip install setuptools wheel
+
+    - name: Build distribution packages
+      run: python setup.py sdist bdist_wheel
+
+    - name: Upload distribution packages as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-files
+        path: dist/*
+
+  test-installation:
+    needs: build-distribution
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - python-version: 2.7
+            os: ubuntu-20.04
+          - python-version: 3.6
+            os: ubuntu-20.04
+          - python-version: 3.7
+            os: ubuntu-22.04
+          - python-version: 3.8
+            os: ubuntu-22.04
+          - python-version: 3.9
+            os: ubuntu-22.04
+          - python-version: "3.10"
+            os: ubuntu-22.04
+          - python-version: "3.11"
+            os: ubuntu-22.04
+          - python-version: "3.12"
+            os: ubuntu-22.04
+
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+    - name: Set up Python ${{ matrix.python-version }} != 2.7
+      if: ${{ matrix.python-version != '2.7' }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Set up Python 2.7
+      if: ${{ matrix.python-version == '2.7' }}
+      run: | 
+        sudo ln -sf /usr/bin/python2.7 /usr/bin/python
+        curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
+        sudo python get-pip.py
+
+    - name: Upgrade pip
+      run: python -m pip install --upgrade pip
+
+    - name: Download distribution packages
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-files
+        path: dist
+
+    - name: Install package from sdist
+      run: pip install dist/*.tar.gz
+
+    - name: Install package from wheel
+      run: |
+        pip uninstall -y domainconnectzone  # Uninstall sdist version first
+        pip install dist/*.whl
+
+    - name: Verify installation
+      run: |
+        python -c "import domainconnectzone; print('Package is installed and importable')"
+        # Optionally, run tests after installation
+        # python -m unittest discover tests  
+
+  deploy:
+    needs: test-installation
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+    - name: Download distribution packages
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-files
+        path: dist
+    - name: Build and publish to PyPI
+      uses: pypa/gh-action-pypi-publish@v1.4.2
+      with:
+        user: domain-connect
+        password: ${{ secrets.PYPI_PASSWORD }}
+        skip_existing: true

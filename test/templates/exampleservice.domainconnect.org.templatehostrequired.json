@@ -1,0 +1,16 @@
+{
+  "providerId": "exampleservice.domainconnect.org",
+  "providerName": "Example Domain Connect Service",
+  "serviceId": "templatehostrequired",
+  "serviceName": "Test template with host required",
+  "version": 1,
+  "hostRequired": true,
+  "records": [
+    {
+      "type": "CNAME",
+      "host": "@",
+      "pointsTo": "foo.com",
+      "ttl": 1800
+    }
+  ]
+}
