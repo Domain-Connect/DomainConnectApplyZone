@@ -125,7 +125,7 @@ class DomainConnectTemplates(object):
             }
         else:
             pars = {}
-        params = {**pars, **params}
+        params.update(pars)
         if variables is not None:
             for label in params:
                 if label in variables:
