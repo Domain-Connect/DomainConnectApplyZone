@@ -365,7 +365,9 @@ class TestDomainConnectTemplatesCreate(unittest.TestCase):
 
             output = "";
             for c in mock_open().write.mock_calls:
-                print("{}: {} {}".format(c, len(c.args), c.args[0]))
+                print("{}: {}".format(c, len(c.args)))
+                for i in range(0, len(c.args)):
+                    print("  {}: {}".format(i, c.args[i]))
                 if len(c.args) == 1:
                     output = output + c.args[0]
             print(output)
