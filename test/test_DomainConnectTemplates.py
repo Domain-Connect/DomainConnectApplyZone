@@ -1,7 +1,6 @@
 import json
 import unittest
 from domainconnectzone import DomainConnectTemplates, InvalidData, InvalidTemplate
-from jsonschema import validate, ValidationError
 
 import sys
 if sys.version_info >= (3, 3):
