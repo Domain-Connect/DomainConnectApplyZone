@@ -60,7 +60,7 @@ class DomainConnectTemplates(object):
     def _validate_domain_name(label, name):
         dom_val = compile("^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,63}$")
         if dom_val.search(name) is None:
-            raise InvalidData(f"{name} is not a valid domain name in label {label}")
+            raise InvalidData("{} is not a valid domain name in label {}".format(name, label))
 
     def validate_template(self, template):
         if search(r'^[a-zA-Z0-9._-]+$', template["providerId"]) is None \
@@ -76,7 +76,7 @@ class DomainConnectTemplates(object):
             try:
                 validate(template, self._schema)
             except ValidationError as ve:
-                raise InvalidTemplate(f"{ve.message}")
+                raise InvalidTemplate("{}".format(ve.message))
 
         #check for fields which should never contain variables
         for r in template["records"]:
@@ -98,7 +98,7 @@ class DomainConnectTemplates(object):
                 with open(os.path.join(self._template_path, t["fileName"]), "w") as f:
                     json.dump(template, f, indent=2)
                 return
-        raise InvalidTemplate(f"Cannot find template {template['providerId']} / {template['serviceId']}")
+        raise InvalidTemplate("Cannot find template {} / {}".format(template['providerId'], template['serviceId']))
 
     def create_template(self, template):
         if not os.access(self._template_path, os.W_OK):
@@ -108,8 +108,8 @@ class DomainConnectTemplates(object):
         templ = self.templates
         for t in templ:
             if t["providerId"] == template["providerId"] and t["serviceId"] == template["serviceId"]:
-                raise InvalidTemplate(f"Template {template['providerId']} / {template['serviceId']} already exists.")
-        with open(os.path.join(self._template_path, f"{template['providerId'].lower()}.{template['serviceId'].lower()}.json"), "w") as f:
+                raise InvalidTemplate("Template {} / {} already exists.".format(template['providerId'], template['serviceId']))
+        with open(os.path.join(self._template_path, "{}.{}.json".format(template['providerId'].lower(), template['serviceId'].lower())), "w") as f:
             json.dump(template, f, indent=2)
 
     @staticmethod

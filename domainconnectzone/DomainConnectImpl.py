@@ -121,8 +121,7 @@ def resolve_variables(input_, domain, host, params, recordKey):
         start = input_.find('%', ci) + 1
         end = input_.find('%', start)
         if -1 == end:
-            raise InvalidTemplate(f"Unpaired variable delimiter in "
-                                  f"{recordKey}: {originalinput}")
+            raise InvalidTemplate("Unpaired variable delimiter in {}: {}".format(recordKey, originalinput))
 
         # Grab the variable name
         name = input_[start:end]
@@ -500,7 +499,7 @@ def process_records(template_records, zone_records, domain, host, params,
             if not is_valid_name_srv(template_record['name']):
                 raise InvalidData('Invalid data for SRV name: ' +
                                   template_record['name'])
-            srvhost = f"_{template_record['protocol'].lower()}.{template_record['name']}"
+            srvhost = "_{}.{}".format(template_record['protocol'].lower(), template_record['name'])
             if not is_valid_host_srv(srvhost):
                 raise InvalidData('Invalid data for SRV host: ' +
                                   srvhost)
@@ -711,9 +710,7 @@ def get_record_variables(template_record, value, params):
         start = value_processing.find('%') + 1
         end = value_processing.find('%', start)
         if -1 == end:
-            raise InvalidTemplate(f"Unpaired variable delimiter in "
-                              f"{template_record['host']} {template_record['type'].upper()}:"
-                              f" {value}")
+            raise InvalidTemplate("Unpaired variable delimiter in {} {}: {}".format(template_record['host'], template_record['type'].upper(), value))
         name = value_processing[start:end]
 
         if (name not in ['fqdn', 'domain', 'host', '@'] and
