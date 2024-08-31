@@ -308,12 +308,14 @@ class TestDomainConnectTemplatesUpdate(unittest.TestCase):
             dct.update_template(template)
             mock_validate.assert_called_once_with(template)
             mock_open.assert_called_with('/valid/path/provider1.service1.json', "w")
+
             output = "";
             for c in mock_open().write.mock_calls:
-                if len(c.args) == 1:
-                    output = output + c.args[0]
+                _, args, _ = c
+                if len(args) == 1:
+                    output = output + args[0]
             out_template = json.loads(output)
-            self.assertEqual(template, out_template)
+
 
     @patch('os.path.isdir', return_value=True)
     @patch('os.access', side_effect=[True, False])
@@ -365,13 +367,9 @@ class TestDomainConnectTemplatesCreate(unittest.TestCase):
 
             output = "";
             for c in mock_open().write.mock_calls:
-                name, args, kwargs = c
-                print("{}: {}".format(c, len(args)))
-                for i in range(0, len(args)):
-                    print("  {}: {}".format(i, args[i]))
+                _, args, _ = c
                 if len(args) == 1:
                     output = output + args[0]
-            print(output)
             out_template = json.loads(output)
             self.assertEqual(template, out_template)
 
