@@ -1172,5 +1172,6 @@ class DomainConnectTests(unittest.TestCase):
         # Ensure the correct values were returned
         self.assertEqual(params, {'param1': 'value1'})
 
+
 if __name__ == '__main__':
     unittest.main()
