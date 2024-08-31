@@ -425,7 +425,7 @@ def process_records(template_records, zone_records, domain, host, params,
                     redirect_records=None):
 
     # first resolve REDIR301/REDIR302 records to their corresponding equivalents
-    template_records_org = template_records.copy()
+    template_records_org = list(template_records)
     template_records = []
     redirects = []
     for template_record in template_records_org:
