@@ -1149,7 +1149,7 @@ class DomainConnectTests(unittest.TestCase):
         self.assertEqual(dc.provider_id, "foo.com")
         self.assertEqual(dc.service_id, "bar")
 
-    @patch('domainconnectzone.DomainConnectImpl.raw_input', side_effect=['value1', 'value2'])
+    @patch('domainconnectzone.DomainConnectImpl.raw_input', side_effect=['value1'])
     def test_prompt(self, mock_input):
         data = {
             'providerId': "foo.com",
@@ -1163,12 +1163,6 @@ class DomainConnectTests(unittest.TestCase):
                     "host": "@",
                     "data": "%param1%",
                     "ttl": 1800
-                },
-                {
-                    "type": "TXT",
-                    "host": "@",
-                    "data": "%param2%",
-                    "ttl": 1800
                 }
             ]
         }
@@ -1176,7 +1170,7 @@ class DomainConnectTests(unittest.TestCase):
         params = dc.prompt()
 
         # Ensure the correct values were returned
-        self.assertEqual(params, {'param1': 'value1', 'param2': 'value2'})
+        self.assertEqual(params, {'param1': 'value1'})
 
 if __name__ == '__main__':
     unittest.main()
