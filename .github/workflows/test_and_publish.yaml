@@ -147,7 +147,7 @@ jobs:
         # python -m unittest discover tests  
 
   deploy:
-    needs: build
+    needs: test-installation
     runs-on: ubuntu-22.04
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
