@@ -726,6 +726,10 @@ class DomainConnectTests(unittest.TestCase):
             final_records = sorted(final_records, key=lambda i: (i['type'], i['name'],
                                                                  i['ttl'] if 'ttl' in i else 0,
                                                                  i['data']))
+            if multi_aware and unique_id is None:
+                for r in final_records:
+                    if '_dc' in r and 'id' in r['_dc']:
+                        r['_dc']['id'] = '<test only: random>'
 
         if new_count is not None:
             self.assertEqual(len(new_records), new_count, title)
@@ -862,6 +866,15 @@ class DomainConnectTests(unittest.TestCase):
                             'foo.com',
                             '', {'IP': '127.0.0.1', 'test': 'foo'}, None, 1, 0, expected_records,
                             multi_aware=True, unique_id='id1')
+
+        zone_records = []
+        expected_records = [{'type': 'TXT', 'name': '@', 'data': 'foo', 'ttl': 1800,
+                             '_dc': {'essential': 'Always', 'host': '', 'id': "<test only: random>", 'providerId': 'exampleservice.domainconnect.org', 'serviceId': 'testmultiinstance'}}]
+        self._test_template('Apply Template Test - multi simple, no id assigned', zone_records,
+                            'exampleservice.domainconnect.org', 'testmultiinstance',
+                            'foo.com',
+                            '', {'IP': '127.0.0.1', 'test': 'foo'}, None, 1, 0, expected_records,
+                            multi_aware=True)
 
         zone_records = [
             {'_dc': {'essential': 'Always',
