@@ -308,27 +308,12 @@ class TestDomainConnectTemplatesUpdate(unittest.TestCase):
             dct.update_template(template)
             mock_validate.assert_called_once_with(template)
             mock_open.assert_called_with('/valid/path/provider1.service1.json', "w")
-            mock_open().write.assert_has_calls(
-                [call('{'),
-                 call('\n  '),
-                 call('"providerId"'),
-                 call(': '),
-                 call('"provider1"'),
-                 call(',\n  '),
-                 call('"serviceId"'),
-                 call(': '),
-                 call('"service1"'),
-                 call(',\n  '),
-                 call('"description"'),
-                 call(': '),
-                 call('"foo"'),
-                 call(',\n  '),
-                 call('"records"'),
-                 call(': '),
-                 call('[]'),
-                 call('\n'),
-                 call('}')]
-            )
+            output = "";
+            for c in mock_open().write.mock_calls:
+                if len(c.args) == 1:
+                    output = output + c.args[0]
+            out_template = json.loads(output)
+            self.assertEqual(template, out_template)
 
     @patch('os.path.isdir', return_value=True)
     @patch('os.access', side_effect=[True, False])
@@ -377,23 +362,13 @@ class TestDomainConnectTemplatesCreate(unittest.TestCase):
             self._dct.create_template(template)
             mock_validate.assert_called_once_with(template)
             mock_open.assert_has_calls([call('/valid/path/provider2.service2.json', "w")])
-            mock_open().write.assert_has_calls([
-                call('{'),
-                call('\n  '),
-                call('"providerId"'),
-                call(': '),
-                call('"provider2"'),
-                call(',\n  '),
-                call('"serviceId"'),
-                call(': '),
-                call('"service2"'),
-                call(',\n  '),
-                call('"records"'),
-                call(': '),
-                call('[]'),
-                call('\n'),
-                call('}')
-            ])
+
+            output = "";
+            for c in mock_open().write.mock_calls:
+                if len(c.args) == 1:
+                    output = output + c.args[0]
+            out_template = json.loads(output)
+            self.assertEqual(template, out_template)
 
     @patch('os.listdir', return_value=[])
     @patch('os.access', return_value=False)
