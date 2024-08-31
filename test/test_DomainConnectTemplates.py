@@ -365,6 +365,7 @@ class TestDomainConnectTemplatesCreate(unittest.TestCase):
 
             output = "";
             for c in mock_open().write.mock_calls:
+                print("{}".format(c))
                 if len(c.args) == 1:
                     output = output + c.args[0]
             out_template = json.loads(output)
