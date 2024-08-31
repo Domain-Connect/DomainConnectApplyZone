@@ -137,7 +137,7 @@ jobs:
 
     - name: Install package from wheel
       run: |
-        pip uninstall -y your-package-name  # Uninstall sdist version first
+        pip uninstall -y domainconnectzone  # Uninstall sdist version first
         pip install dist/*.whl
 
     - name: Verify installation
