@@ -5,8 +5,10 @@ cryptography>=42.0.3; python_version >= '3.7'
 dnspython>=1.16.0; python_version == '2.7'
 dnspython3>=1.15.0; python_version > '2.7'
 ipy>=1.1
-jsonschema>=4.0.0
-requests>=2.27.1; python_version == '2.7'
-requests>=2.31.0; python_version > '2.7'
+jsonschema>=3.2.0; python_version == '2.7'
+jsonschema>=4.0.0; python_version > '2.7'
+requests>=2.27.1; python_version < '3.7'
+requests>=2.31.0; python_version >= '3.7'
 six>=1.16.0
-validators>=0.22.0
+validators>=0.14.2; python_version == '2.7'
+validators>=0.20.0; python_version > '2.7'
