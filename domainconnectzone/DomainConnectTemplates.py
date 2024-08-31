@@ -83,7 +83,9 @@ class DomainConnectTemplates(object):
             for field in ["groupId", "type", "ttl", "essential", "txtConflictMatchingMode", "txtConflictMatchingPrefix",
                           "weight", "port"]:
                 if field in r and f'{r[field]}'.find("%") != -1:
-                    raise InvalidTemplate(f'Forbidden variable in record {r["type"].upper()} field {field.upper()}: {r[field]}')
+                    raise InvalidTemplate(
+                        'Forbidden variable in record {} field {}: {}'.format(
+                            r["type"].upper(), field.upper(), r[field]))
 
         #validate if all variables can be extracted
         DomainConnectTemplates.get_variable_names(template)

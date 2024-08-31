@@ -568,9 +568,9 @@ def process_records(template_records, zone_records, domain, host, params,
             template_record['target'] = resolve_variables(
                 template_record['target'], domain, host, params, 'target')
             if not is_valid_target_redir(template_record['target']):
-                raise InvalidData(f'Invalid data for {template_record_type} '
-                                  f'target: {template_record["target"]} '
-                                  f'(from {orig_target})')
+                raise InvalidData('Invalid data for {} '
+                                  'target: {} '
+                                  '(from {})'.format(template_record_type, template_record["target"], orig_target))
 
 
         # SRV has a few more records that need to be processed and validated
