@@ -68,6 +68,10 @@ setup(
             'pytest>=7.0; python_version > "2.7"',
             'mock>=3.0.5; python_version < "3.3"',
         ],
+        'docs': [
+            'phinx>=7.4.7',
+            'sphinx-rtd-theme>=2.0.0'
+        ],
         ':python_version == "2.7"': [
             'cryptography>=3.3.2',
             'dnspython>=1.16.0',
