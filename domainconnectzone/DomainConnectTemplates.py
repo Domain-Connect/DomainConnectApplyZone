@@ -9,6 +9,13 @@ from domainconnectzone.DomainConnectImpl import get_records_variables
 
 
 class DomainConnectTemplates(object):
+    """
+    A class representing a collection of templates.
+
+    :param template_path: The path to the directory containing the templates.
+    :type template_path: str or None
+        - If not provided, it defaults to the current working directory.
+    """
     def __init__(self, template_path=None):
         if not template_path:
             self._template_path = os.path.dirname(os.path.realpath(__file__)) + '/templates'
@@ -26,10 +33,25 @@ class DomainConnectTemplates(object):
 
     @property
     def schema(self):
+        """
+        The JSON schema for the templates.
+
+        :return: The JSON schema as a dictionary.
+        :rtype: dict or None
+            - If no schema is found, it returns None.
+        """
         return self._schema
 
     @property
     def templates(self):
+        """
+        A list of available templates.
+
+        :return: A list of dictionaries representing the templates.
+        :rtype: list(dict)
+            - Each template dictionary contains 'providerId', 'serviceId',
+              and 'fileName' keys. "template" key contains the template itself.
+        """
         templates = []
         for file_to_check in [r for r in os.listdir(self._template_path) if r.endswith('.json')]:
             with open(os.path.join(self._template_path, file_to_check)) as f:
@@ -57,11 +79,28 @@ class DomainConnectTemplates(object):
 
     @staticmethod
     def _validate_domain_name(label, name):
+        """
+        Validate a domain name.
+
+        :param label: The label for the validation error message.
+        :type label: str
+        :param name: The domain name to validate.
+        :type name: str
+        :raises: InvalidData: If the domain name is invalid.
+        """
         dom_val = compile("^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,63}$")
         if dom_val.search(name) is None:
             raise InvalidData("{} is not a valid domain name in label {}".format(name, label))
 
     def validate_template(self, template):
+        """
+        Validate a template.
+
+        :param template: The template to validate.
+        :type template: dict
+        :raises: InvalidData: If the ServiceId or ProviderId are invalid.
+        :raises: InvalidTemplate: If the template does not match the schema. Also raises an exception if any records contain variables in forbidden fields.
+        """
         if search(r'^[a-zA-Z0-9._-]+$', template["providerId"]) is None \
                 or search(r'^[a-zA-Z0-9._-]+$', template["serviceId"]) is None:
             raise InvalidData("Invalid ServiceId or ProviderId")
@@ -90,6 +129,14 @@ class DomainConnectTemplates(object):
         DomainConnectTemplates.get_variable_names(template)
 
     def update_template(self, template):
+        """
+        Update a template.
+
+        :param template: The updated template.
+        :type template: dict
+        :raises: EnvironmentError: If the template directory is not writable.
+        :raises: InvalidTemplate: If the template does not exist or cannot be found. Also raises an exception if any records contain variables in forbidden fields.
+        """
         if not os.access(self._template_path, os.W_OK):
             raise EnvironmentError("Cannot write to the configured template folder.")
         self.validate_template(template)
@@ -102,6 +149,15 @@ class DomainConnectTemplates(object):
         raise InvalidTemplate("Cannot find template {} / {}".format(template['providerId'], template['serviceId']))
 
     def create_template(self, template):
+        """
+        Create a new template.
+
+        :param template: The new template to create.
+        :type template: dict
+        :raises: EnvironmentError: If the template directory is not writable.
+        :raises: InvalidTemplate: If the template already exists or cannot be found. Also raises an exception if any records contain variables in forbidden fields.
+
+        """
         if not os.access(self._template_path, os.W_OK):
             raise EnvironmentError("Cannot write to the configured template folder.")
         self.validate_template(template)
@@ -115,6 +171,20 @@ class DomainConnectTemplates(object):
 
     @staticmethod
     def get_variable_names(template, variables=None, group=None):
+        """
+        Get a dictionary of variable names for a template.
+
+        :param template: The template to extract variable names from.
+        :type template: dict
+        :param variables: A dictionary of variable values to override the extracted ones.
+        :type variables: dict or None
+            - If not provided, it defaults to an empty dictionary.
+        :param group: The group ID to filter records by.
+        :type group: str or None
+            - If not provided, it defaults to None.
+        :return: A dictionary of variable names for the template.
+        :rtype: dict
+        """
         params = get_records_variables(template['records'], group)
         if group is None:
             pars = {
@@ -133,6 +203,14 @@ class DomainConnectTemplates(object):
 
     @staticmethod
     def get_group_ids(template):
+        """
+        Get a list of group IDs from a template.
+
+        :param template: The template to extract group IDs from.
+        :type template: dict
+        :return: A list of group IDs.
+        :rtype: list(str)
+        """
         groups = []
         if 'records' in template:
             for record in template['records']:
