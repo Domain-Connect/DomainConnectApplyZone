@@ -48,9 +48,10 @@ class DomainConnectTemplates(object):
         A list of available templates.
 
         :return: A list of dictionaries representing the templates.
+            Each template dictionary contains 'providerId', 'serviceId',
+            and 'fileName' keys. "template" key contains the template itself.
         :rtype: list(dict)
-            - Each template dictionary contains 'providerId', 'serviceId',
-              and 'fileName' keys. "template" key contains the template itself.
+
         """
         templates = []
         for file_to_check in [r for r in os.listdir(self._template_path) if r.endswith('.json')]:

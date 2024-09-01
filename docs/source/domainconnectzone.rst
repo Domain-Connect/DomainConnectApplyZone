@@ -1,53 +1,53 @@
 domainconnectzone package
 =========================
+.. automodule:: domainconnectzone
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
-Submodules
-----------
-
-domainconnectzone module
+Classes
 ------------------------------------------
 
-.. autoclass:: domainconnectzone.DomainConnect 
+.. autoclass:: domainconnectzone.DomainConnect
    :members:
    :undoc-members:
    :show-inheritance:
-
-domainconnectzone.DomainConnectTemplates module
------------------------------------------------
 
 .. autoclass:: domainconnectzone.DomainConnectTemplates
    :members:
    :undoc-members:
    :show-inheritance:
 
-domainconnectzone.qsutil module
+Functions
+------------------------------------------
+.. autofunction:: process_records
+.. autofunction:: resolve_variables
+
+Exceptions
+------------------------------------------
+
+.. autoexception:: domainconnectzone.InvalidTemplate
+   :show-inheritance:
+.. autoexception:: domainconnectzone.HostRequired
+   :show-inheritance:
+.. autoexception:: domainconnectzone.InvalidSignature
+   :show-inheritance:
+.. autoexception:: domainconnectzone.MissingParameter
+   :show-inheritance:
+.. autoexception:: domainconnectzone.InvalidData
+   :show-inheritance:
+
+Utility functions
 -------------------------------
 
-.. automodule:: domainconnectzone.qsutil
-   :members:
-   :undoc-members:
-   :show-inheritance:
+Signature utility functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-domainconnectzone.sigutil module
---------------------------------
+.. autofunction:: domainconnectzone.verify_sig
+.. autofunction:: domainconnectzone.generate_sig
+.. autofunction:: domainconnectzone.get_publickey
 
-.. automodule:: domainconnectzone.sigutil
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-domainconnectzone.validate module
----------------------------------
-
-.. automodule:: domainconnectzone.validate
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: domainconnectzone
-   :members:
-   :undoc-members:
-   :show-inheritance:
+Query string utility functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. autofunction:: domainconnectzone.qs2dict
+.. autofunction:: domainconnectzone.qsfilter

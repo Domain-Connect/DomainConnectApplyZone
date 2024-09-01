@@ -8,9 +8,10 @@ Domain Connect Template Lib documentation
 
  
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Contents:
-
+   
+   domainconnectzone
 
 Indices and tables
 ==================
