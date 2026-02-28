@@ -30,12 +30,31 @@ def is_valid_pointsTo_host(hostname):
     allowed = re.compile(r"(?!-)[A-Z\d_-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in hostname.split("."))
 
+def _strip_wildcard_prefix(input):
+    """
+    If input starts with a wildcard label ('*.' or is exactly '*'), strip it
+    and return (True, remainder).  Wildcard is only valid as the leftmost label.
+    Returns (False, input) when no wildcard prefix is present.
+    """
+    if input == '*':
+        return True, ''
+    if input.startswith('*.'):
+        return True, input[2:]
+    return False, input
+
+
 def is_valid_host_other(input):
     if not input or input == '@' or input == '':
         return True
 
     if len(input) > 253:
         return False
+
+    has_wildcard, remainder = _strip_wildcard_prefix(input)
+    if has_wildcard:
+        if not remainder:
+            return True  # bare '*' is valid
+        input = remainder
 
     allowed = re.compile(r"(?!-)[A-Z\d_-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in input.split("."))
@@ -47,6 +66,12 @@ def is_valid_host_cname_or_ns(input):
     """
     if len(input) > 253:
         return False
+
+    has_wildcard, remainder = _strip_wildcard_prefix(input)
+    if has_wildcard:
+        if not remainder:
+            return True  # bare '*' is valid
+        input = remainder
 
     allowed = re.compile(r"(?!-)[A-Z\d_-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in input.split("."))
