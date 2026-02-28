@@ -1646,8 +1646,8 @@ tests:
     expect:
       exception: InvalidTemplate
 
-  - id: exception_spfm_underscore_host
-    description: "SPFM with leading-underscore host raises InvalidData"
+  - id: spfm_underscore_host
+    description: "SPFM with leading-underscore host is allowed"
     input:
       zone_records: []
       template_records:
@@ -1656,7 +1656,210 @@ tests:
       host: ""
       params: {}
     expect:
-      exception: InvalidData
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "_underscore", data: "v=spf1 foo ~all", ttl: 6000}
+
+  # ---------------------------------------------------------------------------
+  # Underscore in host — all core record types
+  # ---------------------------------------------------------------------------
+  - id: a_underscore_leading_host
+    description: "A record with leading underscore in host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "_verify", pointsTo: 1.2.3.4, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "_verify", data: 1.2.3.4, ttl: 300}
+
+  - id: a_underscore_middle_host
+    description: "A record with underscore in the middle of host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "tinkermail_verify", pointsTo: 1.2.3.4, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "tinkermail_verify", data: 1.2.3.4, ttl: 300}
+
+  - id: aaaa_underscore_leading_host
+    description: "AAAA record with leading underscore in host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "_verify", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "_verify", data: "::1", ttl: 300}
+
+  - id: aaaa_underscore_middle_host
+    description: "AAAA record with underscore in the middle of host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "tinkermail_verify", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "tinkermail_verify", data: "::1", ttl: 300}
+
+  - id: mx_underscore_leading_host
+    description: "MX record with leading underscore in host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "_mail", pointsTo: mx.example.com, ttl: 300, priority: 10}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "_mail", data: mx.example.com, ttl: 300, priority: 10}
+
+  - id: mx_underscore_middle_host
+    description: "MX record with underscore in the middle of host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "sub_domain", pointsTo: mx.example.com, ttl: 300, priority: 10}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "sub_domain", data: mx.example.com, ttl: 300, priority: 10}
+
+  - id: cname_underscore_leading_host
+    description: "CNAME record with leading underscore in host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "_verify", pointsTo: target.example.com, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "_verify", data: target.example.com, ttl: 300}
+
+  - id: cname_underscore_middle_host
+    description: "CNAME record with underscore in the middle of host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "tinkermail_verify", pointsTo: target.example.com, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "tinkermail_verify", data: target.example.com, ttl: 300}
+
+  - id: ns_underscore_leading_host
+    description: "NS record with leading underscore in host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "_sub", pointsTo: ns.example.com, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "_sub", data: ns.example.com, ttl: 300}
+
+  - id: ns_underscore_middle_host
+    description: "NS record with underscore in the middle of host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "sub_zone", pointsTo: ns.example.com, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "sub_zone", data: ns.example.com, ttl: 300}
+
+  - id: txt_underscore_middle_host
+    description: "TXT record with underscore in the middle of host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "tinkermail_verify", data: somevalue, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "tinkermail_verify", data: somevalue, ttl: 300}
+
+  - id: spfm_underscore_middle_host
+    description: "SPFM with underscore in the middle of host is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SPFM, host: "mail_sub", spfRules: foo}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "mail_sub", data: "v=spf1 foo ~all", ttl: 6000}
+
+  - id: srv_underscore_middle_name
+    description: "SRV record with underscore in the middle of name is allowed"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip_old", target: "127.0.0.1", protocol: UDP, service: foo.com,
+           priority: 10, weight: 10, port: 5, ttl: 400}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip_old.bar", data: "127.0.0.1", protocol: UDP, service: foo.com,
+           priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: exception_txt_host_with_space
     description: "TXT with a host containing a space raises InvalidData"
@@ -1824,5 +2027,30 @@ tests:
       domain: foo.com
       host: ""
       params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_spfm_invalid_host
+    description: "SPFM with an invalid host (hyphen-leading label) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SPFM, host: "-invalid", spfRules: foo}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: NS_conflict_itself_a_before_ns
+    description: "NS conflicts with A already added to new records (A first, NS second)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "%sub%", pointsTo: 192.168.1.1, ttl: 600}
+        - {type: NS, host: "%sub%", pointsTo: ns.example.com, ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {sub: blah}
     expect:
       exception: InvalidData

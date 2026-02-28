@@ -27,18 +27,18 @@ def is_valid_pointsTo_host(hostname):
         return False
     if len(hostname) >= 1 and hostname[-1] == ".":
         hostname = hostname[:-1] # strip exactly one dot from the right, if present
-    allowed = re.compile(r"(?!-)_?[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+    allowed = re.compile(r"(?!-)[A-Z\d_-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(x) for x in hostname.split("."))
 
-def is_valid_host_other(input, allow_underscores):
+def is_valid_host_other(input):
     if not input or input == '@' or input == '':
         return True
 
     if len(input) > 253:
         return False
 
-    allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-    return all(allowed.match(x.lstrip('_')) if allow_underscores else allowed.match(x) for x in input.split("."))
+    allowed = re.compile(r"(?!-)[A-Z\d_-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(allowed.match(x) for x in input.split("."))
 
 
 def is_valid_host_cname_or_ns(input):
@@ -48,23 +48,23 @@ def is_valid_host_cname_or_ns(input):
     if len(input) > 253:
         return False
 
-    allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-    return all(allowed.match(x.lstrip('_')) for x in input.split(".")) #allows for leading underscores
+    allowed = re.compile(r"(?!-)[A-Z\d_-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(allowed.match(x) for x in input.split("."))
 
 
 def is_valid_host_srv(input):
     if len(input) > 253:
         return False
 
-    allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-    return all(allowed.match(x.lstrip('_')) for x in input.split(".")) #allows for leading underscores
+    allowed = re.compile(r"(?!-)[A-Z\d_-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(allowed.match(x) for x in input.split("."))
 
 
 def is_valid_name_srv(input):
     if input == "@":
         return True # APEX is allowed as a name in SRV
-    allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-    return all(allowed.match(x.lstrip('_')) for x in input.split(".")) #allows for leading underscores
+    allowed = re.compile(r"(?!-)[A-Z\d_-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(allowed.match(x) for x in input.split("."))
 
 
 def is_valid_target_redir(input):
