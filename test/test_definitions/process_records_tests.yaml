@@ -390,7 +390,7 @@ tests:
       records:
         - {type: A,    name: "@", data: old.old.old.old, ttl: 500}
         - {type: AAAA, name: "@", data: bog.bog.bog.bog, ttl: 200}
-        - {type: TXT,  name: "@", data: "v=spf1 foo bar -all", ttl: 6000}
+        - {type: TXT,  name: "@", data: "v=spf1 foo bar -all", ttl: 5000}
 
   - id: spfm_rule_already_present
     description: "SPFM does nothing when the rule is already present"
@@ -407,6 +407,52 @@ tests:
       delete_count: 0
       records:
         - {type: TXT, name: "@", data: "v=spf1 foo -all", ttl: 5000}
+
+  - id: spfm_new_uses_template_ttl
+    description: "SPFM uses the template ttl when creating a new SPF record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SPFM, host: "@", spfRules: foo, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: "v=spf1 foo ~all", ttl: 300}
+
+  - id: spfm_new_defaults_ttl_6000
+    description: "SPFM falls back to ttl 6000 when template has no ttl and no existing record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SPFM, host: "@", spfRules: foo}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: "v=spf1 foo ~all", ttl: 6000}
+
+  - id: spfm_merge_keeps_existing_ttl
+    description: "SPFM merge keeps the ttl from the existing SPF record, ignoring any template ttl"
+    input:
+      zone_records:
+        - {type: TXT, name: "@", data: "v=spf1 bar -all", ttl: 1800}
+      template_records:
+        - {type: SPFM, host: "@", spfRules: foo, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 1
+      records:
+        - {type: TXT, name: "@", data: "v=spf1 foo bar -all", ttl: 1800}
 
   # ---------------------------------------------------------------------------
   # NS
@@ -2036,6 +2082,312 @@ tests:
       zone_records: []
       template_records:
         - {type: SPFM, host: "-invalid", spfRules: foo}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  # ---------------------------------------------------------------------------
+  # Wildcard host support
+  # ---------------------------------------------------------------------------
+  - id: cname_wildcard_bare_no_host
+    description: "CNAME with bare '*' host at apex adds wildcard record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "*", pointsTo: target.example.com, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "*", data: target.example.com, ttl: 300}
+
+  - id: cname_wildcard_bare_with_host
+    description: "CNAME with bare '*' host applied under a sub-host becomes '*.sub'"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "*", pointsTo: target.example.com, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "*.bar", data: target.example.com, ttl: 300}
+
+  - id: cname_wildcard_with_sub_no_host
+    description: "CNAME with '*.sub' host at apex adds '*.sub' record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "*.sub", pointsTo: target.example.com, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "*.sub", data: target.example.com, ttl: 300}
+
+  - id: cname_wildcard_with_sub_and_host
+    description: "CNAME with '*.sub' host applied under 'bar' becomes '*.sub.bar'"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "*.sub", pointsTo: target.example.com, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "*.sub.bar", data: target.example.com, ttl: 300}
+
+  - id: a_wildcard_bare_no_host
+    description: "A record with bare '*' host at apex adds wildcard record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "*", pointsTo: 1.2.3.4, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "*", data: 1.2.3.4, ttl: 300}
+
+  - id: a_wildcard_bare_with_host
+    description: "A record with bare '*' host applied under 'bar' becomes '*.bar'"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "*", pointsTo: 1.2.3.4, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "*.bar", data: 1.2.3.4, ttl: 300}
+
+  - id: cname_wildcard_variable_pointsto
+    description: "CNAME wildcard host with variable in pointsTo resolves correctly"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "*", pointsTo: "%prefix%.hav.sh", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {prefix: myserver}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "*", data: myserver.hav.sh, ttl: 300}
+
+  - id: aaaa_wildcard_bare_no_host
+    description: "AAAA record with bare '*' host at apex adds wildcard record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "*", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "*", data: "::1", ttl: 300}
+
+  - id: aaaa_wildcard_bare_with_host
+    description: "AAAA record with bare '*' host applied under 'bar' becomes '*.bar'"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "*", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "*.bar", data: "::1", ttl: 300}
+
+  - id: txt_wildcard_bare_no_host
+    description: "TXT record with bare '*' host at apex adds wildcard record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "*", data: "v=spf1 include:example.com ~all", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "*", data: "v=spf1 include:example.com ~all", ttl: 300}
+
+  - id: txt_wildcard_bare_with_host
+    description: "TXT record with bare '*' host applied under 'bar' becomes '*.bar'"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "*", data: "v=spf1 include:example.com ~all", ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "*.bar", data: "v=spf1 include:example.com ~all", ttl: 300}
+
+  - id: mx_wildcard_bare_no_host
+    description: "MX record with bare '*' host at apex adds wildcard record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "*", pointsTo: mail.example.com, priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "*", data: mail.example.com, priority: 10, ttl: 300}
+
+  - id: mx_wildcard_bare_with_host
+    description: "MX record with bare '*' host applied under 'bar' becomes '*.bar'"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "*", pointsTo: mail.example.com, priority: 10, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "*.bar", data: mail.example.com, priority: 10, ttl: 300}
+
+  - id: ns_wildcard_bare_no_host
+    description: "NS record with bare '*' host at apex adds wildcard record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "*", pointsTo: ns.example.com, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "*", data: ns.example.com, ttl: 300}
+
+  - id: ns_wildcard_bare_with_host
+    description: "NS record with bare '*' host applied under 'bar' becomes '*.bar'"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "*", pointsTo: ns.example.com, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "*.bar", data: ns.example.com, ttl: 300}
+
+  - id: spfm_wildcard_bare_no_host
+    description: "SPFM record with bare '*' host at apex adds wildcard record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SPFM, host: "*", spfRules: "include:example.com"}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "*", data: "v=spf1 include:example.com ~all", ttl: 6000}
+
+  - id: spfm_wildcard_bare_with_host
+    description: "SPFM record with bare '*' host applied under 'bar' becomes '*.bar'"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SPFM, host: "*", spfRules: "include:example.com"}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "*.bar", data: "v=spf1 include:example.com ~all", ttl: 6000}
+
+  - id: exception_wildcard_not_leftmost
+    description: "Wildcard '*' in non-leftmost position raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "foo.*", pointsTo: 1.2.3.4, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_wildcard_middle_label
+    description: "Wildcard in a middle label like '_bar.*.foo' raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "_bar.*.foo", pointsTo: 1.2.3.4, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_wildcard_dot_star
+    description: "Host '*.*' (two wildcards / wildcard label) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "*.*", pointsTo: 1.2.3.4, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_wildcard_dot_at
+    description: "Host '*.@' is syntactically invalid and raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "*.@", pointsTo: 1.2.3.4, ttl: 300}
       domain: foo.com
       host: ""
       params: {}

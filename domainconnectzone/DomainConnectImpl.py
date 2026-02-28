@@ -190,13 +190,43 @@ def resolve_variables(input_, domain, host, params, recordKey):
     # If we are processing the name/host field from the template, modify the
     # path to be relative to the host being applied, unless it was fully qualified (ends with a .)
     if recordKey in ['name', 'host']:
-        if not input_.endswith('.'):
-            if host:
-                input_ = input_ + '.' + host
-        elif input_ == domain + '.':
-            input_ = '@'
-        elif input_.endswith(domain + '.'):
-            input_ = input_[0:len(input_) - len(domain + '.') - 1]
+        # Detect and temporarily remove a wildcard prefix so the remainder can
+        # be resolved against the applied host using the normal rules.
+        # A wildcard is only valid as the leftmost label ('*' or '*.something').
+        # '*.@' and '*.@' are syntactically forbidden — '@' is not a valid DNS label.
+        wildcard_prefix = ''
+        remainder = input_
+        if input_ == '*':
+            wildcard_prefix = '*'
+            remainder = ''
+        elif input_.startswith('*.'):
+            remainder = input_[2:]
+            if remainder == '@' or remainder == '':
+                raise InvalidData('Invalid wildcard host: ' + input_)
+            wildcard_prefix = '*.'
+
+        if wildcard_prefix:
+            if not remainder.endswith('.'):
+                if host:
+                    remainder = remainder + '.' + host if remainder else host
+            elif remainder == domain + '.':
+                remainder = '@'
+            elif remainder.endswith(domain + '.'):
+                remainder = remainder[0:len(remainder) - len(domain + '.') - 1]
+            # Re-attach the wildcard prefix.  '@' doesn't make sense under a
+            # wildcard so keep the host label instead.
+            if not remainder or remainder == '@':
+                input_ = wildcard_prefix.rstrip('.') if not host else '*.' + host
+            else:
+                input_ = '*.' + remainder
+        else:
+            if not input_.endswith('.'):
+                if host:
+                    input_ = input_ + '.' + host
+            elif input_ == domain + '.':
+                input_ = '@'
+            elif input_.endswith(domain + '.'):
+                input_ = input_[0:len(input_) - len(domain + '.') - 1]
 
     return input_
 
@@ -352,7 +382,7 @@ def process_spfm_record(template_record, zone_records):
             # If our rule is not already in the spf rules, merge it in
             if (zone_record['data'].find(template_record['spfRules']) == -1 and
                 '_replace' not in zone_record):
-                
+
                 # We will delete the old record for spf
                 zone_record['_delete'] = 1
 
@@ -362,21 +392,21 @@ def process_spfm_record(template_record, zone_records):
                 spfData = ('v=spf1 ' + template_record['spfRules'] + ' ' +
                            spfData)
 
-                # Store the new record
+                # Store the new record, keeping the existing record's TTL
                 new_record = {'type': 'TXT',
                               'name': template_record['host'],
                               'data': spfData,
-                              'ttl': 6000}
+                              'ttl': int(zone_record.get('ttl', 6000))}
 
             found_spf = True
             break
 
-    # If we didn't have an spf record, create one
+    # If we didn't have an spf record, create one using the template TTL
     if not found_spf:
         new_record = {'type': 'TXT',
                       'name': template_record['host'],
                       'data': 'v=spf1 ' + template_record['spfRules'] + ' ~all',
-                      'ttl': 6000}
+                      'ttl': int(template_record.get('ttl', 6000))}
         
     return new_record
 
