@@ -584,7 +584,7 @@ def check_conflict_with_self(new_record, new_records):
             error = True
 
         if error:
-            raise InvalidData(f'Template record {new_record['type']} {new_record['name']} conflicts with other tempate record {zone_record['type']} {zone_record['name']}')    
+            raise InvalidData(f"Template record {new_record['type']} {new_record['name']} conflicts with other tempate record {zone_record['type']} {zone_record['name']}")
 
 def process_records(template_records, zone_records, domain, host, params,
                     group_ids, multi_aware=False, multi_instance=False,
