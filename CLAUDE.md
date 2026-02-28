@@ -23,6 +23,8 @@ A `.venv` virtualenv already exists in the repo root with all dependencies insta
 
 ### Run tests with coverage
 ```bash
+./run_unittests_with_coverage.sh
+# Equivalent to:
 .venv/bin/python -m coverage run -m unittest discover ./test && .venv/bin/python -m coverage report -m
 ```
 
@@ -67,7 +69,23 @@ This is a Python library (`domainconnectzone`) implementing the [Domain Connect 
 
 ### Test layout
 
-Tests live in `test/` and use `unittest`. Each test module mirrors a source module. Test templates are in `test/templates/`. Tests mock DNS lookups (sigutil) with `unittest.mock.patch`.
+Tests live in `test/` and use `unittest`. Test templates are in `test/test_definitions/templates/`. Tests mock DNS lookups (sigutil) with `unittest.mock.patch`.
+
+| File | Purpose |
+|------|---------|
+| `test_DomainConnect.py` | Python-specific API tests (constructor, signatures, prompt, validator helpers) |
+| `test_DomainConnectTemplates.py` | Template enumeration / validation |
+| `test_sigutil.py` | Signature utility module |
+| `test_qsutils.py` | Query-string utility module |
+| `test_process_records.py` | YAML-driven harness — scans for `suite_type: process_records` files |
+| `test_apply_template.py` | YAML-driven harness — scans for `suite_type: apply_template` files |
+| `test_definitions/process_records_tests.yaml` | 88 language-agnostic process_records compliance tests |
+| `test_definitions/apply_template_tests.yaml` | 12 language-agnostic apply_template compliance tests |
+| `harness_utils.py` | Shared helpers for the two YAML harnesses (not a test module) |
+
+The two YAML harnesses scan the test directory for `*.yaml` files matching their `suite_type` and synthesise one `unittest.TestCase` method per case at import time. Adding a new `*.yaml` file with the right `suite_type` is picked up automatically. The harnesses validate all YAML keys at load time and raise `ValueError` on unknown fields.
+
+`harness_utils.py` uses a `try/except ImportError` import idiom so it works both under pytest (package-relative import) and `unittest discover` (top-level import).
 
 ### Conflict resolution rules
 

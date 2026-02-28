@@ -1,0 +1,397 @@
+# =============================================================================
+# Domain Connect — apply_template compliance test suite
+# =============================================================================
+#
+# suite_type: apply_template
+#
+# PURPOSE
+# -------
+# This file is a language-agnostic test specification for the Domain Connect
+# high-level apply_template API.  Any implementation can load this file and
+# run the tests to verify correctness.
+#
+# The tests cover:
+#   - Basic template application (variable substitution, record creation)
+#   - Case-insensitive provider/domain/host matching
+#   - Signature verification (valid sig, ignore_signature flag)
+#   - Redirect (REDIR301/302) record handling
+#   - hostRequired template constraint
+#   - Multi-aware / multi-instance semantics
+#
+# HOW TO USE
+# ----------
+# 1. Scan the test directory for *.yaml files.
+# 2. Load each file and check the top-level `suite_type` field.
+# 3. Process files where suite_type == "apply_template".
+# 4. For each entry in `tests`:
+#    a. Load the template identified by input.provider_id / input.service_id
+#       from the templates/ directory (file: {providerId}.{serviceId}.json).
+#    b. Call apply_template with the input fields.
+#    c. If expect.exception is set, assert that exception is raised.
+#    d. Otherwise assert expect.new_count, expect.delete_count, and
+#       sorted expect.records against the actual result.
+#
+# REDIRECT RECORDS
+# ----------------
+# Implementations MUST inject backing A/AAAA records when applying templates
+# that contain REDIR301/REDIR302 entries.  This test suite assumes the
+# following redirect_records are configured on the DomainConnect instance:
+#   - {type: A,    pointsTo: 127.0.0.1, ttl: 600}
+#   - {type: AAAA, pointsTo: ::1,        ttl: 600}
+#
+# RECORD SORTING
+# --------------
+# When comparing expect.records against actual results, sort records by:
+#   (type, name, ttl, data)
+#
+# RANDOM _dc.id VALUES
+# --------------------
+# When multi_aware: true and no unique_id is given, the implementation
+# assigns a random string to _dc.id.  Harnesses MUST normalise these to the
+# sentinel string "<test only: random>" before comparing against expect.records.
+#
+# EXCEPTION NAMES
+# ---------------
+# | Name             | Meaning                                              |
+# |------------------|------------------------------------------------------|
+# | InvalidData      | Bad record content or format                         |
+# | InvalidTemplate  | Missing, malformed, or inapplicable template         |
+# | MissingParameter | A required %VARIABLE% was not supplied               |
+# | HostRequired     | Template requires a host label but none provided     |
+# | TypeError        | Unrecognised record type string                      |
+#
+# =============================================================================
+# TOP-LEVEL STRUCTURE
+# =============================================================================
+#
+# version     string   Schema version of this file.
+# suite_type  string   Always "apply_template" for this file.
+# description string   Human-readable description of this suite.
+# tests       list     List of test case objects (see below).
+#
+# =============================================================================
+# TEST CASE STRUCTURE
+# =============================================================================
+#
+# id          string   Unique snake_case identifier.
+# description string   Human-readable description.
+#
+# input:
+#   provider_id        string   Provider ID used to locate the template file.
+#   service_id         string   Service ID used to locate the template file.
+#   zone_records       list     Current zone state (list of zone record objects).
+#   domain             string   Domain being managed (e.g. "foo.com").
+#   host               string   Sub-domain label ("" = apex, null = absent).
+#   params             mapping  Variable substitution map (%VAR% -> value).
+#
+#   # Optional
+#   group_ids          list     Filter to these group IDs.  Default: null.
+#   ignore_signature   boolean  Skip signature verification.  Default: false.
+#   multi_aware        boolean  Enable multi-aware mode.  Default: false.
+#   unique_id          string   Stable ID for multi-instance tracking.
+#                               Default: null (random assigned when multi_aware).
+#   qs                 string   Raw query string for signature verification.
+#   sig                string   Base64-encoded signature.
+#   key                string   DNS key sub-domain for public key lookup.
+#
+# expect:
+#   new_count    integer  Expected number of records added.
+#   delete_count integer  Expected number of records deleted.
+#   records      list     Expected final zone state (sorted by type/name/ttl/data).
+#
+#   # OR, for error cases:
+#   exception    string   Expected exception name (see table above).
+#
+# =============================================================================
+# ZONE RECORD FIELDS
+# =============================================================================
+#
+# type      string   A, AAAA, CNAME, MX, NS, TXT, SRV, REDIR301, REDIR302,
+#                    or a custom type (e.g. CAA, TYPE256).
+# name      string   Relative owner name; "@" = apex.
+# data      string   Record data / rdata.
+# ttl       integer  Time-to-live in seconds.
+# priority  integer  MX preference / SRV priority (optional).
+# protocol  string   SRV: "UDP", "TCP", or "TLS" (optional).
+# service   string   SRV: service host (optional).
+# weight    integer  SRV weight (optional).
+# port      integer  SRV port (optional).
+# _dc       mapping  Multi-aware provenance metadata:
+#                      id         string   Stable unique ID for this instance.
+#                      providerId string   Provider ID.
+#                      serviceId  string   Service ID.
+#                      host       string   Host label at time of apply.
+#                      essential  string   "Always" or "OnApply".
+#
+# =============================================================================
+
+version: "1.0"
+suite_type: apply_template
+description: "Domain Connect apply_template compliance tests"
+
+tests:
+  # ---------------------------------------------------------------------------
+  # Basic apply_template tests
+  # ---------------------------------------------------------------------------
+  - id: template_apply_basic
+    description: "Apply template1 to empty zone"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: template1
+      zone_records: []
+      domain: foo.com
+      host: ""
+      params: {IP: "127.0.0.1", RANDOMTEXT: foobar}
+    expect:
+      new_count: 2
+      delete_count: 0
+      records:
+        - {type: A,   name: "@", data: "127.0.0.1", ttl: 1800}
+        - {type: TXT, name: "@", data: foobar,      ttl: 1800}
+
+  - id: template_apply_ignore_sig
+    description: "Apply template2 (sig required) with ignore_signature=true"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: template2
+      zone_records: []
+      domain: foo.com
+      host: bar
+      params: {IP: "127.0.0.1", RANDOMTEXT: foobar}
+      ignore_signature: true
+    expect:
+      new_count: 3
+      delete_count: 0
+      records:
+        - {type: A,     name: bar,     data: "127.0.0.1", ttl: 1800}
+        - {type: TXT,   name: bar,     data: foobar,      ttl: 1800}
+        - {type: CNAME, name: whd.bar, data: bar.foo.com, ttl: 600}
+
+  - id: template_apply_case_insensitive
+    description: "Provider/domain/host comparison is case-insensitive"
+    input:
+      provider_id: eXampleservice.domaincOnnect.org
+      service_id: template2
+      zone_records: []
+      domain: fOo.com
+      host: bAr
+      params: {IP: "127.0.0.1", RANDOMTEXT: foobar}
+      ignore_signature: true
+    expect:
+      new_count: 3
+      delete_count: 0
+      records:
+        - {type: A,     name: bar,     data: "127.0.0.1", ttl: 1800}
+        - {type: TXT,   name: bar,     data: foobar,      ttl: 1800}
+        - {type: CNAME, name: whd.bar, data: bar.foo.com, ttl: 600}
+
+  # ---------------------------------------------------------------------------
+  # Redirect template tests
+  # ---------------------------------------------------------------------------
+  - id: template_apply_redirect
+    description: "Apply redirect template to empty zone"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: templateredir
+      zone_records: []
+      domain: foo.com
+      host: ""
+      params: {IP: "127.0.0.1", RANDOMTEXT: foobar}
+    expect:
+      new_count: 5
+      delete_count: 0
+      records:
+        - {type: A,        name: www, data: "127.0.0.1",        ttl: 1800}
+        - {type: TXT,      name: www, data: foobar,             ttl: 1800}
+        - {type: A,        name: "@", data: "127.0.0.1",        ttl: 600}
+        - {type: AAAA,     name: "@", data: "::1",              ttl: 600}
+        - {type: REDIR301, name: "@", data: "http://www.foo.com"}
+
+  - id: template_apply_redirect_subdomain_conflict
+    description: "Apply redirect template under subdomain with existing conflicting records"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: templateredir
+      zone_records:
+        - {type: A,        name: bar,     data: "1.1.1.1",          ttl: 600}
+        - {type: REDIR302, name: bar,     data: "http://other.com"}
+        - {type: TXT,      name: www.bar, data: "shm:barfoo",        ttl: 600}
+      domain: foo.com
+      host: bar
+      params: {IP: "127.0.0.1", RANDOMTEXT: "shm:foobar"}
+    expect:
+      new_count: 5
+      delete_count: 3
+      records:
+        - {type: A,        name: www.bar, data: "127.0.0.1",            ttl: 1800}
+        - {type: TXT,      name: www.bar, data: "shm:foobar",           ttl: 1800}
+        - {type: A,        name: bar,     data: "127.0.0.1",            ttl: 600}
+        - {type: AAAA,     name: bar,     data: "::1",                  ttl: 600}
+        - {type: REDIR301, name: bar,     data: "http://www.bar.foo.com"}
+
+  # ---------------------------------------------------------------------------
+  # Signature verification
+  # ---------------------------------------------------------------------------
+  - id: template_apply_sig_verified
+    description: "Apply template2 with valid signature"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: template2
+      zone_records: []
+      domain: foo.com
+      host: bar
+      params: {IP: "132.148.25", RANDOMTEXT: "shm:1551036164:hello"}
+      qs: "domain=arnoldblinn.com&RANDOMTEXT=shm%3A1551036164%3Ahello&IP=132.148.25.185&host=bar"
+      sig: "LyCE+7H0zr/XHaxX36pdD1eSQENRiGTFxm79m7A5NLDPiUKLe71IrsEgnDLN76ndQcLTZlr4+HhpWzKZKyFl9ieEpNzZlDHRp35H83Erhm0eDctUmI1Zct51alZ8RuTL+aa29WC+AM7+gSpnL/AHl9mxckyeEuFFqXcl/3ShwK2F9x/7r+cICefiUEzsZN3EuqOvwqQkBSqcdVy/ohjNAG/InYAYSX+0fUK9UNQfQYkuPqOAptPRjX+hUnYsXUk/eQq16aX7TzhZm+eEq+En+oiEgh7qps1yvGbJm6QXKovan/sqng40R6FBP3R3dvfZC6QrfCUtGpQ8c0D0S5oLBw=="
+      key: "_dck1"
+    expect:
+      new_count: 3
+      delete_count: 0
+      records:
+        - {type: A,     name: bar,     data: "132.148.25",           ttl: 1800}
+        - {type: TXT,   name: bar,     data: "shm:1551036164:hello", ttl: 1800}
+        - {type: CNAME, name: whd.bar, data: bar.foo.com,            ttl: 600}
+
+  # ---------------------------------------------------------------------------
+  # hostRequired constraint
+  # ---------------------------------------------------------------------------
+  - id: template_apply_host_required_ok
+    description: "Template with hostRequired=true succeeds when host is provided"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: templatehostrequired
+      zone_records: []
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: bar, data: foo.com, ttl: 1800}
+
+  - id: exception_template_host_required_missing
+    description: "Template with hostRequired=true raises HostRequired when host is absent"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: templatehostrequired
+      zone_records: []
+      domain: foo.com
+      host: null
+      params: {}
+    expect:
+      exception: HostRequired
+
+  # ---------------------------------------------------------------------------
+  # Multi-aware / multi-instance tests
+  # ---------------------------------------------------------------------------
+  - id: template_multi_simple
+    description: "Apply multi-instance template with an explicit unique_id"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: testmultiinstance
+      zone_records: []
+      domain: foo.com
+      host: ""
+      params: {IP: "127.0.0.1", test: foo}
+      multi_aware: true
+      unique_id: id1
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - type: TXT
+          name: "@"
+          data: foo
+          ttl: 1800
+          _dc: {essential: Always, host: "", id: id1, providerId: exampleservice.domainconnect.org, serviceId: testmultiinstance}
+
+  - id: template_multi_simple_no_id
+    description: "Apply multi-instance template with no unique_id (random id assigned)"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: testmultiinstance
+      zone_records: []
+      domain: foo.com
+      host: ""
+      params: {IP: "127.0.0.1", test: foo}
+      multi_aware: true
+    expect:
+      new_count: 1
+      delete_count: 0
+      # When multi_aware=true and no unique_id, _dc.id is a random value.
+      # Harnesses MUST normalise random ids to the sentinel "<test only: random>"
+      # before comparing.
+      records:
+        - type: TXT
+          name: "@"
+          data: foo
+          ttl: 1800
+          _dc: {essential: Always, host: "", id: "<test only: random>", providerId: exampleservice.domainconnect.org, serviceId: testmultiinstance}
+
+  - id: template_multi_aware_reapply
+    description: "Re-applying a multi-aware template with a new unique_id replaces old records"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: template1
+      zone_records:
+        - type: A
+          name: "@"
+          data: "127.0.0.1"
+          ttl: 1800
+          _dc: {essential: Always, host: "", id: id1, providerId: exampleservice.domainconnect.org, serviceId: template1}
+        - type: TXT
+          name: "@"
+          data: foo
+          ttl: 1800
+          _dc: {essential: Always, host: "", id: id1, providerId: exampleservice.domainconnect.org, serviceId: template1}
+      domain: foo.com
+      host: ""
+      params: {IP: "127.0.0.1", RANDOMTEXT: bar}
+      multi_aware: true
+      unique_id: id2
+    expect:
+      new_count: 2
+      delete_count: 2
+      records:
+        - type: A
+          name: "@"
+          data: "127.0.0.1"
+          ttl: 1800
+          _dc: {essential: Always, host: "", id: id2, providerId: exampleservice.domainconnect.org, serviceId: template1}
+        - type: TXT
+          name: "@"
+          data: bar
+          ttl: 1800
+          _dc: {essential: Always, host: "", id: id2, providerId: exampleservice.domainconnect.org, serviceId: template1}
+
+  - id: template_multi_instance_add_no_conflict
+    description: "Adding a second multi-instance record with a different unique_id does not conflict"
+    input:
+      provider_id: exampleservice.domainconnect.org
+      service_id: testmultiinstance
+      zone_records:
+        - type: TXT
+          name: "@"
+          data: foo
+          ttl: 1800
+          _dc: {essential: Always, host: "", id: id1, providerId: exampleservice.domainconnect.org, serviceId: testmultiinstance}
+      domain: foo.com
+      host: ""
+      params: {IP: "127.0.0.1", test: bar}
+      multi_aware: true
+      unique_id: id2
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - type: TXT
+          name: "@"
+          data: foo
+          ttl: 1800
+          _dc: {essential: Always, host: "", id: id1, providerId: exampleservice.domainconnect.org, serviceId: testmultiinstance}
+        - type: TXT
+          name: "@"
+          data: bar
+          ttl: 1800
+          _dc: {essential: Always, host: "", id: id2, providerId: exampleservice.domainconnect.org, serviceId: testmultiinstance}
