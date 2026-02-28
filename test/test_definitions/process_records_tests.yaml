@@ -960,6 +960,292 @@ tests:
       records:
         - {type: CNAME, name: bar, data: foo.com, ttl: 400}
 
+  - id: param_at_in_pointsto_mx_with_host
+    description: "@ in MX pointsTo resolves to fqdn when host is set"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "@", priority: 10, ttl: 400}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: bar, data: bar.foo.com, priority: 10, ttl: 400}
+
+  - id: param_at_in_pointsto_mx_without_host
+    description: "@ in MX pointsTo resolves to domain when no host parameter given"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "@", priority: 10, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "@", data: foo.com, priority: 10, ttl: 400}
+
+  - id: param_at_in_pointsto_a_with_host
+    description: "@ in A pointsTo raises InvalidData — fqdn is not a valid IPv4"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "@", pointsTo: "@", ttl: 400}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_at_in_pointsto_a_without_host
+    description: "@ in A pointsTo raises InvalidData — fqdn is not a valid IPv4"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "@", pointsTo: "@", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_at_in_pointsto_aaaa_with_host
+    description: "@ in AAAA pointsTo raises InvalidData — fqdn is not a valid IPv6"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "@", pointsTo: "@", ttl: 400}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_at_in_pointsto_aaaa_without_host
+    description: "@ in AAAA pointsTo raises InvalidData — fqdn is not a valid IPv6"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "@", pointsTo: "@", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_at_in_pointsto_ns_with_host
+    description: "@ in NS pointsTo raises InvalidData — circular delegation"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "@", pointsTo: "@", ttl: 400}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_at_in_pointsto_ns_without_host
+    description: "@ in NS pointsTo raises InvalidData — circular delegation"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "@", pointsTo: "@", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_empty_pointsto_a
+    description: "Empty pointsTo in A raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "@", pointsTo: "", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_empty_pointsto_aaaa
+    description: "Empty pointsTo in AAAA raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "@", pointsTo: "", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_empty_pointsto_cname
+    description: "Empty pointsTo in CNAME raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: sub, pointsTo: "", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_empty_pointsto_mx
+    description: "Empty pointsTo in MX raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "", priority: 10, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_empty_pointsto_ns
+    description: "Empty pointsTo in NS raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "@", pointsTo: "", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_empty_target_srv
+    description: "Empty target in SRV raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", target: "", protocol: tcp, service: foo.com,
+           priority: 10, weight: 10, port: 80, ttl: 400}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_at_in_target_srv_with_host
+    description: "@ in SRV target resolves to fqdn when host is set"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", target: "@", protocol: tcp, service: foo.com,
+           priority: 10, weight: 10, port: 80, ttl: 400}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: bar, data: bar.foo.com, protocol: tcp,
+           service: foo.com, priority: 10, weight: 10, port: 80, ttl: 400}
+
+  - id: param_at_in_target_srv_without_host
+    description: "@ in SRV target with no host raises InvalidData because _proto.@ is invalid"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", target: "@", protocol: tcp, service: foo.com,
+           priority: 10, weight: 10, port: 80, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_at_in_data_txt_with_host
+    description: "@ in TXT data is stored as a literal string — TXT content is opaque"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "@", data: "@", ttl: 400}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: bar, data: "@", ttl: 400}
+
+  - id: param_at_in_data_txt_without_host
+    description: "@ in TXT data is stored as a literal string — TXT content is opaque"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "@", data: "@", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: "@", ttl: 400}
+
+  - id: param_empty_data_txt
+    description: "Empty data in TXT is stored as an empty string — TXT content is opaque"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "@", data: "", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: "", ttl: 400}
+
+  - id: param_at_in_data_custom_with_host
+    description: "@ in custom record data raises InvalidData — @ resolution is not supported for custom types"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "@", data: "@", ttl: 400}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_at_in_data_custom_without_host
+    description: "@ in custom record data raises InvalidData — @ resolution is not supported for custom types"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "@", data: "@", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: param_empty_data_custom
+    description: "Empty data in custom record raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "@", data: "", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
   - id: param_fqdn_in_data
     description: "%fqdn% in data field is substituted"
     input:
@@ -2010,8 +2296,8 @@ tests:
       records:
         - {type: CAA, name: bar, data: '0 issue "example.com"', ttl: 3600}
 
-  - id: custom_caa_data_at_resolves_to_fqdn
-    description: "Custom record data field resolves @ to fqdn"
+  - id: custom_caa_data_at_raises_invalid_data
+    description: "@ in custom record data raises InvalidData — @ resolution is not supported for custom types"
     input:
       zone_records: []
       template_records:
@@ -2020,10 +2306,7 @@ tests:
       host: bar
       params: {}
     expect:
-      new_count: 1
-      delete_count: 0
-      records:
-        - {type: CAA, name: bar, data: bar.foo.com, ttl: 3600}
+      exception: InvalidData
 
   - id: custom_type256_rfc3597
     description: "TYPE<N> syntax (RFC 3597) is accepted as a custom record type"
@@ -2195,6 +2478,36 @@ tests:
       delete_count: 0
       records:
         - {type: CNAME, name: "*", data: myserver.hav.sh, ttl: 300}
+
+  - id: cname_wildcard_fqdn_equals_domain
+    description: "Wildcard FQDN host '*.foo.com.' resolves to '*' at apex (line 212-213)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "*.foo.com.", pointsTo: target.example.com, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "*", data: target.example.com, ttl: 300}
+
+  - id: cname_wildcard_fqdn_subdomain
+    description: "Wildcard FQDN host '*.sub.foo.com.' trims domain suffix to '*.sub' (line 214-215)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "*.sub.foo.com.", pointsTo: target.example.com, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "*.sub", data: target.example.com, ttl: 300}
 
   - id: aaaa_wildcard_bare_no_host
     description: "AAAA record with bare '*' host at apex adds wildcard record"
