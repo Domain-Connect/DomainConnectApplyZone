@@ -515,7 +515,6 @@ _delete_map = {
     'REDIR302': ['A', 'AAAA', 'CNAME'],
 }
 
-
 def process_other_record(template_record, zone_records):
     """
     Will process all other record types from a template. This includes A, AAAA,
@@ -561,6 +560,31 @@ def process_other_record(template_record, zone_records):
 
     return new_record
 
+
+def check_conflict_with_self(new_record, new_records):
+    # Mark records that conflict with self (affects only CNAME and NS)
+    for zone_record in new_records:
+        zone_record_type = zone_record['type'].upper()
+
+        error = False
+        if (new_record['type'] == 'CNAME' or zone_record['type'] == 'CNAME') \
+            and zone_record['name'] == new_record['name']:
+            error = True
+
+        if new_record['type'] == 'NS' \
+            and not (new_record['type'] == 'NS' and zone_record['type'] == 'NS') \
+            and (zone_record['name'] == new_record['name'] \
+                or zone_record['name'].endswith('.' + new_record['name'])):
+            error = True
+
+        if zone_record['type'] == 'NS' \
+            and not (new_record['type'] == 'NS' and zone_record['type'] == 'NS') \
+            and (zone_record['name'] == new_record['name'] \
+                or new_record['name'].endswith('.' + zone_record['name'])):
+            error = True
+
+        if error:
+            raise InvalidData(f'Template record {new_record['type']} {new_record['name']} conflicts with other tempate record {zone_record['type']} {zone_record['name']}')    
 
 def process_records(template_records, zone_records, domain, host, params,
                     group_ids, multi_aware=False, multi_instance=False,
@@ -831,6 +855,8 @@ def process_records(template_records, zone_records, domain, host, params,
             else:
                 new_record = process_other_record(template_record, zone_records)
 
+        if new_record:
+            check_conflict_with_self(new_record, new_records)
 
         if new_record is not None:
             # Setting any record type that isn't an NS record has an extra delete

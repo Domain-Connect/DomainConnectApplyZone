@@ -238,6 +238,50 @@ tests:
       records:
         - {type: CNAME, name: bar, data: "bar.com.", ttl: 600}
 
+  - id: cname_conflict_itself
+    description: "CNAME raises conflict if 2 CNAMEs with same host generated"
+    input:
+      zone_records:
+      template_records:
+        - {type: CNAME, host: "blah", pointsTo: abc, ttl: 600}
+        - {type: CNAME, host: "%sub%", pointsTo: cde, ttl: 600}
+      domain: foo.com
+      host: blah
+      params: { sub: blah }
+    expect:
+      exception: InvalidData
+
+  - id: cname_not_conflict_itself_other_host
+    description: "CNAME raises conflict if 2 CNAMEs with same host generated"
+    input:
+      zone_records:
+      template_records:
+        - {type: CNAME, host: "sub", pointsTo: abc, ttl: 600}
+        - {type: CNAME, host: "%sub%", pointsTo: cde, ttl: 600}
+      domain: foo.com
+      host: blah
+      params: { sub: varsub }
+    expect:
+      new_count: 2
+      delete_count: 0
+      records:
+        - {type: CNAME, name: sub.blah, data: "abc", ttl: 600}
+        - {type: CNAME, name: varsub.blah, data: "cde", ttl: 600}
+
+  - id: cname_conflict_itself_a
+    description: "CNAME raises conflict with A other record on the same host generated"
+    input:
+      zone_records:
+      template_records:
+        - {type: CNAME, host: "blah", pointsTo: abc, ttl: 600}
+        - {type: A, host: "%sub%", pointsTo: 192.168.1.1, ttl: 600}
+      domain: foo.com
+      host: blah
+      params: { sub: blah }
+    expect:
+      exception: InvalidData
+
+
   # ---------------------------------------------------------------------------
   # SRV
   # ---------------------------------------------------------------------------
@@ -481,6 +525,62 @@ tests:
       records:
         - {type: NS, name: bar,  data: def, ttl: 300}
         - {type: A,  name: xbar, data: abc, ttl: 500}
+
+  - id: NS_no_conflict_itself
+    description: "NS raises no conflict if 2 NSs with same host generated"
+    input:
+      zone_records:
+      template_records:
+        - {type: NS, host: "%sub1%", pointsTo: abc, ttl: 600}
+        - {type: NS, host: "%sub2%", pointsTo: cde, ttl: 600}
+      domain: foo.com
+      params: { sub1: 'blah', sub2: 'blah' }
+    expect:
+      new_count: 2
+      delete_count: 0
+      records:
+        - {type: NS, name: blah, data: abc, ttl: 600}
+        - {type: NS, name: blah, data: cde, ttl: 600}
+
+  - id: NS_no_conflict_other_above
+    description: "NS raises no conflict if other record generated above"
+    input:
+      zone_records:
+      template_records:
+        - {type: NS, host: "%sub1%", pointsTo: abc, ttl: 600}
+        - {type: A, host: "%sub2%", pointsTo: 1.1.1.1, ttl: 600}
+      domain: foo.com
+      params: { sub1: 'delegated.blah', sub2: 'blah' }
+    expect:
+      new_count: 2
+      delete_count: 0
+      records:
+        - {type: NS, name: delegated.blah, data: abc, ttl: 600}
+        - {type: A, name: blah, data: 1.1.1.1, ttl: 600}
+
+  - id: NS_conflict_itself_a
+    description: "NS raises conflict with A other record on the same host generated"
+    input:
+      zone_records:
+      template_records:
+        - {type: NS, host: "%sub2%", pointsTo: abc, ttl: 600}
+        - {type: A, host: "%sub1%", pointsTo: 192.168.1.1, ttl: 600}
+      domain: foo.com
+      params: { sub1: blah, sub2: blah }
+    expect:
+      exception: InvalidData
+
+  - id: NS_conflict_itself_a_below
+    description: "NS raises conflict with A other record below the same host generated"
+    input:
+      zone_records:
+      template_records:
+        - {type: NS, host: "%sub2%", pointsTo: abc, ttl: 600}
+        - {type: A, host: "%sub1%.%sub2%", pointsTo: 192.168.1.1, ttl: 600}
+      domain: foo.com
+      params: { sub1: blah, sub2: blah }
+    expect:
+      exception: InvalidData
 
   # ---------------------------------------------------------------------------
   # TXT
