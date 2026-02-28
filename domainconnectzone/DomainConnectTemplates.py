@@ -7,14 +7,14 @@ from jsonschema import validate, ValidationError
 from domainconnectzone import InvalidTemplate, InvalidData
 from domainconnectzone.DomainConnectImpl import get_records_variables
 
-
 class DomainConnectTemplates(object):
     """
     A class representing a collection of templates.
 
     :param template_path: The path to the directory containing the templates.
     :type template_path: str or None
-        - If not provided, it defaults to the current working directory.
+        If not provided, it defaults to the /templates subdirectory relative to file path.
+        If 'template.schema' is available in the template directory it is loaded and assigned to self._schema.
     """
     def __init__(self, template_path=None):
         if not template_path:
@@ -35,6 +35,7 @@ class DomainConnectTemplates(object):
     def schema(self):
         """
         The JSON schema for the templates.
+        The schema is loaded from the file 'template.schema' if available in the template directory.
 
         :return: The JSON schema as a dictionary.
         :rtype: dict or None

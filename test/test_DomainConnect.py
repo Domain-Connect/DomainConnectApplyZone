@@ -206,6 +206,16 @@ class DomainConnectTests(unittest.TestCase):
         self._test_records('SPF Merge Existing', template_records, zone_records, 'foo.com', '',
                            {}, expected_records, new_count=1, delete_count=1)
 
+        zone_records = [
+            {'type': 'TXT', 'name': '@', 'data': 'v=spf1 foo -all', 'ttl': 5000},
+        ]
+        template_records = [{'type': 'SPFM', 'host': '@', 'spfRules': 'foo'}]
+        expected_records = [
+            {'type': 'TXT', 'name': '@', 'data': 'v=spf1 foo -all', 'ttl': 5000},
+        ]
+        self._test_records('SPF rule already present - no change', template_records, zone_records, 'foo.com', '',
+                           {}, expected_records, new_count=0, delete_count=0)
+
     def test_NS(self):
         zone_records = [{'type': 'NS', 'name': 'foo', 'data': 'abc', 'ttl': 500}]
         template_records = [{'type': 'A', 'host': 'foo', 'pointsTo': '127.0.0.1', 'ttl': 300}]
@@ -503,8 +513,8 @@ class DomainConnectTests(unittest.TestCase):
                                      '', {},
                                      InvalidTemplate)
 
-        template_records = [{'type': 'CAA', 'host': '@', 'data': 'xxx', 'ttl': 600}]
-        self._test_records_exception("CAA template not supported exception", template_records, zone_records, 'foo.com',
+        template_records = [{'type': '!INVALID', 'host': '@', 'data': 'xxx', 'ttl': 600}]
+        self._test_records_exception("Invalid record type exception", template_records, zone_records, 'foo.com',
                                      '', {},
                                      TypeError)
 
@@ -1171,6 +1181,96 @@ class DomainConnectTests(unittest.TestCase):
 
         # Ensure the correct values were returned
         self.assertEqual(params, {'param1': 'value1'})
+
+
+    def test_custom_record_type_add(self):
+        """Custom record type is added with same-type/same-host conflict deletion."""
+        zone_records = []
+        template_records = [{'type': 'CAA', 'host': '@', 'data': '0 issue "letsencrypt.org"', 'ttl': 3600}]
+        expected_records = [{'type': 'CAA', 'name': 'bar', 'data': '0 issue "letsencrypt.org"', 'ttl': 3600}]
+        self._test_records('Custom CAA add', template_records, zone_records, 'foo.com', 'bar', {},
+                           expected_records, new_count=1, delete_count=0)
+
+    def test_custom_record_type_no_conflict_delete(self):
+        """Applying a custom record does NOT delete existing records of the same type/host."""
+        zone_records = [
+            {'type': 'CAA', 'name': 'bar', 'data': '0 issue "old.com"', 'ttl': 300},
+            {'type': 'CAA', 'name': 'other', 'data': '0 issue "old.com"', 'ttl': 300},
+        ]
+        template_records = [{'type': 'CAA', 'host': '@', 'data': '0 issue "new.com"', 'ttl': 3600}]
+        expected_records = [
+            {'type': 'CAA', 'name': 'bar', 'data': '0 issue "new.com"', 'ttl': 3600},
+            {'type': 'CAA', 'name': 'bar', 'data': '0 issue "old.com"', 'ttl': 300},
+            {'type': 'CAA', 'name': 'other', 'data': '0 issue "old.com"', 'ttl': 300},
+        ]
+        self._test_records('Custom CAA no conflict delete', template_records, zone_records,
+                           'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
+
+    def test_custom_record_type_variable_substitution(self):
+        """Custom record type supports %variable% substitution in data."""
+        zone_records = []
+        template_records = [{'type': 'CAA', 'host': '@', 'data': '0 issue "%issuer%"', 'ttl': 3600}]
+        expected_records = [{'type': 'CAA', 'name': 'bar', 'data': '0 issue "example.com"', 'ttl': 3600}]
+        self._test_records('Custom CAA variable substitution', template_records, zone_records,
+                           'foo.com', 'bar', {'issuer': 'example.com'},
+                           expected_records, new_count=1, delete_count=0)
+
+    def test_custom_record_type_data_fqdn(self):
+        """Custom record data field resolves @ to fqdn."""
+        zone_records = []
+        template_records = [{'type': 'CAA', 'host': '@', 'data': '@', 'ttl': 3600}]
+        expected_records = [{'type': 'CAA', 'name': 'bar', 'data': 'bar.foo.com', 'ttl': 3600}]
+        self._test_records('Custom CAA data @ resolves to fqdn', template_records, zone_records,
+                           'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
+
+    def test_custom_record_type_rfc3597(self):
+        """TYPE<N> syntax (RFC 3597) is accepted as a custom record type."""
+        zone_records = []
+        template_records = [{'type': 'TYPE256', 'host': '@', 'data': '\\# 4 c0000201', 'ttl': 3600}]
+        expected_records = [{'type': 'TYPE256', 'name': 'bar', 'data': '\\# 4 c0000201', 'ttl': 3600}]
+        self._test_records('Custom TYPE256 (RFC 3597) add', template_records, zone_records,
+                           'foo.com', 'bar', {}, expected_records, new_count=1, delete_count=0)
+
+    def test_custom_record_type_invalid_rejected(self):
+        """A completely invalid record type string raises TypeError."""
+        zone_records = []
+        template_records = [{'type': '!INVALID', 'host': '@', 'data': 'something', 'ttl': 3600}]
+        self._test_records_exception('Invalid record type rejected', template_records, zone_records,
+                                     'foo.com', 'bar', {}, TypeError)
+
+    def test_custom_record_type_get_records_variables(self):
+        """get_records_variables extracts variables from custom record host and data."""
+        from domainconnectzone.DomainConnectImpl import get_records_variables
+        template_records = [
+            {'type': 'CAA', 'host': '@', 'data': '0 issue "%issuer%"', 'ttl': 3600},
+            {'type': 'TYPE99', 'host': '%subdomain%', 'data': 'static', 'ttl': 300},
+        ]
+        params = get_records_variables(template_records)
+        self.assertIn('issuer', params)
+        self.assertIn('subdomain', params)
+        self.assertIsNone(params['issuer'])
+        self.assertIsNone(params['subdomain'])
+
+
+    def test_custom_record_type_invalid_host(self):
+        """Custom record with an invalid host raises InvalidData."""
+        zone_records = []
+        template_records = [{'type': 'CAA', 'host': '-invalid-', 'data': '0 issue "ca.com"', 'ttl': 3600}]
+        self._test_records_exception('Custom CAA invalid host', template_records, zone_records,
+                                     'foo.com', '', {}, InvalidData)
+
+    def test_custom_record_type_empty_string_rejected(self):
+        """An empty string record type is rejected."""
+        from domainconnectzone.validate import is_custom_record_type
+        self.assertFalse(is_custom_record_type(''))
+        self.assertFalse(is_custom_record_type(None))
+
+    def test_custom_record_type_empty_data_raises(self):
+        """Custom record with empty data field raises InvalidData."""
+        zone_records = []
+        template_records = [{'type': 'CAA', 'host': '@', 'data': '', 'ttl': 3600}]
+        self._test_records_exception('Custom CAA empty data', template_records, zone_records,
+                                     'foo.com', '', {}, InvalidData)
 
 
 if __name__ == '__main__':

@@ -471,6 +471,41 @@ def process_ns(template_record, zone_records):
 
     return new_record
 
+
+def process_custom_record(template_record, zone_records):
+    """
+    Will process a custom (non-core) DNS record type from a template.
+
+    Custom record types are any IANA-registered RR type names or TYPE<N>
+    designations (per RFC 3597) that are not one of the named core types
+    (A, AAAA, CNAME, MX, TXT, SRV, SPFM, NS).
+
+    The record data is carried in the 'data' field in canonical presentation
+    format.  An empty value or "@" in 'data' resolves to the applied fqdn
+    ([host.]domain).
+
+    No existing zone records are deleted — the new record is simply added.
+
+    :param template_record: The record from the template to process.
+    :type template_record: dict
+        - keys: 'type', 'host', 'data', 'ttl'
+
+    :param zone_records: A list of all records in the current zone.
+    :type zone_records: list
+        - elements: dict
+        - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
+
+    :return: The new custom record.
+    :rtype: dict
+    """
+    record_type = template_record['type'].upper()
+
+    return {'type': record_type,
+            'name': template_record['host'],
+            'data': template_record['data'],
+            'ttl': int(template_record['ttl'])}
+
+
 _delete_map = {
     'A': ['A', 'AAAA', 'CNAME', 'REDIR301', 'REDIR302'],
     'AAAA': ['A', 'AAAA', 'CNAME', 'REDIR301', 'REDIR302'],
@@ -646,7 +681,8 @@ def process_records(template_records, zone_records, domain, host, params,
         supported = ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'SPFM', 'NS']
         if redirect_records is not None:
             supported += ['REDIR301', 'REDIR302']
-        if template_record_type not in supported:
+        is_custom = not template_record_type in supported and is_custom_record_type(template_record_type) 
+        if not template_record_type in supported and not is_custom:
             raise TypeError('Unknown record type (' + template_record_type +
                             ') in template')
 
@@ -687,6 +723,10 @@ def process_records(template_records, zone_records, domain, host, params,
 
             elif template_record_type in ['CNAME', 'NS']:
                 if not is_valid_host_cname_or_ns(template_record['host']):
+                    raise InvalidData(err_msg)
+
+            elif is_custom:
+                if not is_valid_host_other(template_record['host'], True):
                     raise InvalidData(err_msg)
 
         # Points To / Target
@@ -765,8 +805,16 @@ def process_records(template_records, zone_records, domain, host, params,
             template_record['spfRules'] = resolve_variables(
                 template_record['spfRules'], domain, host, params, 'spfRules')
 
-        # Handle the proper processing for each template record type
+        if is_custom:
+            template_record['data'] = resolve_variables(
+                template_record['data'], domain, host, params, 'data')
+            # Per spec: empty or "@" in data resolves to the applied fqdn
+            if not template_record['data'] or template_record['data'] == '':
+                raise InvalidData(f'Empty data for custom RR type {template_record_type}')
+            if template_record['data'] == '@':
+                template_record['data'] = (host + '.' + domain) if host else domain
 
+        # Handle the proper processing for each template record type
         if template_record_type in ['SPFM']:
             new_record = process_spfm_record(template_record, zone_records)
         elif template_record_type in ['TXT']:
@@ -775,48 +823,52 @@ def process_records(template_records, zone_records, domain, host, params,
             new_record = process_srv_record(template_record, zone_records)
         elif template_record_type in ['REDIR301', 'REDIR302']:
             new_record = process_redir_record(template_record, zone_records)
+        elif is_custom:
+            new_record = process_custom_record(template_record, zone_records)
         else:
             if template_record_type in ['NS']:
                 new_record = process_ns(template_record, zone_records)
             else:
                 new_record = process_other_record(template_record, zone_records)
 
-        # Setting any record type that isn't an NS record has an extra delete
-        # rule.
-        #
-        # We should delete any NS records at the same host.
-        #
-        # So if we set bar, foo.bar, www.foo.bar it should delete NS records
-        # of bar. But not xbar.
-        if (template_record_type != 'NS' and
-            new_record['name'] != '@'):
 
-            # Delete any records 
-            for zone_record in zone_records:
-                if zone_record['type'].upper() == 'NS':
-                    zone_record_name = zone_record['name'].lower()
+        if new_record is not None:
+            # Setting any record type that isn't an NS record has an extra delete
+            # rule.
+            #
+            # We should delete any NS records at the same host.
+            #
+            # So if we set bar, foo.bar, www.foo.bar it should delete NS records
+            # of bar. But not xbar.
+            if (template_record_type != 'NS' and
+                new_record['name'] != '@'):
 
-                    if ((new_record['name'] == zone_record_name or
-                         new_record['name'].endswith('.' + zone_record_name)) and
-                        '_replace' not in zone_record):
-                        zone_record['_delete'] = 1
-            
+                # Delete any records 
+                for zone_record in zone_records:
+                    if zone_record['type'].upper() == 'NS':
+                        zone_record_name = zone_record['name'].lower()
 
-        # If we are muti aware, store the information about the template
-        #used
-        if multi_aware:
-            if 'essential' in template_record:
-                essential = template_record['essential']
-            else:
-                essential = 'Always'
+                        if ((new_record['name'] == zone_record_name or
+                            new_record['name'].endswith('.' + zone_record_name)) and
+                            '_replace' not in zone_record):
+                            zone_record['_delete'] = 1
+                
 
-            new_record['_dc'] = {'id': unique_id,
-                                 'providerId': provider_id,
-                                 'serviceId': service_id,
-                                 'host': host,
-                                 'essential': essential}
+            # If we are muti aware, store the information about the template
+            #used
+            if multi_aware:
+                if 'essential' in template_record:
+                    essential = template_record['essential']
+                else:
+                    essential = 'Always'
 
-        new_records.append(new_record)
+                new_record['_dc'] = {'id': unique_id,
+                                    'providerId': provider_id,
+                                    'serviceId': service_id,
+                                    'host': host,
+                                    'essential': essential}
+
+            new_records.append(new_record)
 
     # If we are multi aware, we need to cascade deletes
     if multi_aware:
@@ -951,6 +1003,12 @@ def get_records_variables(template_records, group=None):
         if template_record_type in ['REDIR301', 'REDIR302']:
             get_record_variables(template_record, template_record['target'], params)
 
+        if (template_record_type not in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV',
+                                         'SPFM', 'NS', 'REDIR301', 'REDIR302'] and
+                is_custom_record_type(template_record_type)):
+            get_record_variables(template_record, template_record['host'], params)
+            get_record_variables(template_record, template_record['data'], params)
+
     return params
 
 
@@ -958,7 +1016,7 @@ class DomainConnect(object):
     """
     Two main entry points.
     One to apply a template.
-    The other to prompt for variables in a template /!\ deprecated!
+    The other to prompt for variables in a template /!\\ deprecated!
     """
 
     def __init__(self, 

@@ -69,3 +69,29 @@ def is_valid_name_srv(input):
 
 def is_valid_target_redir(input):
     return validators.url(input) is True
+
+
+def is_custom_record_type(type_str):
+    """
+    Validates that type_str conforms to the dc-record-type syntax for record
+    types that are not one of the named core types (A, AAAA, CNAME, MX, TXT,
+    SRV, SPFM, NS, REDIR301, REDIR302).
+
+    Accepts:
+      - "TYPE" followed by one or more decimal digits (RFC 3597 unknown type)
+      - Any IANA-registered RR type name: 1 or more characters from
+        ALPHA / DIGIT / "-"
+
+    :param type_str: The record type string to validate.
+    :type type_str: str
+    :return: True if valid, False otherwise.
+    :rtype: bool
+    """
+    if not type_str:
+        return False
+    import re
+    if re.match(r'^TYPE\d+$', type_str, re.IGNORECASE):
+        return True
+    if re.match(r'^[A-Z0-9][A-Z0-9-]*$', type_str, re.IGNORECASE):
+        return True
+    return False
