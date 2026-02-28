@@ -158,7 +158,7 @@ jobs:
         name: dist-files
         path: dist
     - name: Build and publish to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.4.2
+      uses: pypa/gh-action-pypi-publish@v1.13.0
       with:
         user: domain-connect
         password: ${{ secrets.PYPI_PASSWORD }}
