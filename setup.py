@@ -51,7 +51,7 @@ class CleanCommand(Command):
 
 setup(
     name='domainconnectzone',
-    version='4.0.0',
+    version='4.1.0',
     description=DESCRIPTION,
     author='domainconnect.org',
     url='https://github.com/Domain-Connect/domainconnectzone',
@@ -67,6 +67,10 @@ setup(
             'pytest>=4.6; python_version == "2.7"',
             'pytest>=7.0; python_version > "2.7"',
             'mock>=3.0.5; python_version < "3.3"',
+        ],
+        'docs': [
+            'phinx>=7.4.7',
+            'sphinx-rtd-theme>=2.0.0'
         ],
         ':python_version == "2.7"': [
             'cryptography>=3.3.2',

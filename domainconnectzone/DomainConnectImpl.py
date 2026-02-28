@@ -111,6 +111,23 @@ def resolve_variables(input_, domain, host, params, recordKey):
     In other words, the output of this will 'normalize" the host relative to the root zone.
 
     When the value is the pointsTo/target a null or empty value will resolve to the fqdn.
+
+    :param input_: Input string from a template
+    :type input_: str
+    :param domain: Domain/host the template is being applied to
+    :type domain: str
+    :param host: Host of the template record
+    :type host: str
+    :param params: Dictionary containing key/values
+    :type params: dict(str, str)
+    :param recordKey: Key of the field being processed (e.g. 'name', 'host', etc.)
+    :type recordKey: str
+
+    :return: The value of the field after variable substitution and host/name resolution
+    :rtype: str
+
+    :raises: InvalidTemplate if there is an unpaired variable delimiter in the input string
+    :raises: MissingParameter if a required parameter is missing
     """
 
     ci = 0
@@ -195,7 +212,22 @@ def process_txt_record(template_record, zone_records):
 
     It will delete TXT records in the zone according to the txtConflict
     settings.
+
+    :param template_record: The record from the template to process.
+    :type template_record: dict
+        - keys: 'type', 'host', 'data', 'txtConflictMatchingMode', 'txtConflictMatchingPrefix'
+
+    :param zone_records: A list of all records in the current zone.
+    :type zone_records: list
+        - elements: dict
+        - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
+
+    :return: The processed or new TXT record
+    :rtype: dict
+
+    :raises: Exception if either template_record or zone_records is not a valid dictionary
     """
+
 
     new_record = {'type': 'TXT',
                   'name': template_record['host'],
@@ -242,6 +274,22 @@ def process_redir_record(template_record, zone_records):
 
     A REDIR301/REDIR302 record in the template will delete any CNAME in the zone of the same
     host value.
+
+    :param template_record: The record from the template to process.
+    :type template_record: dict
+        - keys: 'type', 'host', 'target'
+
+    :param zone_records: A list of all records in the current zone.
+    :type zone_records: list
+        - elements: dict
+        - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
+
+    :return: The new REDIR301/REDIR302 record.
+    :rtype: dict
+        - keys: 'type', 'name', 'data'
+
+    :raises: KeyError if a required key is missing from the provided template_record.
+             IndexError if zone_records is empty or indexing goes out of bounds.
     """
 
     new_record = {'type': template_record['type'],
@@ -273,6 +321,22 @@ def process_spfm_record(template_record, zone_records):
 
     An spfm record in the template will merge the data in with existing spf TXT
     records, or will create a new spf TXT record.
+
+    :param template_record: The record from the template to process.
+    :type template_record: dict
+        - keys: 'host', 'spfRules' (required), '_delete' (optional)
+
+    :param zone_records: A list of all records in the current zone.
+    :type zone_records: list
+        - elements: dict
+        - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
+
+    :return: The new SPF record if one was processed, otherwise None.
+        - type: dict or None
+        - keys: 'type', 'name', 'data', 'ttl' (if provided in the template_record)
+
+    :raises: KeyError if a required key is missing from the provided template_record.
+             IndexError if zone_records is empty or indexing goes out of bounds.
     """
 
     found_spf = False
@@ -325,7 +389,22 @@ def process_srv_record(template_record, zone_records):
 
     An srv record in the template will delete all existing srv records of the
     same name in the zone.
+
+    :param template_record: The record from the template to process.
+    :type template_record: dict
+        - keys: 'name', 'target', 'ttl', 'protocol', 'service', 'priority', 'weight', 'port'
+
+    :param zone_records: A list of all records in the current zone.
+    :type zone_records: list
+        - elements: dict
+        - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
+
+    :return: The processed or new SRV record
+    :rtype: dict
+
+    :raises: Exception if either template_record or zone_records is not a valid dictionary
     """
+
 
     new_record = {'type': 'SRV',
                   'name': template_record['name'],
@@ -350,12 +429,26 @@ def process_srv_record(template_record, zone_records):
 
 def process_ns(template_record, zone_records):
     """
-    Will process a NS template record. The host is always set for an NS record
-    (it will not be @)
+        Will process a NS template record. The host is always set for an NS record
+        (it will not be @)
 
-    This will delete any record conflicting with the name of the host.
+        This will delete any record conflicting with the name of the host.
+
+        :param template_record: The record from the template to process.
+        :type template_record: dict
+            - keys: 'type', 'host', 'pointsTo', 'ttl'
+
+        :param zone_records: A list of all records in the current zone.
+        :type zone_records: list
+            - elements: dict
+            - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
+
+        :return: The processed or new NS record
+        :rtype: dict
+
+        :raises: Exception if either template_record or zone_records is not a valid dictionary
     """
-
+    
     # Add the new record
     new_record = {'type': template_record['type'].upper(),
                   'name': template_record['host'],
@@ -378,6 +471,41 @@ def process_ns(template_record, zone_records):
 
     return new_record
 
+
+def process_custom_record(template_record, zone_records):
+    """
+    Will process a custom (non-core) DNS record type from a template.
+
+    Custom record types are any IANA-registered RR type names or TYPE<N>
+    designations (per RFC 3597) that are not one of the named core types
+    (A, AAAA, CNAME, MX, TXT, SRV, SPFM, NS).
+
+    The record data is carried in the 'data' field in canonical presentation
+    format.  An empty value or "@" in 'data' resolves to the applied fqdn
+    ([host.]domain).
+
+    No existing zone records are deleted — the new record is simply added.
+
+    :param template_record: The record from the template to process.
+    :type template_record: dict
+        - keys: 'type', 'host', 'data', 'ttl'
+
+    :param zone_records: A list of all records in the current zone.
+    :type zone_records: list
+        - elements: dict
+        - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
+
+    :return: The new custom record.
+    :rtype: dict
+    """
+    record_type = template_record['type'].upper()
+
+    return {'type': record_type,
+            'name': template_record['host'],
+            'data': template_record['data'],
+            'ttl': int(template_record['ttl'])}
+
+
 _delete_map = {
     'A': ['A', 'AAAA', 'CNAME', 'REDIR301', 'REDIR302'],
     'AAAA': ['A', 'AAAA', 'CNAME', 'REDIR301', 'REDIR302'],
@@ -394,7 +522,22 @@ def process_other_record(template_record, zone_records):
     MX, and CNAME.
 
     This results in marking zone_records for deletion.
+
+    :param template_record: The record from the template to process.
+    :type template_record: dict
+        - keys: 'type', 'host', 'pointsTo' (or 'data'), 'ttl', 'priority' (optional for MX)
+
+    :param zone_records: A list of all records in the current zone.
+    :type zone_records: list
+        - elements: dict
+        - keys: 'type', 'name', '_delete' (optional), 'data', 'ttl' (optional), 'priority' (optional for MX)
+
+    :return: The processed or new record
+    :rtype: dict
+
+    :raises: Exception if either template_record or zone_records is not a valid dictionary
     """
+
 
     record_type = template_record['type'].upper()
 
@@ -423,6 +566,59 @@ def process_records(template_records, zone_records, domain, host, params,
                     group_ids, multi_aware=False, multi_instance=False,
                     provider_id=None, service_id=None, unique_id=None,
                     redirect_records=None):
+    """
+    Process template records and generate new records and deletion rules for a zone.
+
+    :param template_records: A list of template records to process.
+    :type template_records: list
+        - elements: dict
+        - keys: 'type', 'host', 'data', 'txtConflictMatchingMode', 'txtConflictMatchingPrefix'
+
+    :param zone_records: A list of all records in the current zone.
+    :type zone_records: list
+        - elements: dict
+        - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
+
+    :param domain: The domain for which to process the template records.
+    :type domain: str
+
+    :param host: The host for which to process the template records.
+    :type host: str
+
+    :param params: Additional parameters for processing the template records.
+    :type params: dict
+        - keys: 'param1', 'param2', ...
+
+    :param group_ids: A list of group IDs to apply.
+    :type group_ids: list
+
+    :param multi_aware: Whether to process the template records in a multi-aware manner.
+    :type multi_aware: bool
+        - default: False
+
+    :param multi_instance: Whether to process the template records in a multi-instance manner.
+    :type multi_instance: bool
+        - default: False
+
+    :param provider_id: The ID of the provider for which to process the template records.
+    :type provider_id: str | int | None
+
+    :param service_id: The ID of the service for which to process the template records.
+    :type service_id: str | int | None
+
+    :param unique_id: The unique ID of the template instance (for multi-aware application).
+    :type unique_id: str | int | None
+
+    :param redirect_records: A list of redirection records related to the template records.
+    :type redirect_records: list
+        - elements: dict
+        - keys: 'type', 'name', 'data'
+
+    :return: A tuple containing the new records, deleted records, and final records.
+    :rtype: tuple
+
+    :raises: Exception if any of the input parameters are invalid
+    """
 
     # first resolve REDIR301/REDIR302 records to their corresponding equivalents
     template_records_org = list(template_records)
@@ -485,7 +681,8 @@ def process_records(template_records, zone_records, domain, host, params,
         supported = ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'SPFM', 'NS']
         if redirect_records is not None:
             supported += ['REDIR301', 'REDIR302']
-        if template_record_type not in supported:
+        is_custom = not template_record_type in supported and is_custom_record_type(template_record_type) 
+        if not template_record_type in supported and not is_custom:
             raise TypeError('Unknown record type (' + template_record_type +
                             ') in template')
 
@@ -526,6 +723,10 @@ def process_records(template_records, zone_records, domain, host, params,
 
             elif template_record_type in ['CNAME', 'NS']:
                 if not is_valid_host_cname_or_ns(template_record['host']):
+                    raise InvalidData(err_msg)
+
+            elif is_custom:
+                if not is_valid_host_other(template_record['host'], True):
                     raise InvalidData(err_msg)
 
         # Points To / Target
@@ -604,8 +805,16 @@ def process_records(template_records, zone_records, domain, host, params,
             template_record['spfRules'] = resolve_variables(
                 template_record['spfRules'], domain, host, params, 'spfRules')
 
-        # Handle the proper processing for each template record type
+        if is_custom:
+            template_record['data'] = resolve_variables(
+                template_record['data'], domain, host, params, 'data')
+            # Per spec: empty or "@" in data resolves to the applied fqdn
+            if not template_record['data'] or template_record['data'] == '':
+                raise InvalidData(f'Empty data for custom RR type {template_record_type}')
+            if template_record['data'] == '@':
+                template_record['data'] = (host + '.' + domain) if host else domain
 
+        # Handle the proper processing for each template record type
         if template_record_type in ['SPFM']:
             new_record = process_spfm_record(template_record, zone_records)
         elif template_record_type in ['TXT']:
@@ -614,48 +823,52 @@ def process_records(template_records, zone_records, domain, host, params,
             new_record = process_srv_record(template_record, zone_records)
         elif template_record_type in ['REDIR301', 'REDIR302']:
             new_record = process_redir_record(template_record, zone_records)
+        elif is_custom:
+            new_record = process_custom_record(template_record, zone_records)
         else:
             if template_record_type in ['NS']:
                 new_record = process_ns(template_record, zone_records)
             else:
                 new_record = process_other_record(template_record, zone_records)
 
-        # Setting any record type that isn't an NS record has an extra delete
-        # rule.
-        #
-        # We should delete any NS records at the same host.
-        #
-        # So if we set bar, foo.bar, www.foo.bar it should delete NS records
-        # of bar. But not xbar.
-        if (template_record_type != 'NS' and
-            new_record['name'] != '@'):
 
-            # Delete any records 
-            for zone_record in zone_records:
-                if zone_record['type'].upper() == 'NS':
-                    zone_record_name = zone_record['name'].lower()
+        if new_record is not None:
+            # Setting any record type that isn't an NS record has an extra delete
+            # rule.
+            #
+            # We should delete any NS records at the same host.
+            #
+            # So if we set bar, foo.bar, www.foo.bar it should delete NS records
+            # of bar. But not xbar.
+            if (template_record_type != 'NS' and
+                new_record['name'] != '@'):
 
-                    if ((new_record['name'] == zone_record_name or
-                         new_record['name'].endswith('.' + zone_record_name)) and
-                        '_replace' not in zone_record):
-                        zone_record['_delete'] = 1
-            
+                # Delete any records 
+                for zone_record in zone_records:
+                    if zone_record['type'].upper() == 'NS':
+                        zone_record_name = zone_record['name'].lower()
 
-        # If we are muti aware, store the information about the template
-        #used
-        if multi_aware:
-            if 'essential' in template_record:
-                essential = template_record['essential']
-            else:
-                essential = 'Always'
+                        if ((new_record['name'] == zone_record_name or
+                            new_record['name'].endswith('.' + zone_record_name)) and
+                            '_replace' not in zone_record):
+                            zone_record['_delete'] = 1
+                
 
-            new_record['_dc'] = {'id': unique_id,
-                                 'providerId': provider_id,
-                                 'serviceId': service_id,
-                                 'host': host,
-                                 'essential': essential}
+            # If we are muti aware, store the information about the template
+            #used
+            if multi_aware:
+                if 'essential' in template_record:
+                    essential = template_record['essential']
+                else:
+                    essential = 'Always'
 
-        new_records.append(new_record)
+                new_record['_dc'] = {'id': unique_id,
+                                    'providerId': provider_id,
+                                    'serviceId': service_id,
+                                    'host': host,
+                                    'essential': essential}
+
+            new_records.append(new_record)
 
     # If we are multi aware, we need to cascade deletes
     if multi_aware:
@@ -702,7 +915,22 @@ def process_records(template_records, zone_records, domain, host, params,
 # Given an input string will prompt for a variable value, adding the key/value to the passed in dictionary
 #
 def get_record_variables(template_record, value, params):
-                    
+    """
+    Extracts variables from a template record value.
+
+    :param template_record: The record from the template.
+    :type template_record: dict
+        - keys: 'type', 'host', 'data', ...
+
+    :param value: The value to extract variables from.
+    :type value: str
+
+    :param params: A dictionary to store the extracted variables.
+    :type params: dict
+
+    :raises: InvalidTemplate: If an unpaired variable delimiter is found.
+    """
+
     leading = False
     value_processing = value
     while value_processing.find('%') != -1:
@@ -730,6 +958,22 @@ def get_record_variables(template_record, value, params):
 # Will prompt for the variable values in each record in the template
 #
 def get_records_variables(template_records, group=None):
+    """
+    Extracts variables from template records.
+
+    :param template_records: A list of template records.
+    :type template_records: list
+        - elements: dict
+        - keys: 'type', 'host', 'pointsTo', 'data', 'spfRules', 'name', 'target', 'protocol', 'service', 'groupId' (optional)
+
+    :param group: The group to filter template records by.
+    :type group: str (optional)
+
+    :return: A dictionary of extracted variables.
+    :rtype: dict
+
+    :raises: Exception if template_records is not a valid list of dictionaries.
+    """
 
     params = {}
 
@@ -759,6 +1003,12 @@ def get_records_variables(template_records, group=None):
         if template_record_type in ['REDIR301', 'REDIR302']:
             get_record_variables(template_record, template_record['target'], params)
 
+        if (template_record_type not in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV',
+                                         'SPFM', 'NS', 'REDIR301', 'REDIR302'] and
+                is_custom_record_type(template_record_type)):
+            get_record_variables(template_record, template_record['host'], params)
+            get_record_variables(template_record, template_record['data'], params)
+
     return params
 
 
@@ -766,11 +1016,40 @@ class DomainConnect(object):
     """
     Two main entry points.
     One to apply a template.
-    The other to prompt for variables in a template /!\ deprecated!
+    The other to prompt for variables in a template /!\\ deprecated!
     """
 
-    def __init__(self, provider_id=None, service_id=None, template_path=None,
-                 template=None, redir_template_records=None, apply_redir=None):
+    def __init__(self, 
+                 provider_id=None,  # Provider ID (required if not using a template)
+                 service_id=None,  # Service ID (required if not using a template)
+                 template_path=None,  # Path to template directory
+                 template=None,  # Template data (if not using a file-based template)
+                 redir_template_records=None,  # Redirect template records
+                 apply_redir=None):  # Apply redirect flag
+
+        """
+        Initializes the DomainConnect object.
+
+        :param provider_id: Provider ID (required if not using a template)
+        :type provider_id: str
+
+        :param service_id: Service ID (required if not using a template)
+        :type service_id: str
+
+        :param template_path: Path to template directory
+        :type template_path: str
+
+        :param template: Template data (if not using a file-based template)
+        :type template: dict
+
+        :param redir_template_records: Redirect template records
+        :type redir_template_records: list
+
+        :param apply_redir: Apply redirect flag
+        :type apply_redir: bool
+
+        :raises: InvalidTemplate: If either provider_id and service_id are missing, or if the template cannot be read.
+        """
         if (provider_id is None or service_id is None) and template is None:
             raise InvalidTemplate("Provide either providerId and ServiceId or template.")
         self._redir_template_records = redir_template_records
@@ -817,6 +1096,20 @@ class DomainConnect(object):
 
         This method will raise an exception if the signature fails.
         It will return if it succeeds.
+
+        :param qs: The query string without sig= or key=
+        :type qs: str
+
+        :param sig: The signature to be verified
+        :type sig: str
+
+        :param key: The key used to fetch the public key from DNS
+        :type key: str
+
+        :param ignore_signature: If set, this method will return without verifying the signature
+        :type ignore_signature: bool
+
+        :raises: InvalidSignature: If the signature fails verification
         """
 
         if ignore_signature:
@@ -837,39 +1130,55 @@ class DomainConnect(object):
             raise InvalidSignature('Signature not valid')
 
     def apply_template(self, zone_records, domain, host, params,
-                       group_ids=None, qs=None, sig=None, key=None,
-                       ignore_signature=False, multi_aware=False,
-                       unique_id=None):
+                        group_ids=None, qs=None, sig=None, key=None,
+                        ignore_signature=False, multi_aware=False,
+                        unique_id=None):
         """
-        Will apply the template to the zone
+        Will apply the template to the zone.
 
-        Input:
+        :param zone_records: A list of dictionaries containing an copy of all the records in the zone for the domain.
+        :type zone_records: list
+            - elements: dict
+            - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
 
-        zone_records is a list of dictionaries containing an copy of all the
-        records in the zone for the domain. Each dictionary adheres to the
-        schema for a zone record described above.
+        :param domain: The domain to apply the template to.
+        :type domain: str
 
-        domain/host describe the fqdn to apply.
+        :param host: The host to apply the template to.
+        :type host: str
 
-        params contains the parameters for variable substitution.
+        :param params: Parameters for variable substitution.
+        :type params: dict
+            - keys: variable names
 
-        qs/sig/key are passed in if signature verification is required
+        :param group_ids: Group IDs if applicable (optional).
+        :type group_ids: list
+            - elements: str
 
-        multi_aware determines if template engine should persist template integrity
+        :param qs: Query string if applicable (optional).
+        :type qs: str
 
-        unique_id determines the id of the template instance if provided. Only relevant if multi_aware==True.
+        :param sig: Signature if applicable (optional).
+        :type sig: str
 
-        Output:
+        :param key: Key for signature verification if applicable (optional).
+        :type key: str
 
-        This function will return three values as a tuple of:
-        (new_records, deleted_records, final_records)
+        :param ignore_signature: Flag to ignore signature verification if applicable (optional). Defaults to False.
+        :type ignore_signature: bool
 
-        new_records are the new records to be added to the zone
+        :param multi_aware: Flag to determine if template engine should persist template integrity if applicable (optional). Defaults to False.
+        :type multi_aware: bool
 
-        deleted_records are the records that should be deleted from the zone
+        :param unique_id: Id of the template instance if provided and multi_aware is True (optional).
+        :type unique_id: str
 
-        final_records contains all records that would be in the zone
-        (new_records plus records that weren't deleted from the zone).
+        :return: A tuple containing three values:
+            - new_records: The new records to be added to the zone
+            - deleted_records: The records that should be deleted from the zone
+            - final_records: All records that would be in the zone
+        :rtype: tuple
+            - elements: list, list, list
         """
 
         # Domain and host should be lower cased
