@@ -734,15 +734,14 @@ def process_records(template_records, zone_records, domain, host, params,
                        ' host: ' + template_record['host'] +
                        ' (from ' + orig_host + ')')
             if template_record_type in ['A', 'AAAA', 'MX', 'NS', 'REDIR301', 'REDIR302']:
-                if not is_valid_host_other(template_record['host'],
-                                                    False):
+                if not is_valid_host_other(template_record['host']):
                     raise InvalidData(err_msg)
             elif template_record_type in ['SPFM']:
-                if not is_valid_host_other(template_record['host'], False):
+                if not is_valid_host_other(template_record['host']):
                     raise InvalidData(err_msg)
 
             elif template_record_type in ['TXT']:
-                if not is_valid_host_other(template_record['host'], True):
+                if not is_valid_host_other(template_record['host']):
                     raise InvalidData(err_msg)
 
             elif template_record_type in ['CNAME', 'NS']:
@@ -750,7 +749,7 @@ def process_records(template_records, zone_records, domain, host, params,
                     raise InvalidData(err_msg)
 
             elif is_custom:
-                if not is_valid_host_other(template_record['host'], True):
+                if not is_valid_host_other(template_record['host']):
                     raise InvalidData(err_msg)
 
         # Points To / Target
