@@ -785,6 +785,8 @@ def process_records(template_records, zone_records, domain, host, params,
         # Points To / Target
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
             orig_pointsto = template_record['pointsTo']
+            if template_record_type == 'NS' and orig_pointsto == '@':
+                raise InvalidData('Invalid data for NS pointsTo: @ would create a circular delegation')
             template_record['pointsTo'] = resolve_variables(
                 template_record['pointsTo'], domain, host, params, 'pointsTo')
 
@@ -861,11 +863,10 @@ def process_records(template_records, zone_records, domain, host, params,
         if is_custom:
             template_record['data'] = resolve_variables(
                 template_record['data'], domain, host, params, 'data')
-            # Per spec: empty or "@" in data resolves to the applied fqdn
             if not template_record['data'] or template_record['data'] == '':
                 raise InvalidData(f'Empty data for custom RR type {template_record_type}')
             if template_record['data'] == '@':
-                template_record['data'] = (host + '.' + domain) if host else domain
+                raise InvalidData(f'Invalid data "@" for custom RR type {template_record_type}')
 
         # Handle the proper processing for each template record type
         if template_record_type in ['SPFM']:
