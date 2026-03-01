@@ -1,6 +1,6 @@
 import json
 import os
-from re import compile, search
+from re import compile, search, match as re_match
 
 from jsonschema import validate, ValidationError
 
@@ -118,14 +118,28 @@ class DomainConnectTemplates(object):
             except ValidationError as ve:
                 raise InvalidTemplate("{}".format(ve.message))
 
+        # Fields that must never contain any variable substitution
+        _NO_VAR_FIELDS = {"groupId", "type", "essential",
+                          "txtConflictMatchingMode", "txtConflictMatchingPrefix"}
+        # Fields that may contain a single bare %variable% token (resolved to int at apply time)
+        _INT_VAR_FIELDS = {"ttl", "priority", "weight", "port"}
+        _SINGLE_VAR_RE = compile(r'^%[^%]+%$')
+
         #check for fields which should never contain variables
         for r in template["records"]:
-            for field in ["groupId", "type", "ttl", "essential", "txtConflictMatchingMode", "txtConflictMatchingPrefix",
-                          "weight", "port"]:
-                if field in r and '{}'.format(r[field]).find("%") != -1:
+            rtype = r.get("type", "?").upper()
+            for field in _NO_VAR_FIELDS:
+                if field in r and '%' in '{}'.format(r[field]):
                     raise InvalidTemplate(
                         'Forbidden variable in record {} field {}: {}'.format(
-                            r["type"].upper(), field.upper(), r[field]))
+                            rtype, field.upper(), r[field]))
+            for field in _INT_VAR_FIELDS:
+                if field in r:
+                    val = '{}'.format(r[field])
+                    if '%' in val and not _SINGLE_VAR_RE.match(val):
+                        raise InvalidTemplate(
+                            'Forbidden variable in record {} field {}: {}'.format(
+                                rtype, field.upper(), r[field]))
 
         #validate if all variables can be extracted
         DomainConnectTemplates.get_variable_names(template)
