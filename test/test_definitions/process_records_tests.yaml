@@ -2719,3 +2719,403 @@ tests:
       params: {sub: blah}
     expect:
       exception: InvalidData
+
+  # ---------------------------------------------------------------------------
+  # TTL, priority, weight, port as strings and single-variable expressions
+  # ---------------------------------------------------------------------------
+
+  - id: ttl_as_string_a
+    description: "A record with ttl supplied as a string renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "@", pointsTo: "1.2.3.4", ttl: "300"}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "@", data: "1.2.3.4", ttl: 300}
+
+  - id: ttl_as_variable_a
+    description: "A record with ttl supplied as a single %variable% renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "@", pointsTo: "1.2.3.4", ttl: "%myttl%"}
+      domain: foo.com
+      host: ""
+      params: {myttl: "600"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "@", data: "1.2.3.4", ttl: 600}
+
+  - id: ttl_as_string_mx
+    description: "MX record with ttl supplied as a string renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "mail.example.com", ttl: "400", priority: 10}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "@", data: "mail.example.com", ttl: 400, priority: 10}
+
+  - id: ttl_as_variable_mx
+    description: "MX record with ttl supplied as a single %variable% renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "mail.example.com", ttl: "%myttl%", priority: 10}
+      domain: foo.com
+      host: ""
+      params: {myttl: "400"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "@", data: "mail.example.com", ttl: 400, priority: 10}
+
+  - id: mx_priority_as_string
+    description: "MX record with priority supplied as a string renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "mail.example.com", ttl: 400, priority: "20"}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "@", data: "mail.example.com", ttl: 400, priority: 20}
+
+  - id: mx_priority_as_variable
+    description: "MX record with priority supplied as a single %variable% renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "mail.example.com", ttl: 400, priority: "%prio%"}
+      domain: foo.com
+      host: ""
+      params: {prio: "30"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "@", data: "mail.example.com", ttl: 400, priority: 30}
+
+  - id: ttl_as_string_srv
+    description: "SRV record with ttl supplied as a string renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: "500"}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 500}
+
+  - id: ttl_as_variable_srv
+    description: "SRV record with ttl supplied as a single %variable% renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: "%myttl%"}
+      domain: foo.com
+      host: ""
+      params: {myttl: "500"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 500}
+
+  - id: srv_priority_as_string
+    description: "SRV record with priority supplied as a string renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: "10", weight: 20, port: 5060, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
+
+  - id: srv_priority_as_variable
+    description: "SRV record with priority supplied as a single %variable% renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: "%prio%", weight: 20, port: 5060, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {prio: "10"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
+
+  - id: srv_weight_as_string
+    description: "SRV record with weight supplied as a string renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: "20", port: 5060, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
+
+  - id: srv_weight_as_variable
+    description: "SRV record with weight supplied as a single %variable% renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: "%w%", port: 5060, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {w: "20"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
+
+  - id: srv_port_as_string
+    description: "SRV record with port supplied as a string renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: "5060", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
+
+  - id: srv_port_as_variable
+    description: "SRV record with port supplied as a single %variable% renders as int"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: "%port%", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {port: "5060"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
+
+  # ---------------------------------------------------------------------------
+  # Negative: int fields (ttl, priority, weight, port) must be a plain integer
+  # or exactly one %variable% token — no constant parts mixed in, no two vars
+  # ---------------------------------------------------------------------------
+
+  - id: ttl_two_vars_invalid
+    description: "ttl with two adjacent %variables% is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "@", pointsTo: "1.2.3.4", ttl: "%a%%b%"}
+      domain: foo.com
+      host: ""
+      params: {a: "30", b: "0"}
+    expect:
+      exception: InvalidData
+
+  - id: ttl_const_prefix_invalid
+    description: "ttl with a constant prefix before a variable is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "@", pointsTo: "1.2.3.4", ttl: "1%v%"}
+      domain: foo.com
+      host: ""
+      params: {v: "00"}
+    expect:
+      exception: InvalidData
+
+  - id: ttl_const_suffix_invalid
+    description: "ttl with a constant suffix after a variable is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "@", pointsTo: "1.2.3.4", ttl: "%v%0"}
+      domain: foo.com
+      host: ""
+      params: {v: "30"}
+    expect:
+      exception: InvalidData
+
+  - id: mx_priority_two_vars_invalid
+    description: "MX priority with two adjacent %variables% is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "mail.example.com", ttl: 400, priority: "%a%%b%"}
+      domain: foo.com
+      host: ""
+      params: {a: "1", b: "0"}
+    expect:
+      exception: InvalidData
+
+  - id: mx_priority_const_prefix_invalid
+    description: "MX priority with a constant prefix before a variable is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "mail.example.com", ttl: 400, priority: "1%v%"}
+      domain: foo.com
+      host: ""
+      params: {v: "0"}
+    expect:
+      exception: InvalidData
+
+  - id: mx_priority_const_suffix_invalid
+    description: "MX priority with a constant suffix after a variable is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "mail.example.com", ttl: 400, priority: "%v%0"}
+      domain: foo.com
+      host: ""
+      params: {v: "1"}
+    expect:
+      exception: InvalidData
+
+  - id: srv_priority_two_vars_invalid
+    description: "SRV priority with two adjacent %variables% is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: "%a%%b%", weight: 20, port: 5060, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {a: "1", b: "0"}
+    expect:
+      exception: InvalidData
+
+  - id: srv_priority_const_prefix_invalid
+    description: "SRV priority with a constant prefix before a variable is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: "1%v%", weight: 20, port: 5060, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {v: "0"}
+    expect:
+      exception: InvalidData
+
+  - id: srv_weight_two_vars_invalid
+    description: "SRV weight with two adjacent %variables% is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: "%a%%b%", port: 5060, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {a: "2", b: "0"}
+    expect:
+      exception: InvalidData
+
+  - id: srv_weight_const_suffix_invalid
+    description: "SRV weight with a constant suffix after a variable is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: "%v%0", port: 5060, ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {v: "2"}
+    expect:
+      exception: InvalidData
+
+  - id: srv_port_two_vars_invalid
+    description: "SRV port with two adjacent %variables% is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: "%a%%b%", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {a: "50", b: "60"}
+    expect:
+      exception: InvalidData
+
+  - id: srv_port_const_prefix_invalid
+    description: "SRV port with a constant prefix before a variable is rejected (InvalidData)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip.example.com", protocol: UDP,
+           service: "sip.example.com", priority: 10, weight: 20, port: "1%v%", ttl: 400}
+      domain: foo.com
+      host: ""
+      params: {v: "0"}
+    expect:
+      exception: InvalidData
+
+  - id: txt_data_two_adjacent_vars
+    description: "TXT data with two adjacent %variables% (%a%%b%) concatenates both values"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "@", data: "%a%%b%", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {a: "hello", b: "world"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: "helloworld", ttl: 300}

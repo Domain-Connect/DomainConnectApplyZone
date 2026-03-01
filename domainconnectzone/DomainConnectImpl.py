@@ -163,8 +163,9 @@ def resolve_variables(input_, domain, host, params, recordKey):
         # Place the value into the input string
         input_ = input_.replace('%' + name + '%', value)
 
-        # Advance past this, as the value might have had a %
-        ci = start + len(value)
+        # Advance past this, as the value might have had a %.
+        # start is the index after the opening %, so the token starts at start-1.
+        ci = (start - 1) + len(value)
 
     # Empty or @ has special meaning for some fields. This processing shall take place after the variables are processed.
     if not input_ or input_ == '' or input_ == '@':
@@ -229,6 +230,18 @@ def resolve_variables(input_, domain, host, params, recordKey):
                 input_ = input_[0:len(input_) - len(domain + '.') - 1]
 
     return input_
+
+import re as _re
+_INT_FIELD_RE = _re.compile(r'^%[^%]+%$')
+
+def _is_int_field(value):
+    """Return True if value is a plain integer string or a single %variable% token."""
+    try:
+        int(value)
+        return True
+    except ValueError:
+        return bool(_INT_FIELD_RE.match(value))
+
 
 def process_txt_record(template_record, zone_records):
     """
@@ -577,7 +590,7 @@ def process_other_record(template_record, zone_records):
                   'ttl': int(template_record['ttl'])}
 
     if record_type == 'MX':
-        new_record['priority'] = template_record['priority']
+        new_record['priority'] = int(template_record['priority'])
 
     # Mark records in the zone for deletion
     for zone_record in zone_records:
@@ -810,6 +823,15 @@ def process_records(template_records, zone_records, domain, host, params,
                                       template_record['pointsTo'] +
                                       ' (from ' + orig_pointsto + ')')
 
+        if template_record_type == 'MX':
+            raw_priority = str(template_record['priority'])
+            if not _is_int_field(raw_priority):
+                raise InvalidData(
+                    'Invalid priority value (must be an integer or a single %variable%): ' +
+                    raw_priority)
+            template_record['priority'] = resolve_variables(
+                raw_priority, domain, host, params, 'priority')
+
         elif template_record_type == 'SRV':
             orig_target = template_record['target']
             template_record['target'] = resolve_variables(
@@ -828,6 +850,15 @@ def process_records(template_records, zone_records, domain, host, params,
                                   'target: {} '
                                   '(from {})'.format(template_record_type, template_record["target"], orig_target))
 
+
+        # Resolve ttl variable substitution for all record types that have ttl
+        if 'ttl' in template_record:
+            raw_ttl = str(template_record['ttl'])
+            if not _is_int_field(raw_ttl):
+                raise InvalidData(
+                    'Invalid ttl value (must be an integer or a single %variable%): ' +
+                    raw_ttl)
+            template_record['ttl'] = resolve_variables(raw_ttl, domain, host, params, 'ttl')
 
         # SRV has a few more records that need to be processed and validated
         if template_record_type == 'SRV':
@@ -850,6 +881,15 @@ def process_records(template_records, zone_records, domain, host, params,
                 raise InvalidData('Invalid data for SRV service: ' +
                                   template_record['service'] +
                                   ' (from ' + orig_service + ')')
+
+            for _field in ('priority', 'weight', 'port'):
+                raw = str(template_record[_field])
+                if not _is_int_field(raw):
+                    raise InvalidData(
+                        'Invalid {} value (must be an integer or a single %variable%): {}'.format(
+                            _field, raw))
+                template_record[_field] = resolve_variables(
+                    raw, domain, host, params, _field)
 
         # Handle variables in a TXT and SPFM record
         if template_record_type == 'TXT':
