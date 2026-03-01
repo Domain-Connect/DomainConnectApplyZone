@@ -1095,6 +1095,11 @@ def get_records_variables(template_records, group=None):
             get_record_variables(template_record, template_record['target'], params)
             get_record_variables(template_record, template_record['protocol'], params)
             get_record_variables(template_record, template_record['service'], params)
+            for _field in ('priority', 'weight', 'port'):
+                get_record_variables(template_record, str(template_record[_field]), params)
+
+        if template_record_type in ['MX']:
+            get_record_variables(template_record, str(template_record['priority']), params)
 
         if template_record_type in ['REDIR301', 'REDIR302']:
             get_record_variables(template_record, template_record['target'], params)
@@ -1104,6 +1109,9 @@ def get_records_variables(template_records, group=None):
                 is_custom_record_type(template_record_type)):
             get_record_variables(template_record, template_record['host'], params)
             get_record_variables(template_record, template_record['data'], params)
+
+        if 'ttl' in template_record:
+            get_record_variables(template_record, str(template_record['ttl']), params)
 
     return params
 

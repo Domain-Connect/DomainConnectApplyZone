@@ -266,6 +266,66 @@ class TestDomainConnectTemplatesVariableNames(unittest.TestCase):
         result = DomainConnectTemplates.get_variable_names(self.template, variables=variables)
         self.assertEqual(result, {"domain": '', "host": '', "group": '', "d": "customdomain.com", "h": None})
 
+    def test_get_variable_names_ttl_variable_in_a_record(self):
+        # %variable% in ttl of an A record must be detected
+        template = {"records": [
+            {"type": "A", "host": "@", "pointsTo": "1.2.3.4", "ttl": "%myttl%"},
+        ]}
+        result = DomainConnectTemplates.get_variable_names(template)
+        self.assertIn("myttl", result)
+
+    def test_get_variable_names_ttl_variable_in_mx_record(self):
+        # %variable% in ttl of an MX record must be detected
+        template = {"records": [
+            {"type": "MX", "host": "@", "pointsTo": "mail.example.com", "priority": 10, "ttl": "%mxttl%"},
+        ]}
+        result = DomainConnectTemplates.get_variable_names(template)
+        self.assertIn("mxttl", result)
+
+    def test_get_variable_names_priority_variable_in_mx_record(self):
+        # %variable% in priority of an MX record must be detected
+        template = {"records": [
+            {"type": "MX", "host": "@", "pointsTo": "mail.example.com", "priority": "%mxpri%", "ttl": 300},
+        ]}
+        result = DomainConnectTemplates.get_variable_names(template)
+        self.assertIn("mxpri", result)
+
+    def test_get_variable_names_ttl_variable_in_srv_record(self):
+        # %variable% in ttl of an SRV record must be detected
+        template = {"records": [
+            {"type": "SRV", "name": "_sip", "target": "sip.example.com", "protocol": "TCP",
+             "service": "_sip", "priority": 10, "weight": 20, "port": 5060, "ttl": "%srvttl%"},
+        ]}
+        result = DomainConnectTemplates.get_variable_names(template)
+        self.assertIn("srvttl", result)
+
+    def test_get_variable_names_priority_variable_in_srv_record(self):
+        # %variable% in priority of an SRV record must be detected
+        template = {"records": [
+            {"type": "SRV", "name": "_sip", "target": "sip.example.com", "protocol": "TCP",
+             "service": "_sip", "priority": "%srvpri%", "weight": 20, "port": 5060, "ttl": 300},
+        ]}
+        result = DomainConnectTemplates.get_variable_names(template)
+        self.assertIn("srvpri", result)
+
+    def test_get_variable_names_weight_variable_in_srv_record(self):
+        # %variable% in weight of an SRV record must be detected
+        template = {"records": [
+            {"type": "SRV", "name": "_sip", "target": "sip.example.com", "protocol": "TCP",
+             "service": "_sip", "priority": 10, "weight": "%srvwt%", "port": 5060, "ttl": 300},
+        ]}
+        result = DomainConnectTemplates.get_variable_names(template)
+        self.assertIn("srvwt", result)
+
+    def test_get_variable_names_port_variable_in_srv_record(self):
+        # %variable% in port of an SRV record must be detected
+        template = {"records": [
+            {"type": "SRV", "name": "_sip", "target": "sip.example.com", "protocol": "TCP",
+             "service": "_sip", "priority": 10, "weight": 20, "port": "%srvport%", "ttl": 300},
+        ]}
+        result = DomainConnectTemplates.get_variable_names(template)
+        self.assertIn("srvport", result)
+
 
 class TestDomainConnectTemplatesGetGroupIDs(unittest.TestCase):
     def test_get_group_ids_with_groups(self):
