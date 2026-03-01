@@ -201,6 +201,23 @@ class TestDomainConnectTemplates(unittest.TestCase):
         with self.assertRaises(InvalidTemplate):
             self._dct.validate_template(invalid_template)
 
+    def test_int_field_single_variable_is_allowed(self):
+        # A single %variable% token in ttl/priority/weight/port is valid
+        valid_template = self.template_base.copy()
+        import copy
+        valid_template["records"] = copy.deepcopy(self.template_base["records"])
+        valid_template["records"][0]["ttl"] = "%foo%"
+        self._dct.validate_template(valid_template)  # must not raise
+
+    def test_int_field_mixed_variable_forbidden(self):
+        # Two adjacent variables in ttl must be rejected
+        invalid_template = self.template_base.copy()
+        import copy
+        invalid_template["records"] = copy.deepcopy(self.template_base["records"])
+        invalid_template["records"][0]["ttl"] = "%a%%b%"
+        with self.assertRaises(InvalidTemplate):
+            self._dct.validate_template(invalid_template)
+
     def test_invalid_variable_in_records(self):
         # Test forbidden variable presence in records
         invalid_template = self.template_base.copy()
