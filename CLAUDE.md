@@ -94,4 +94,11 @@ When applying a template, existing zone records are marked `_delete=1` based on 
 - **CNAME**: deletes all non-NS records at that host
 - **TXT**: deletes based on `txtConflictMatchingMode` (None/All/Prefix)
 - **MX/SRV/NS**: deletes same-host records of same type
+- **NS**: conflicts with all records of same host or hosts below the delegation point (zone cut)
 - **Custom/unknown types** (CAA, TYPE256, etc.): no conflict deletion — record is simply added; `data` supports `%variable%` substitution and `@`/empty resolves to fqdn
+
+### Development rules
+- if asked to check or develop test, look only in the test code and test definition files. NEVER analyse the code to see how the code bahaves. It is ok or even desired for test code to fail after adding or modifying a test (test driven development).
+- if a newly written or modified test fails unexpectedly, do NOT silently correct it — stop and ask the user whether the failure indicates an error in the test itself (wrong expectation) or a real implementation bug that should be fixed. Only correct the test after the user confirms it is wrong.
+- when asked to add a test of a certain pattern add a test for each RR type, incl. custom RR type, unless explicitly asked to only consider one RR type. The full set of RR types is: A, AAAA, CNAME, TXT, MX, NS, SRV, and at least one custom type (e.g. CAA). Note that SRV uses `name` (not `host`) in template_records, and some patterns (e.g. empty name) may be invalid for SRV due to protocol constraints — use `InvalidData` as the expected outcome in those cases rather than skipping the type.
+- develop code only when asked

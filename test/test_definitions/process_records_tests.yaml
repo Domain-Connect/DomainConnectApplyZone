@@ -3119,3 +3119,972 @@ tests:
       delete_count: 0
       records:
         - {type: TXT, name: "@", data: "helloworld", ttl: 300}
+
+  # ---------------------------------------------------------------------------
+  # Variable in host field — empty / dot / underscore values
+  # Tested for every RR type (A, AAAA, CNAME, TXT, MX, NS, SRV, custom CAA).
+  #
+  # Pattern 1 — host: "%var%"
+  #   var=''          → apex (@)  [CNAME: apex is invalid → InvalidData]
+  #   var='sub'       → simple subdomain
+  #   var='child.sub' → multi-label (dot in value)
+  #   var='_dkim'     → underscore label
+  #
+  # Pattern 2 — host: "%var%.subdomain"  (SRV: name: "%var%._tcp")
+  #   var=''          → empty leading label → InvalidData
+  #   var='sub'       → sub.subdomain
+  #   var='child.sub' → child.sub.subdomain
+  #   var='_dkim'     → _dkim.subdomain
+  # ---------------------------------------------------------------------------
+
+  # --- A ---
+  - id: param_var_in_host_a_empty_resolves_to_apex
+    description: "A: host '%var%' with var='' resolves to apex (@)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "%var%", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "@", data: "127.0.0.1", ttl: 300}
+
+  - id: param_var_in_host_a_simple
+    description: "A: host '%var%' with a simple label produces a subdomain"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "%var%", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "sub", data: "127.0.0.1", ttl: 300}
+
+  - id: param_var_in_host_a_dotted
+    description: "A: host '%var%' with a multi-label value (dot in var) produces nested subdomain"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "%var%", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "child.sub", data: "127.0.0.1", ttl: 300}
+
+  - id: param_var_in_host_a_underscore
+    description: "A: host '%var%' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "%var%", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_dkim"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "_dkim", data: "127.0.0.1", ttl: 300}
+
+  - id: param_var_prefix_in_host_a_empty_raises
+    description: "A: host '%var%.subdomain' with var='' produces empty leading label → InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "%var%.subdomain", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_prefix_in_host_a_simple
+    description: "A: host '%var%.subdomain' with a simple label produces nested subdomain"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "%var%.subdomain", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "sub.subdomain", data: "127.0.0.1", ttl: 300}
+
+  - id: param_var_prefix_in_host_a_dotted
+    description: "A: host '%var%.subdomain' with a multi-label value produces deeper nesting"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "%var%.subdomain", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "child.sub.subdomain", data: "127.0.0.1", ttl: 300}
+
+  - id: param_var_prefix_in_host_a_underscore
+    description: "A: host '%var%.subdomain' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "%var%.subdomain", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_dkim"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "_dkim.subdomain", data: "127.0.0.1", ttl: 300}
+
+  # --- AAAA ---
+  - id: param_var_in_host_aaaa_empty_resolves_to_apex
+    description: "AAAA: host '%var%' with var='' resolves to apex (@)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "%var%", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "@", data: "::1", ttl: 300}
+
+  - id: param_var_in_host_aaaa_simple
+    description: "AAAA: host '%var%' with a simple label produces a subdomain"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "%var%", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "sub", data: "::1", ttl: 300}
+
+  - id: param_var_in_host_aaaa_dotted
+    description: "AAAA: host '%var%' with a multi-label value produces nested subdomain"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "%var%", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "child.sub", data: "::1", ttl: 300}
+
+  - id: param_var_in_host_aaaa_underscore
+    description: "AAAA: host '%var%' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "%var%", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_v6host"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "_v6host", data: "::1", ttl: 300}
+
+  - id: param_var_prefix_in_host_aaaa_empty_raises
+    description: "AAAA: host '%var%.subdomain' with var='' produces empty leading label → InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "%var%.subdomain", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_prefix_in_host_aaaa_simple
+    description: "AAAA: host '%var%.subdomain' with a simple label produces nested subdomain"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "%var%.subdomain", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "sub.subdomain", data: "::1", ttl: 300}
+
+  - id: param_var_prefix_in_host_aaaa_dotted
+    description: "AAAA: host '%var%.subdomain' with a multi-label value produces deeper nesting"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "%var%.subdomain", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "child.sub.subdomain", data: "::1", ttl: 300}
+
+  - id: param_var_prefix_in_host_aaaa_underscore
+    description: "AAAA: host '%var%.subdomain' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "%var%.subdomain", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_v6host"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "_v6host.subdomain", data: "::1", ttl: 300}
+
+  # --- CNAME ---
+  - id: param_var_in_host_cname_empty_apex_raises
+    description: "CNAME: host '%var%' with var='' resolves to apex — apex CNAME is InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "%var%", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_in_host_cname_simple
+    description: "CNAME: host '%var%' with a simple label produces a subdomain CNAME"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "%var%", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "sub", data: "target.example.com", ttl: 300}
+
+  - id: param_var_in_host_cname_dotted
+    description: "CNAME: host '%var%' with a multi-label value produces nested subdomain CNAME"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "%var%", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "child.sub", data: "target.example.com", ttl: 300}
+
+  - id: param_var_in_host_cname_underscore
+    description: "CNAME: host '%var%' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "%var%", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_alias"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "_alias", data: "target.example.com", ttl: 300}
+
+  - id: param_var_prefix_in_host_cname_empty_raises
+    description: "CNAME: host '%var%.subdomain' with var='' produces empty leading label → InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "%var%.subdomain", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_prefix_in_host_cname_simple
+    description: "CNAME: host '%var%.subdomain' with a simple label produces nested subdomain CNAME"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "%var%.subdomain", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "sub.subdomain", data: "target.example.com", ttl: 300}
+
+  - id: param_var_prefix_in_host_cname_dotted
+    description: "CNAME: host '%var%.subdomain' with a multi-label value produces deeper nesting"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "%var%.subdomain", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "child.sub.subdomain", data: "target.example.com", ttl: 300}
+
+  - id: param_var_prefix_in_host_cname_underscore
+    description: "CNAME: host '%var%.subdomain' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "%var%.subdomain", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_alias"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "_alias.subdomain", data: "target.example.com", ttl: 300}
+
+  # --- TXT ---
+  - id: param_var_in_host_txt_empty_resolves_to_apex
+    description: "TXT: host '%var%' with var='' resolves to apex (@)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "%var%", data: "v=spf1 ~all", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: "v=spf1 ~all", ttl: 300}
+
+  - id: param_var_in_host_txt_simple
+    description: "TXT: host '%var%' with a simple label produces a subdomain TXT"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "%var%", data: "v=spf1 ~all", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "sub", data: "v=spf1 ~all", ttl: 300}
+
+  - id: param_var_in_host_txt_dotted
+    description: "TXT: host '%var%' with a multi-label value produces nested subdomain TXT"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "%var%", data: "v=spf1 ~all", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "child.sub", data: "v=spf1 ~all", ttl: 300}
+
+  - id: param_var_in_host_txt_underscore
+    description: "TXT: host '%var%' with an underscore label is accepted (e.g. _dmarc)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "%var%", data: "v=DMARC1; p=none", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_dmarc"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "_dmarc", data: "v=DMARC1; p=none", ttl: 300}
+
+  - id: param_var_prefix_in_host_txt_empty_raises
+    description: "TXT: host '%var%.subdomain' with var='' produces empty leading label → InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "%var%.subdomain", data: "v=spf1 ~all", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_prefix_in_host_txt_simple
+    description: "TXT: host '%var%.subdomain' with a simple label produces nested subdomain TXT"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "%var%.subdomain", data: "v=spf1 ~all", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "sub.subdomain", data: "v=spf1 ~all", ttl: 300}
+
+  - id: param_var_prefix_in_host_txt_dotted
+    description: "TXT: host '%var%.subdomain' with a multi-label value produces deeper nesting"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "%var%.subdomain", data: "v=spf1 ~all", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "child.sub.subdomain", data: "v=spf1 ~all", ttl: 300}
+
+  - id: param_var_prefix_in_host_txt_underscore
+    description: "TXT: host '%var%.subdomain' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "%var%.subdomain", data: "v=spf1 ~all", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_dmarc"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "_dmarc.subdomain", data: "v=spf1 ~all", ttl: 300}
+
+  # --- MX ---
+  - id: param_var_in_host_mx_empty_resolves_to_apex
+    description: "MX: host '%var%' with var='' resolves to apex (@)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "%var%", pointsTo: "mail.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "@", data: "mail.example.com", priority: 10, ttl: 300}
+
+  - id: param_var_in_host_mx_simple
+    description: "MX: host '%var%' with a simple label produces a subdomain MX"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "%var%", pointsTo: "mail.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "sub", data: "mail.example.com", priority: 10, ttl: 300}
+
+  - id: param_var_in_host_mx_dotted
+    description: "MX: host '%var%' with a multi-label value produces nested subdomain MX"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "%var%", pointsTo: "mail.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "child.sub", data: "mail.example.com", priority: 10, ttl: 300}
+
+  - id: param_var_in_host_mx_underscore
+    description: "MX: host '%var%' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "%var%", pointsTo: "mail.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_mail"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "_mail", data: "mail.example.com", priority: 10, ttl: 300}
+
+  - id: param_var_prefix_in_host_mx_empty_raises
+    description: "MX: host '%var%.subdomain' with var='' produces empty leading label → InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "%var%.subdomain", pointsTo: "mail.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_prefix_in_host_mx_simple
+    description: "MX: host '%var%.subdomain' with a simple label produces nested subdomain MX"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "%var%.subdomain", pointsTo: "mail.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "sub.subdomain", data: "mail.example.com", priority: 10, ttl: 300}
+
+  - id: param_var_prefix_in_host_mx_dotted
+    description: "MX: host '%var%.subdomain' with a multi-label value produces deeper nesting"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "%var%.subdomain", pointsTo: "mail.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "child.sub.subdomain", data: "mail.example.com", priority: 10, ttl: 300}
+
+  - id: param_var_prefix_in_host_mx_underscore
+    description: "MX: host '%var%.subdomain' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "%var%.subdomain", pointsTo: "mail.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_mail"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "_mail.subdomain", data: "mail.example.com", priority: 10, ttl: 300}
+
+  # --- NS ---
+  - id: param_var_in_host_ns_empty_resolves_to_apex
+    description: "NS: host '%var%' with var='' resolves to apex (@)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "%var%", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "@", data: "ns1.example.com", ttl: 300}
+
+  - id: param_var_in_host_ns_simple
+    description: "NS: host '%var%' with a simple label produces a delegation NS"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "%var%", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "sub", data: "ns1.example.com", ttl: 300}
+
+  - id: param_var_in_host_ns_dotted
+    description: "NS: host '%var%' with a multi-label value produces nested delegation NS"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "%var%", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "child.sub", data: "ns1.example.com", ttl: 300}
+
+  - id: param_var_in_host_ns_underscore
+    description: "NS: host '%var%' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "%var%", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_ns"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "_ns", data: "ns1.example.com", ttl: 300}
+
+  - id: param_var_prefix_in_host_ns_empty_raises
+    description: "NS: host '%var%.subdomain' with var='' produces empty leading label → InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "%var%.subdomain", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_prefix_in_host_ns_simple
+    description: "NS: host '%var%.subdomain' with a simple label produces a nested delegation NS"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "%var%.subdomain", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "sub.subdomain", data: "ns1.example.com", ttl: 300}
+
+  - id: param_var_prefix_in_host_ns_dotted
+    description: "NS: host '%var%.subdomain' with a multi-label value produces deeper nesting"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "%var%.subdomain", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "child.sub.subdomain", data: "ns1.example.com", ttl: 300}
+
+  - id: param_var_prefix_in_host_ns_underscore
+    description: "NS: host '%var%.subdomain' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "%var%.subdomain", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_ns"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "_ns.subdomain", data: "ns1.example.com", ttl: 300}
+
+  # --- SRV (uses 'name' field instead of 'host') ---
+  - id: param_var_in_host_srv_empty_raises
+    description: "SRV: name '%var%' with var='' would produce '_tcp.@' which is invalid → InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "%var%", target: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_in_host_srv_simple
+    description: "SRV: name '%var%' with a simple label produces a subdomain SRV"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "%var%", target: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_sip"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: param_var_in_host_srv_dotted
+    description: "SRV: name '%var%' with a multi-label value produces nested SRV name"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "%var%", target: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_sip._tcp"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip._tcp", data: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: param_var_in_host_srv_underscore
+    description: "SRV: name '%var%' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "%var%", target: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_xmpp"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_xmpp", data: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: param_var_prefix_in_host_srv_empty_raises
+    description: "SRV: name '%var%._tcp' with var='' produces empty leading label → InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "%var%._tcp", target: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_prefix_in_host_srv_simple
+    description: "SRV: name '%var%._tcp' with a simple label produces a nested SRV name"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "%var%._tcp", target: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_sip"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip._tcp", data: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: param_var_prefix_in_host_srv_dotted
+    description: "SRV: name '%var%._tcp' with a multi-label value produces deeper nesting"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "%var%._tcp", target: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_sip.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip.sub._tcp", data: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: param_var_prefix_in_host_srv_underscore
+    description: "SRV: name '%var%._tcp' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "%var%._tcp", target: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_xmpp"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_xmpp._tcp", data: "sip.example.com", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  # --- Custom type (CAA) ---
+  - id: param_var_in_host_caa_empty_resolves_to_apex
+    description: "CAA (custom): host '%var%' with var='' resolves to apex (@)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "%var%", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CAA, name: "@", data: '0 issue "letsencrypt.org"', ttl: 300}
+
+  - id: param_var_in_host_caa_simple
+    description: "CAA (custom): host '%var%' with a simple label produces a subdomain CAA"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "%var%", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CAA, name: "sub", data: '0 issue "letsencrypt.org"', ttl: 300}
+
+  - id: param_var_in_host_caa_dotted
+    description: "CAA (custom): host '%var%' with a multi-label value produces nested subdomain CAA"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "%var%", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CAA, name: "child.sub", data: '0 issue "letsencrypt.org"', ttl: 300}
+
+  - id: param_var_in_host_caa_underscore
+    description: "CAA (custom): host '%var%' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "%var%", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_pki"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CAA, name: "_pki", data: '0 issue "letsencrypt.org"', ttl: 300}
+
+  - id: param_var_prefix_in_host_caa_empty_raises
+    description: "CAA (custom): host '%var%.subdomain' with var='' produces empty leading label → InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "%var%.subdomain", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: ""}
+    expect:
+      exception: InvalidData
+
+  - id: param_var_prefix_in_host_caa_simple
+    description: "CAA (custom): host '%var%.subdomain' with a simple label produces nested subdomain CAA"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "%var%.subdomain", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CAA, name: "sub.subdomain", data: '0 issue "letsencrypt.org"', ttl: 300}
+
+  - id: param_var_prefix_in_host_caa_dotted
+    description: "CAA (custom): host '%var%.subdomain' with a multi-label value produces deeper nesting"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "%var%.subdomain", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "child.sub"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CAA, name: "child.sub.subdomain", data: '0 issue "letsencrypt.org"', ttl: 300}
+
+  - id: param_var_prefix_in_host_caa_underscore
+    description: "CAA (custom): host '%var%.subdomain' with an underscore label is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "%var%.subdomain", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {var: "_pki"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CAA, name: "_pki.subdomain", data: '0 issue "letsencrypt.org"', ttl: 300}
