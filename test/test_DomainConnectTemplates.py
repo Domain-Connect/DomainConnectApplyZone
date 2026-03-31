@@ -1,6 +1,5 @@
 import json
 import unittest
-import six
 from domainconnectzone import DomainConnectTemplates, InvalidData, InvalidTemplate
 
 import sys
@@ -13,7 +12,7 @@ class TestDomainConnectTemplates(unittest.TestCase):
     @patch('os.path.isfile', return_value=True)
     @patch('os.path.isdir', return_value=True)
     @patch('os.access', return_value=True)
-    @patch('six.moves.builtins.open', new_callable=mock_open, read_data=json.dumps(
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps(
         {
             "properties": {
                 "providerId": {
@@ -60,7 +59,7 @@ class TestDomainConnectTemplates(unittest.TestCase):
     @patch('os.path.isdir')
     @patch('os.access')
     @patch('os.listdir')
-    @patch('six.moves.builtins.open', new_callable=mock_open, read_data='{"providerId": "Provider", "serviceId": "Service"}')
+    @patch('builtins.open', new_callable=mock_open, read_data='{"providerId": "Provider", "serviceId": "Service"}')
     def test_templates_success(self, mock_open, mock_listdir, mock_access, mock_isdir):
         mock_isdir.return_value = True
         mock_access.return_value = True
@@ -90,7 +89,7 @@ class TestDomainConnectTemplates(unittest.TestCase):
         mock_access.return_value = True
         mock_listdir.return_value = ['malformed.json']
         malformed_json_content = '{"providerId": "Provider", "serviceId": "Service"'
-        with patch('six.moves.builtins.open', mock_open(read_data=malformed_json_content)):
+        with patch('builtins.open', mock_open(read_data=malformed_json_content)):
             d = DomainConnectTemplates()
             templates = d.templates
             self.assertEqual(len(templates), 0)  # Malformed JSON should be ignored
@@ -104,7 +103,7 @@ class TestDomainConnectTemplates(unittest.TestCase):
         mock_access.return_value = True
         mock_listdir.return_value = ['provider.service.json']
         correct_json_content = '{"providerId": "Provider"}'
-        with patch('six.moves.builtins.open', mock_open(read_data=correct_json_content)):
+        with patch('builtins.open', mock_open(read_data=correct_json_content)):
             d = DomainConnectTemplates()
             templates = d.templates
             self.assertEqual(len(templates), 0)  # File with incomplete template should be ignored
@@ -118,7 +117,7 @@ class TestDomainConnectTemplates(unittest.TestCase):
         mock_access.return_value = True
         mock_listdir.return_value = ['incorrectname.json']
         correct_json_content = '{"providerId": "Provider", "serviceId": "Service"}'
-        with patch('six.moves.builtins.open', mock_open(read_data=correct_json_content)):
+        with patch('builtins.open', mock_open(read_data=correct_json_content)):
             d = DomainConnectTemplates()
             templates = d.templates
             self.assertEqual(len(templates), 0)  # File with incorrect naming should be ignored
@@ -145,7 +144,7 @@ class TestDomainConnectTemplates(unittest.TestCase):
         mock_access.return_value = True
         mock_listdir.return_value = ['provider.service.json']
         valid_json_content = '{"providerId": "Provider", "serviceId": "Service"}'
-        with patch('six.moves.builtins.open', mock_open(read_data=valid_json_content)):
+        with patch('builtins.open', mock_open(read_data=valid_json_content)):
             d = DomainConnectTemplates(template_path=custom_path)
             templates = d.templates
             self.assertEqual(len(templates), 1)
@@ -167,7 +166,7 @@ class TestDomainConnectTemplates(unittest.TestCase):
         mock_open_instance.side_effect = [mock_open(read_data=valid_schema_content).return_value,
                                           mock_open(read_data=json.dumps(self.template_base)).return_value]
 
-        with patch('six.moves.builtins.open', mock_open_instance):
+        with patch('builtins.open', mock_open_instance):
             d = DomainConnectTemplates()
             templates = d.templates
             self.assertEqual(d.schema, {"some": "schema"})
@@ -374,7 +373,7 @@ class TestDomainConnectTemplatesUpdate(unittest.TestCase):
     @patch('os.path.isfile', return_value=True)
     @patch('os.path.isdir', return_value=True)
     @patch('os.access', return_value=True)
-    @patch('six.moves.builtins.open', new_callable=mock_open, read_data=json.dumps({
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps({
         "providerId": "provider1", "serviceId": "service1", "records": []
     }))
     def test_update_existing_template(self,  mock_open, mock_access, mock_isfile, mock_isdir, mock_listdir):
@@ -396,7 +395,7 @@ class TestDomainConnectTemplatesUpdate(unittest.TestCase):
     @patch('os.path.isdir', return_value=True)
     @patch('os.access', side_effect=[True, False])
     @patch('os.listdir', return_value=['provider1.service1.json', 'invalid.json', 'provider2.service2.json'])
-    @patch('six.moves.builtins.open', new_callable=mock_open, read_data=json.dumps({
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps({
         "providerId": "provider1", "serviceId": "service1", "records": []
     }))
     def test_update_template_folder_not_writable(self, mock_open, mock_listdir, mock_access, mock_isdir):
@@ -410,7 +409,7 @@ class TestDomainConnectTemplatesUpdate(unittest.TestCase):
     @patch('os.path.isdir', return_value=True)
     @patch('os.access', side_effect=[True, True])
     @patch('os.listdir', return_value=['provider1.service1.json', 'invalid.json', 'provider2.service2.json'])
-    @patch('six.moves.builtins.open', new_callable=mock_open, read_data=json.dumps({
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps({
         "providerId": "provider1", "serviceId": "service1", "records": []
     }))
     def test_update_template_not_found(self, mock_open, mock_listdir, mock_access, mock_isdir):
@@ -426,13 +425,13 @@ class TestDomainConnectTemplatesCreate(unittest.TestCase):
     @patch('os.path.isfile', return_value=True)
     @patch('os.path.isdir', return_value=True)
     @patch('os.access', return_value=True)
-    @patch('six.moves.builtins.open', new_callable=mock_open, read_data=json.dumps({}))
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps({}))
     def setUp(self, mock_open, mock_access, mock_isfile, mock_isdir):
         self._dct = DomainConnectTemplates('/valid/path')
 
     @patch('os.listdir', return_value=[])
     @patch('os.access', return_value=True)
-    @patch('six.moves.builtins.open', new_callable=mock_open)
+    @patch('builtins.open', new_callable=mock_open)
     def test_create_new_template(self, mock_open, mock_access, mock_listdir):
         template = {"providerId": "provider2", "serviceId": "service2", "records": []}
 
@@ -450,7 +449,7 @@ class TestDomainConnectTemplatesCreate(unittest.TestCase):
 
     @patch('os.listdir', return_value=[])
     @patch('os.access', return_value=False)
-    @patch('six.moves.builtins.open', new_callable=mock_open)
+    @patch('builtins.open', new_callable=mock_open)
     def test_create_template_folder_not_writable(self, mock_open, mock_access, mock_listdir):
         template = {"providerId": "provider2", "serviceId": "service2", "content": "new content"}
 
@@ -460,7 +459,7 @@ class TestDomainConnectTemplatesCreate(unittest.TestCase):
 
     @patch('os.listdir', return_value=["provider1.service1.json"])
     @patch('os.access', return_value=True)
-    @patch('six.moves.builtins.open', new_callable=mock_open, read_data=json.dumps(
+    @patch('builtins.open', new_callable=mock_open, read_data=json.dumps(
         {"providerId": "provider1", "serviceId": "service1", "records": []}
     ))
     def test_create_template_already_exists(self, mock_open, mock_access, mock_listdir):
