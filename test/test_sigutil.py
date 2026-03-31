@@ -88,7 +88,7 @@ d9tBSVfC0sLpdQ0rhswJaG72Gh3UEcbmGkexARQ5Mzu2
 
 class TestGetPublicKey(unittest.TestCase):
 
-    @patch('dns.resolver.query')
+    @patch('dns.resolver.resolve')
     def test_get_publickey(self, mock_query):
         # Mock DNS TXT records
         mock_records = MagicMock()
@@ -104,7 +104,7 @@ class TestGetPublicKey(unittest.TestCase):
         expected_key = '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqG9w0BAQEFAAOCAQ8AMIIBCgKCAQE\n-----END PUBLIC KEY-----\n'
         self.assertEqual(get_publickey(domain), expected_key)
 
-    @patch('dns.resolver.query')
+    @patch('dns.resolver.resolve')
     def test_get_publickey_full_spec(self, mock_query):
         # Mock DNS TXT records with fully specified algorithm and type
         mock_records = MagicMock()
@@ -122,7 +122,7 @@ class TestGetPublicKey(unittest.TestCase):
         expected_key = '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqG9w0BAQEFAAOCAQ8AMIIBCgKCAQE\n-----END PUBLIC KEY-----\n'
         self.assertEqual(get_publickey(domain), expected_key)
 
-    @patch('dns.resolver.query')
+    @patch('dns.resolver.resolve')
     def test_get_publickey_with_invalid_data(self, mock_query):
         # Mock DNS TXT record with invalid data
         mock_records = MagicMock()
@@ -135,7 +135,7 @@ class TestGetPublicKey(unittest.TestCase):
         domain = 'example.com'
         self.assertIsNone(get_publickey(domain))
 
-    @patch('dns.resolver.query')
+    @patch('dns.resolver.resolve')
     def test_get_publickey_with_invalid_algorithm(self, mock_query):
         # Mock DNS TXT record with unsupported algorithm
         mock_records = MagicMock()
@@ -148,7 +148,7 @@ class TestGetPublicKey(unittest.TestCase):
         domain = 'example.com'
         self.assertIsNone(get_publickey(domain))
 
-    @patch('dns.resolver.query')
+    @patch('dns.resolver.resolve')
     def test_get_publickey_with_invalid_type(self, mock_query):
         # Mock DNS TXT record with unsupported type
         mock_records = MagicMock()
