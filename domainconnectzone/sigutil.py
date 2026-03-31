@@ -50,7 +50,7 @@ def get_publickey(domain):
         pembits = ''
 
         try:
-            records = dns.resolver.query(domain, 'TXT') # Get all text records
+            records = dns.resolver.resolve(domain, 'TXT') # Get all text records
             record_strings = []
             for record in records:
                 text = record.strings[0].decode('utf-8')
