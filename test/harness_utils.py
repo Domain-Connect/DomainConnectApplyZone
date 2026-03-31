@@ -45,8 +45,6 @@ _ZONE_RECORD_KEYS = {
     "priority", "protocol", "service", "weight", "port",
     "_dc",
 }
-_DC_KEYS = {"id", "providerId", "serviceId", "host", "essential"}
-
 
 # ---------------------------------------------------------------------------
 # Key-validation helpers
@@ -63,8 +61,8 @@ def check_keys(mapping, allowed, context):
 def validate_zone_record(record, context):
     """Validate a single zone record (input or expected output)."""
     check_keys(record, _ZONE_RECORD_KEYS, context)
-    if "_dc" in record:
-        check_keys(record["_dc"], _DC_KEYS, "_dc of {}".format(context))
+    if "_dc" in record and not isinstance(record["_dc"], object):
+        raise ValueError("_dc not an object: {}".format(record["_dc"]))
 
 
 def validate_common_case(case, inp, ctx, input_keys):

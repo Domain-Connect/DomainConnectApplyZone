@@ -629,8 +629,6 @@ def check_conflict_with_self(new_record, new_records):
         if error:
             raise InvalidData(f"Template record {new_record['type']} {new_record['name']} conflicts with other tempate record {zone_record['type']} {zone_record['name']}")
 
-_RECORD_COMPARE_SKIP = {'_delete', '_replace', 'ttl'}
-
 _CORE_TYPES = {'A', 'AAAA', 'CNAME', 'MX', 'NS', 'SRV', 'TXT', 'SPFM',
                'REDIR301', 'REDIR302'}
 
@@ -687,6 +685,7 @@ def _normalise_record(record):
             result[k] = v
     return result
 
+_RECORD_COMPARE_SKIP = {'_delete', '_replace', 'ttl', "_dc"}
 
 def _find_identical_zone_record(new_record, zone_records):
     """Return the zone record identical to new_record, or None.
