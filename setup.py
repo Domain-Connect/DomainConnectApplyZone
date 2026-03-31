@@ -64,22 +64,14 @@ setup(
     extras_require={
         'testing': [
             'coverage>=5.5',
-            'pytest>=4.6; python_version == "2.7"',
-            'pytest>=7.0; python_version > "2.7"',
+            'pytest>=7.0; python_version >= "3.0"',
             'mock>=3.0.5; python_version < "3.3"',
         ],
         'docs': [
             'phinx>=7.4.7',
             'sphinx-rtd-theme>=2.0.0'
         ],
-        ':python_version == "2.7"': [
-            'cryptography>=3.3.2',
-            'dnspython>=1.16.0',
-            'jsonschema>=3.2.0',
-            'requests>=2.27.1',
-            'validators>=0.14.2',
-        ],
-        ':python_version > "2.7" and python_version < "3.6"': [
+        ':python_version >= "3.0" and python_version < "3.6"': [
             'cryptography>=39.0.1',
             'dnspython3>=1.15.0',
             'jsonschema>=4.0.0',
@@ -102,7 +94,6 @@ setup(
         ],
     },
     classifiers=[
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
