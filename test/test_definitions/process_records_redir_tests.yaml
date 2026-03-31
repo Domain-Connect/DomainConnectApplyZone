@@ -1,0 +1,146 @@
+version: "1.0"
+suite_type: process_records
+description: "Domain Connect process_records compliance tests — REDIR301/REDIR302"
+
+tests:
+
+  # ---------------------------------------------------------------------------
+  # REDIR
+  # ---------------------------------------------------------------------------
+  - id: redir301_basic
+    description: "REDIR301 replaces A/AAAA/CNAME at host and adds redirect record"
+    input:
+      zone_records:
+        - {type: A,    name: bar,          data: abc, ttl: 400}
+        - {type: AAAA, name: bar,          data: abc, ttl: 400}
+        - {type: CNAME, name: bar,         data: abc, ttl: 400}
+        - {type: A,    name: random.value, data: abc, ttl: 400}
+      template_records:
+        - {type: REDIR301, host: "@", target: "http://%target%"}
+      domain: foo.com
+      host: bar
+      params: {target: example.com}
+      redirect_records:
+        - {type: A,    pointsTo: "127.0.0.1", ttl: 600}
+        - {type: AAAA, pointsTo: "::1",       ttl: 600}
+    expect:
+      new_count: 3
+      delete_count: 3
+      records:
+        - {type: A,       name: bar,          data: "127.0.0.1",        ttl: 600}
+        - {type: AAAA,    name: bar,          data: "::1",              ttl: 600}
+        - {type: A,       name: random.value, data: abc,               ttl: 400}
+        - {type: REDIR301, name: bar,         data: "http://example.com"}
+
+  - id: redir301_double
+    description: "Two REDIR301 records at different hosts both get redirect records"
+    input:
+      zone_records: []
+      template_records:
+        - {type: REDIR301, host: www, target: "http://%target%"}
+        - {type: REDIR301, host: "@", target: "http://www.%fqdn%"}
+      domain: foo.com
+      host: ""
+      params: {target: example.com}
+      redirect_records:
+        - {type: A,    pointsTo: "127.0.0.1", ttl: 600}
+        - {type: AAAA, pointsTo: "::1",       ttl: 600}
+    expect:
+      new_count: 6
+      delete_count: 0
+      records:
+        - {type: A,        name: "@",  data: "127.0.0.1",          ttl: 600}
+        - {type: AAAA,     name: "@",  data: "::1",                ttl: 600}
+        - {type: REDIR301, name: "@",  data: "http://www.foo.com"}
+        - {type: A,        name: www,  data: "127.0.0.1",          ttl: 600}
+        - {type: AAAA,     name: www,  data: "::1",                ttl: 600}
+        - {type: REDIR301, name: www,  data: "http://example.com"}
+
+  - id: redir301_with_groupid_filtered_out
+    description: "REDIR301 filtered out by group_ids does nothing"
+    input:
+      zone_records:
+        - {type: A, name: bar,          data: abc, ttl: 400}
+        - {type: A, name: random.value, data: abc, ttl: 400}
+      template_records:
+        - {type: REDIR301, host: "@", target: "http://example.com", groupId: b}
+      domain: foo.com
+      host: bar
+      params: {}
+      group_ids: [a]
+      redirect_records:
+        - {type: A,    pointsTo: "127.0.0.1", ttl: 600}
+        - {type: AAAA, pointsTo: "::1",       ttl: 600}
+    expect:
+      new_count: 0
+      delete_count: 0
+      records:
+        - {type: A, name: bar,          data: abc, ttl: 400}
+        - {type: A, name: random.value, data: abc, ttl: 400}
+
+  - id: redir302_basic
+    description: "REDIR302 replaces A/AAAA/CNAME at host and adds redirect record"
+    input:
+      zone_records:
+        - {type: A,    name: bar,          data: abc, ttl: 400}
+        - {type: AAAA, name: bar,          data: abc, ttl: 400}
+        - {type: CNAME, name: bar,         data: abc, ttl: 400}
+        - {type: A,    name: random.value, data: abc, ttl: 400}
+      template_records:
+        - {type: REDIR302, host: "@", target: "http://example.com"}
+      domain: foo.com
+      host: bar
+      params: {}
+      redirect_records:
+        - {type: A,    pointsTo: "127.0.0.1", ttl: 600}
+        - {type: AAAA, pointsTo: "::1",       ttl: 600}
+    expect:
+      new_count: 3
+      delete_count: 3
+      records:
+        - {type: A,        name: bar,          data: "127.0.0.1",        ttl: 600}
+        - {type: AAAA,     name: bar,          data: "::1",              ttl: 600}
+        - {type: A,        name: random.value, data: abc,               ttl: 400}
+        - {type: REDIR302, name: bar,          data: "http://example.com"}
+
+  - id: exception_redir301_empty_target
+    description: "REDIR301 with empty target raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: REDIR301, host: "@", target: "", ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+      redirect_records:
+        - {type: A,    pointsTo: "127.0.0.1", ttl: 600}
+        - {type: AAAA, pointsTo: "::1",       ttl: 600}
+    expect:
+      exception: InvalidData
+
+  - id: exception_redir302_invalid_target
+    description: "REDIR302 with an invalid URL target raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: REDIR302, host: "@", target: "http://ijfjiör@@@a:43244434::", ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+      redirect_records:
+        - {type: A,    pointsTo: "127.0.0.1", ttl: 600}
+        - {type: AAAA, pointsTo: "::1",       ttl: 600}
+    expect:
+      exception: InvalidData
+
+  - id: exception_redir301_missing_redirect_records
+    description: "REDIR301 without redirect_records raises InvalidTemplate"
+    input:
+      zone_records: []
+      template_records:
+        - {type: REDIR301, host: "@", target: "", ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidTemplate

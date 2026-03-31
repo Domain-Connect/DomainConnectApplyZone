@@ -1,0 +1,119 @@
+version: "1.0"
+suite_type: process_records
+description: "Domain Connect process_records compliance tests — APEXCNAME"
+
+tests:
+
+  # ---------------------------------------------------------------------------
+  # APEXCNAME
+  # ---------------------------------------------------------------------------
+
+  - id: apexcname_basic
+    description: "APEXCNAME creates a record at the apex (@) with no host field"
+    input:
+      zone_records: []
+      template_records:
+        - {type: APEXCNAME, pointsTo: target.example.com, ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: APEXCNAME, name: "@", data: target.example.com, ttl: 600}
+
+  - id: apexcname_host_at
+    description: "APEXCNAME with explicit host '@' is accepted"
+    input:
+      zone_records: []
+      template_records:
+        - {type: APEXCNAME, host: "@", pointsTo: target.example.com, ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: APEXCNAME, name: "@", data: target.example.com, ttl: 600}
+
+  - id: apexcname_host_non_apex_rejected
+    description: "APEXCNAME with host other than '@' raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: APEXCNAME, host: "sub", pointsTo: target.example.com, ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: apexcname_delete_conflicts
+    description: "APEXCNAME deletes conflicting records at @ (A, AAAA, CNAME, MX, TXT)"
+    input:
+      zone_records:
+        - {type: A,     name: "@", data: 1.2.3.4,          ttl: 300}
+        - {type: AAAA,  name: "@", data: "::1",             ttl: 300}
+        - {type: CNAME, name: "@", data: old.example.com,   ttl: 300}
+        - {type: MX,    name: "@", data: mail.example.com,  ttl: 300, priority: 10}
+        - {type: TXT,   name: "@", data: "v=spf1 ~all",     ttl: 300}
+        - {type: NS,    name: "@", data: ns1.example.com,   ttl: 300}
+      template_records:
+        - {type: APEXCNAME, pointsTo: target.example.com, ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 5
+      records:
+        - {type: APEXCNAME, name: "@", data: target.example.com, ttl: 600}
+        - {type: NS,        name: "@", data: ns1.example.com,    ttl: 300}
+
+  - id: apexcname_no_delete_other_hosts
+    description: "APEXCNAME only deletes records at @, not at other hosts"
+    input:
+      zone_records:
+        - {type: A, name: "@",   data: 1.2.3.4, ttl: 300}
+        - {type: A, name: "sub", data: 5.6.7.8, ttl: 300}
+      template_records:
+        - {type: APEXCNAME, pointsTo: target.example.com, ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 1
+      records:
+        - {type: APEXCNAME, name: "@", data: target.example.com, ttl: 600}
+        - {type: A,         name: "sub", data: 5.6.7.8,          ttl: 300}
+
+  - id: apexcname_conflict_itself
+    description: "Two APEXCNAME records in same template raise InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: APEXCNAME, pointsTo: target1.example.com, ttl: 600}
+        - {type: APEXCNAME, pointsTo: target2.example.com, ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: apexcname_variable_substitution
+    description: "APEXCNAME supports %variable% substitution in pointsTo"
+    input:
+      zone_records: []
+      template_records:
+        - {type: APEXCNAME, pointsTo: "%target%", ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {target: target.example.com}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: APEXCNAME, name: "@", data: target.example.com, ttl: 600}
