@@ -554,6 +554,7 @@ _delete_map = {
     'AAAA': ['A', 'AAAA', 'CNAME', 'REDIR301', 'REDIR302'],
     'MX': ['MX', 'CNAME'],
     'CNAME': ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'REDIR301', 'REDIR302'],
+    'APEXCNAME': ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'REDIR301', 'REDIR302'],
     'REDIR301': ['A', 'AAAA', 'CNAME'],
     'REDIR302': ['A', 'AAAA', 'CNAME'],
 }
@@ -604,13 +605,43 @@ def process_other_record(template_record, zone_records):
     return new_record
 
 
+def process_apexcname_record(template_record, zone_records):
+    """
+    Process an APEXCNAME record from a template.  APEXCNAME always targets the
+    zone apex (@) and behaves like a CNAME for conflict resolution purposes.
+
+    :param template_record: The record from the template to process.
+    :type template_record: dict
+        - keys: 'type', 'pointsTo', 'ttl'; optional 'host' (must be '@' if present)
+
+    :param zone_records: A list of all records in the current zone.
+    :type zone_records: list
+
+    :return: The new APEXCNAME record.
+    :rtype: dict
+    """
+    new_record = {'type': 'APEXCNAME',
+                  'name': '@',
+                  'data': template_record['pointsTo'],
+                  'ttl': int(template_record['ttl'])}
+
+    for zone_record in zone_records:
+        zone_record_type = zone_record['type'].upper()
+        if zone_record_type in _delete_map['APEXCNAME'] and \
+                zone_record['name'] == '@' and \
+                '_replace' not in zone_record:
+            zone_record['_delete'] = 1
+
+    return new_record
+
+
 def check_conflict_with_self(new_record, new_records):
-    # Mark records that conflict with self (affects only CNAME and NS)
+    # Mark records that conflict with self (affects only CNAME, APEXCNAME and NS)
     for zone_record in new_records:
         zone_record_type = zone_record['type'].upper()
 
         error = False
-        if (new_record['type'] == 'CNAME' or zone_record['type'] == 'CNAME') \
+        if (new_record['type'] in ('CNAME', 'APEXCNAME') or zone_record['type'] in ('CNAME', 'APEXCNAME')) \
             and zone_record['name'] == new_record['name']:
             error = True
 
@@ -629,7 +660,7 @@ def check_conflict_with_self(new_record, new_records):
         if error:
             raise InvalidData(f"Template record {new_record['type']} {new_record['name']} conflicts with other tempate record {zone_record['type']} {zone_record['name']}")
 
-_CORE_TYPES = {'A', 'AAAA', 'CNAME', 'MX', 'NS', 'SRV', 'TXT', 'SPFM',
+_CORE_TYPES = {'A', 'AAAA', 'CNAME', 'APEXCNAME', 'MX', 'NS', 'SRV', 'TXT', 'SPFM',
                'REDIR301', 'REDIR302'}
 
 # Maps RR type → list of fields whose string values must NOT be lowercased
@@ -838,7 +869,7 @@ def process_records(template_records, zone_records, domain, host, params,
         template_record_type = template_record['type'].upper()
 
         # We can only handle certain record types
-        supported = ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'SPFM', 'NS']
+        supported = ['A', 'AAAA', 'MX', 'CNAME', 'APEXCNAME', 'TXT', 'SRV', 'SPFM', 'NS']
         if redirect_records is not None:
             supported += ['REDIR301', 'REDIR302']
         is_custom = not template_record_type in supported and is_custom_record_type(template_record_type) 
@@ -848,7 +879,7 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # Deal with the variables and validation 
 
-        # Deal with the host/name        
+        # Deal with the host/name
         if template_record_type == 'SRV':
             template_record['name'] = resolve_variables(
                 template_record['name'], domain, host, params, 'name')
@@ -860,6 +891,14 @@ def process_records(template_records, zone_records, domain, host, params,
             if not is_valid_host_srv(srvhost):
                 raise InvalidData('Invalid data for SRV host: ' +
                                   srvhost)
+
+        elif template_record_type == 'APEXCNAME':
+            # host is optional for APEXCNAME; if present it must be '@'
+            apex_host = template_record.get('host', '@')
+            if apex_host != '@':
+                raise InvalidData('Invalid data for APEXCNAME host: ' +
+                                  apex_host + ' (must be @ or omitted)')
+            template_record['host'] = '@'
 
         else:
             orig_host = template_record['host']
@@ -889,14 +928,14 @@ def process_records(template_records, zone_records, domain, host, params,
                     raise InvalidData(err_msg)
 
         # Points To / Target
-        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
+        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'APEXCNAME', 'NS']:
             orig_pointsto = template_record['pointsTo']
             if template_record_type == 'NS' and orig_pointsto == '@':
                 raise InvalidData('Invalid data for NS pointsTo: @ would create a circular delegation')
             template_record['pointsTo'] = resolve_variables(
                 template_record['pointsTo'], domain, host, params, 'pointsTo')
 
-            if template_record_type in ['MX', 'CNAME', 'NS']:
+            if template_record_type in ['MX', 'CNAME', 'APEXCNAME', 'NS']:
                 if not is_valid_pointsTo_host(
                         template_record['pointsTo']):
                     raise InvalidData('Invalid data for ' +
@@ -1010,6 +1049,8 @@ def process_records(template_records, zone_records, domain, host, params,
             new_record = process_srv_record(template_record, zone_records)
         elif template_record_type in ['REDIR301', 'REDIR302']:
             new_record = process_redir_record(template_record, zone_records)
+        elif template_record_type == 'APEXCNAME':
+            new_record = process_apexcname_record(template_record, zone_records)
         elif is_custom:
             new_record = process_custom_record(template_record, zone_records)
         else:
