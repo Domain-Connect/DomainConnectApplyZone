@@ -300,9 +300,9 @@ tests:
       new_count: 3
       delete_count: 0
       records:
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: TCP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: TLS, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: tcp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: tls, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: srv_remove_underscore_in_protocol
     description: "SRV protocol leading underscore is stripped"
@@ -317,7 +317,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: srv_at_name_on_subdomain
     description: "SRV with @ name resolves to host subdomain"
@@ -332,7 +332,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: bar, data: "127.0.0.1", protocol: UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: bar, data: "127.0.0.1", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: srv_replace
     description: "SRV record replaces existing SRV at same host/protocol/service"
@@ -348,7 +348,7 @@ tests:
       new_count: 1
       delete_count: 1
       records:
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: UDP, service: bar.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: udp, service: bar.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   # ---------------------------------------------------------------------------
   # SPFM
@@ -2190,7 +2190,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip_old.bar", data: "127.0.0.1", protocol: UDP, service: foo.com,
+        - {type: SRV, name: "_sip_old.bar", data: "127.0.0.1", protocol: udp, service: foo.com,
            priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: exception_txt_host_with_space
@@ -2828,7 +2828,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: udp,
            service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 500}
 
   - id: ttl_as_variable_srv
@@ -2845,7 +2845,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: udp,
            service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 500}
 
   - id: srv_priority_as_string
@@ -2862,7 +2862,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: udp,
            service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
 
   - id: srv_priority_as_variable
@@ -2879,7 +2879,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: udp,
            service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
 
   - id: srv_weight_as_string
@@ -2896,7 +2896,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: udp,
            service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
 
   - id: srv_weight_as_variable
@@ -2913,7 +2913,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: udp,
            service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
 
   - id: srv_port_as_string
@@ -2930,7 +2930,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: udp,
            service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
 
   - id: srv_port_as_variable
@@ -2947,7 +2947,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: UDP,
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: udp,
            service: "sip.example.com", priority: 10, weight: 20, port: 5060, ttl: 400}
 
   # ---------------------------------------------------------------------------
@@ -3870,7 +3870,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: TCP,
+        - {type: SRV, name: "_sip", data: "sip.example.com", protocol: tcp,
            service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
 
   - id: param_var_in_host_srv_dotted
@@ -3878,7 +3878,7 @@ tests:
     input:
       zone_records: []
       template_records:
-        - {type: SRV, name: "%var%", target: "sip.example.com", protocol: TCP,
+        - {type: SRV, name: "%var%", target: "sip.example.com", protocol: tcp,
            service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
       domain: foo.com
       host: ""
@@ -3887,7 +3887,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip._tcp", data: "sip.example.com", protocol: TCP,
+        - {type: SRV, name: "_sip._tcp", data: "sip.example.com", protocol: tcp,
            service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
 
   - id: param_var_in_host_srv_underscore
@@ -3904,7 +3904,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_xmpp", data: "sip.example.com", protocol: TCP,
+        - {type: SRV, name: "_xmpp", data: "sip.example.com", protocol: tcp,
            service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
 
   - id: param_var_prefix_in_host_srv_empty_raises
@@ -3934,7 +3934,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip._tcp", data: "sip.example.com", protocol: TCP,
+        - {type: SRV, name: "_sip._tcp", data: "sip.example.com", protocol: tcp,
            service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
 
   - id: param_var_prefix_in_host_srv_dotted
@@ -3951,7 +3951,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip.sub._tcp", data: "sip.example.com", protocol: TCP,
+        - {type: SRV, name: "_sip.sub._tcp", data: "sip.example.com", protocol: tcp,
            service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
 
   - id: param_var_prefix_in_host_srv_underscore
@@ -3968,7 +3968,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_xmpp._tcp", data: "sip.example.com", protocol: TCP,
+        - {type: SRV, name: "_xmpp._tcp", data: "sip.example.com", protocol: tcp,
            service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
 
   # --- Custom type (CAA) ---
@@ -4088,3 +4088,336 @@ tests:
       delete_count: 0
       records:
         - {type: CAA, name: "_pki.subdomain", data: '0 issue "letsencrypt.org"', ttl: 300}
+
+  # ---------------------------------------------------------------------------
+  # Duplicate record skip tests — identical record already in zone
+  # ---------------------------------------------------------------------------
+
+  - id: duplicate_skip_txt
+    description: "TXT: identical record already in zone is not added again (no conflict rule)"
+    input:
+      zone_records:
+        - {type: TXT, name: "@", data: '"Hello World"', ttl: 1800}
+      template_records:
+        - {type: TXT, host: "@", data: '"Hello World"', ttl: 600}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 0
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: '"Hello World"', ttl: 1800}
+
+  - id: duplicate_skip_txt_case_diff
+    description: "TXT: identical record already in zone is not added again (no conflict rule, case diff)"
+    input:
+      zone_records:
+        - {type: TXT, name: "@", data: '"Hello World"', ttl: 1800}
+      template_records:
+        - {type: txt, host: "@", data: '"Hello World"', ttl: 600}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 0
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: '"Hello World"', ttl: 1800}
+
+  - id: duplicate_skip_txt_at_vs_empty
+    description: "TXT: identical record already in zone is not added again (no conflict rule, host @ vs. empty)"
+    input:
+      zone_records:
+        - {type: TXT, name: "@", data: '"Hello World"', ttl: 1800}
+      template_records:
+        - {type: TXT, host: "", data: '"Hello World"', ttl: 600}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 0
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: '"Hello World"', ttl: 1800}
+        
+  - id: duplicate_dont_skip_txt_case_diff
+    description: "TXT: Record with case difference in content is added."
+    input:
+      zone_records:
+        - {type: TXT, name: "@", data: '"Hello World"', ttl: 1800}
+      template_records:
+        - {type: TXT, host: "@", data: '"Hello WORLD"', ttl: 600}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: '"Hello World"', ttl: 1800}
+        - {type: TXT, name: "@", data: '"Hello WORLD"', ttl: 600}
+
+  - id: duplicate_skip_a
+    description: "A: identical A record is replaced (conflict rule deletes old, new is added)"
+    input:
+      zone_records:
+        - {type: A, name: "@", data: "1.2.3.4", ttl: 300}
+      template_records:
+        - {type: A, host: "@", pointsTo: "1.2.3.4", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 1
+      records:
+        - {type: A, name: "@", data: "1.2.3.4", ttl: 300}
+
+  - id: duplicate_skip_aaaa
+    description: "AAAA: identical AAAA record is replaced (conflict rule deletes old, new is added)"
+    input:
+      zone_records:
+        - {type: AAAA, name: "@", data: "2001:db8::1", ttl: 300}
+      template_records:
+        - {type: AAAA, host: "@", pointsTo: "2001:db8::1", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 1
+      records:
+        - {type: AAAA, name: "@", data: "2001:db8::1", ttl: 300}
+
+  - id: duplicate_skip_cname
+    description: "CNAME: identical CNAME record is replaced (conflict rule deletes old, new is added)"
+    input:
+      zone_records:
+        - {type: CNAME, name: "www", data: "example.com.", ttl: 300}
+      template_records:
+        - {type: CNAME, host: "www", pointsTo: "example.com.", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 1
+      records:
+        - {type: CNAME, name: "www", data: "example.com.", ttl: 300}
+
+  - id: duplicate_skip_mx
+    description: "MX: identical MX record is replaced (conflict rule deletes old, new is added)"
+    input:
+      zone_records:
+        - {type: MX, name: "@", data: "mail.example.com.", ttl: 300, priority: 10}
+      template_records:
+        - {type: MX, host: "@", pointsTo: "mail.example.com.", ttl: 300, priority: 10}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 1
+      records:
+        - {type: MX, name: "@", data: "mail.example.com.", ttl: 300, priority: 10}
+
+  - id: duplicate_skip_srv
+    description: "SRV: identical SRV record is replaced (conflict rule deletes old, new is added)"
+    input:
+      zone_records:
+        - {type: SRV, name: "_sip._tcp", data: "sip.example.com.", ttl: 300, priority: 10, weight: 20, port: 5060}
+      template_records:
+        - {type: SRV, name: "_sip._tcp", target: "sip.example.com.", ttl: 300, priority: 10, weight: 20, port: 5060, protocol: tcp, service: sip}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 1
+      records:
+        - {type: SRV, name: "_sip._tcp", data: "sip.example.com.", ttl: 300, priority: 10, weight: 20, port: 5060, protocol: tcp, service: sip}
+
+  - id: duplicate_skip_srv_case_diff
+    description: "SRV: identical SRV record is replaced (conflict rule deletes old, new is added, case diff)"
+    input:
+      zone_records:
+        - {type: SRV, name: "_sip._tcp", data: "sip.example.com.", ttl: 300, priority: 10, weight: 20, port: 5060}
+      template_records:
+        - {type: SRV, name: "_SIP._TCP", target: "SIP.EXAMPLE.COM.", ttl: 300, priority: 10, weight: 20, port: 5060, protocol: tcp, service: sip}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 1
+      records:
+        - {type: SRV, name: "_sip._tcp", data: "sip.example.com.", ttl: 300, priority: 10, weight: 20, port: 5060, protocol: tcp, service: sip}
+
+  - id: duplicate_skip_ns
+    description: "NS: identical NS record is replaced (conflict rule deletes old, new is added)"
+    input:
+      zone_records:
+        - {type: NS, name: "sub", data: "ns1.example.com.", ttl: 300}
+      template_records:
+        - {type: NS, host: "sub", pointsTo: "ns1.example.com.", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 1
+      records:
+        - {type: NS, name: "sub", data: "ns1.example.com.", ttl: 300}
+
+  - id: duplicate_skip_caa
+    description: "CAA (custom): identical record already in zone is not added again"
+    input:
+      zone_records:
+        - {type: CAA, name: "@", data: '0 issue "letsencrypt.org"', ttl: 300}
+      template_records:
+        - {type: CAA, host: "@", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 0
+      delete_count: 0
+      records:
+        - {type: CAA, name: "@", data: '0 issue "letsencrypt.org"', ttl: 300}
+
+  # ---------------------------------------------------------------------------
+  # Normalisation tests — zone_records and new_record case canonicalisation
+  # ---------------------------------------------------------------------------
+
+  - id: normalise_zone_type_uppercased
+    description: "Normalisation: zone record 'type' in lowercase is uppercased; final record carries uppercase type"
+    input:
+      zone_records:
+        - {type: a, name: "@", data: "1.2.3.4", ttl: 300}
+      template_records:
+        - {type: TXT, host: "sub", data: "hello", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "@", data: "1.2.3.4", ttl: 300}
+        - {type: TXT, name: "sub", data: "hello", ttl: 300}
+
+  - id: normalise_zone_name_lowercased
+    description: "Normalisation: zone record 'name' in mixed case is lowercased; final record carries lowercase name"
+    input:
+      zone_records:
+        - {type: A, name: "WWW", data: "1.2.3.4", ttl: 300}
+      template_records:
+        - {type: TXT, host: "sub", data: "hello", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "www", data: "1.2.3.4", ttl: 300}
+        - {type: TXT, name: "sub", data: "hello", ttl: 300}
+
+  - id: normalise_zone_data_lowercased_for_a
+    description: "Normalisation: zone record 'data' for A record is lowercased (no practical effect on IPs, but rule applies)"
+    input:
+      zone_records:
+        - {type: CNAME, name: "alias", data: "Target.Example.Com.", ttl: 300}
+      template_records:
+        - {type: TXT, host: "sub", data: "hello", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "alias", data: "target.example.com.", ttl: 300}
+        - {type: TXT, name: "sub", data: "hello", ttl: 300}
+
+  - id: normalise_zone_txt_data_preserved
+    description: "Normalisation: zone record 'data' for TXT is NOT lowercased (case-sensitive content)"
+    input:
+      zone_records:
+        - {type: TXT, name: "@", data: "Hello World", ttl: 300}
+      template_records:
+        - {type: TXT, host: "sub", data: "other", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: "Hello World", ttl: 300}
+        - {type: TXT, name: "sub", data: "other", ttl: 300}
+
+  - id: normalise_zone_custom_data_preserved
+    description: "Normalisation: zone record 'data' for custom (CAA) type is NOT lowercased"
+    input:
+      zone_records:
+        - {type: CAA, name: "@", data: '0 issue "LetsEncrypt.Org"', ttl: 300}
+      template_records:
+        - {type: TXT, host: "sub", data: "hello", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CAA, name: "@", data: '0 issue "LetsEncrypt.Org"', ttl: 300}
+        - {type: TXT, name: "sub", data: "hello", ttl: 300}
+
+  - id: normalise_new_record_type_uppercased
+    description: "Normalisation: template 'type' in lowercase produces a final record with uppercase type"
+    input:
+      zone_records: []
+      template_records:
+        - {type: txt, host: "@", data: "hello", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "@", data: "hello", ttl: 300}
+
+  - id: normalise_new_record_name_lowercased
+    description: "Normalisation: resolved 'name' from mixed-case host is lowercased in the final record"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "WWW", pointsTo: "1.2.3.4", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "www", data: "1.2.3.4", ttl: 300}
+
+  - id: normalise_conflict_detection_uses_normalised_name
+    description: "Normalisation: conflict detection works correctly when zone record name has mixed case"
+    input:
+      zone_records:
+        - {type: A, name: "WWW", data: "1.2.3.4", ttl: 300}
+        - {type: CNAME, name: "WWW", data: "example.com.", ttl: 300}
+      template_records:
+        - {type: A, host: "www", pointsTo: "5.6.7.8", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 2
+      records:
+        - {type: A, name: "www", data: "5.6.7.8", ttl: 300}

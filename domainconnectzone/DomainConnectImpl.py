@@ -629,6 +629,94 @@ def check_conflict_with_self(new_record, new_records):
         if error:
             raise InvalidData(f"Template record {new_record['type']} {new_record['name']} conflicts with other tempate record {zone_record['type']} {zone_record['name']}")
 
+_RECORD_COMPARE_SKIP = {'_delete', '_replace', 'ttl'}
+
+_CORE_TYPES = {'A', 'AAAA', 'CNAME', 'MX', 'NS', 'SRV', 'TXT', 'SPFM',
+               'REDIR301', 'REDIR302'}
+
+# Maps RR type → list of fields whose string values must NOT be lowercased
+# during normalisation.
+#
+# Special patterns:
+#   '*'  — applies to every RR type.
+#   '?'  — applies to every non-core (custom) RR type.
+#
+# Rationale for exceptions:
+#   TXT  — record data is free-form text; case is semantically significant
+#           (e.g. SPF rules, DKIM keys, human-readable values).
+#   '?'  — custom type data is opaque; the library cannot know whether case
+#           matters, so it is preserved.
+_NORMALISE_CASE_PRESERVE = {
+    'TXT': ['data'],
+    '?':   ['data'],  # custom (non-core) types
+}
+
+
+def _normalise_record(record):
+    """Return a normalised copy of record.
+
+    - 'type' is uppercased.
+    - All other string field values are lowercased, except for fields listed in
+      _NORMALISE_CASE_PRESERVE for the record's RR type (e.g. 'data' for TXT
+      and custom RR types).
+    - Non-string values and the '_dc' provenance dict are left untouched.
+
+    Used to build a normalised working copy of zone_records at the start of
+    process_records, and to normalise newly computed records before the
+    duplicate-skip check, so that case differences between zone and template
+    inputs do not produce spurious duplicates.
+    """
+    rtype = str(record.get('type', '')).upper()
+    is_custom = rtype not in _CORE_TYPES
+
+    preserve = set(['type', '_dc'])
+    for pattern, fields in _NORMALISE_CASE_PRESERVE.items():
+        if pattern == '*':
+            preserve.update(fields)
+        elif pattern == '?' and is_custom:
+            preserve.update(fields)
+        elif pattern == rtype:
+            preserve.update(fields)
+
+    result = {}
+    record['type'] = record['type'].upper()
+    for k, v in record.items():
+        if isinstance(v, str) and k not in preserve:
+            result[k] = v.lower()
+        else:
+            result[k] = v
+    return result
+
+
+def _find_identical_zone_record(new_record, zone_records):
+    """Return the zone record identical to new_record, or None.
+
+    Both new_record and all entries in zone_records are expected to have been
+    passed through _normalise_record first so that case differences do not
+    produce false mismatches.
+
+    Only matches records that are not already marked for deletion or replacement:
+    - A '_delete' flag means either conflict handling marked the record (i.e. it
+      genuinely conflicts and should be replaced) or a previous template record
+      in the same run already removed it.  In both cases the new record must
+      still be added.
+    - A '_replace' flag means the record is a placeholder and must not block an
+      add.
+
+    Comparison builds the superset of keys present in either record, excludes
+    the fields in _RECORD_COMPARE_SKIP (internal flags and ttl), then compares
+    all remaining values as strings.
+    """
+    for zr in zone_records:
+        if '_delete' in zr or '_replace' in zr:
+            continue
+        keys = (set(new_record) | set(zr)) - _RECORD_COMPARE_SKIP
+        if all(str(new_record.get(k, '')) == str(zr.get(k, ''))
+               for k in keys):
+            return zr
+    return None
+
+
 def process_records(template_records, zone_records, domain, host, params,
                     group_ids, multi_aware=False, multi_instance=False,
                     provider_id=None, service_id=None, unique_id=None,
@@ -642,6 +730,9 @@ def process_records(template_records, zone_records, domain, host, params,
         - keys: 'type', 'host', 'data', 'txtConflictMatchingMode', 'txtConflictMatchingPrefix'
 
     :param zone_records: A list of all records in the current zone.
+        Records are normalised (string field values lowercased, 'type' uppercased,
+        with the exception of 'data' for TXT and custom RR types) into a working
+        copy before processing begins; the caller's list is not mutated.
     :type zone_records: list
         - elements: dict
         - keys: 'type', 'name', 'data', '_delete' (optional), 'ttl' (optional)
@@ -710,6 +801,9 @@ def process_records(template_records, zone_records, domain, host, params,
     """
     Will process the template records to the zone using the domain/host/params
     """
+
+    # Work on a normalised copy of zone_records so the caller's list is not mutated.
+    zone_records = [_normalise_record(zr) for zr in zone_records]
 
     # If we are multi aware, we should remove the previous instances of the
     # template
@@ -964,7 +1058,13 @@ def process_records(template_records, zone_records, domain, host, params,
                                     'host': host,
                                     'essential': essential}
 
-            new_records.append(new_record)
+            new_record = _normalise_record(new_record)
+            if not multi_aware and _find_identical_zone_record(new_record, zone_records):
+                # The record already exists unchanged and is not being removed —
+                # skip the add.
+                pass
+            else:
+                new_records.append(new_record)
 
     # If we are multi aware, we need to cascade deletes
     if multi_aware:
