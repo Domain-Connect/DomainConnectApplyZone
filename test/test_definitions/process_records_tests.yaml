@@ -4109,6 +4109,24 @@ tests:
       records:
         - {type: TXT, name: "@", data: '"Hello World"', ttl: 1800}
 
+  - id: duplicate_skip_txt_dc
+    description: "TXT: identical record already in zone is not added again (no conflict rule, existing has _dc)"
+    input:
+      zone_records:
+        - {data: 'Hello World', name: '@', ttl: 1800, type: 'TXT', _dc: {record_id: '74688294'}}
+      template_records:
+        - {type: TXT, host: "@", data: '%RANDOMTEXT%', ttl: 600}
+      domain: example.com
+      host: ""
+      params: { RANDOMTEXT: 'Hello World'}
+    expect:
+      new_count: 0
+      delete_count: 0
+      records:
+        - {data: 'Hello World', name: '@', ttl: 1800, type: 'TXT', _dc: {record_id: '74688294'}}
+
+
+
   - id: duplicate_skip_txt_case_diff
     description: "TXT: identical record already in zone is not added again (no conflict rule, case diff)"
     input:
