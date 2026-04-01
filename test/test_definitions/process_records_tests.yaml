@@ -305,9 +305,9 @@ tests:
     input:
       zone_records: []
       template_records:
-        - {type: SRV, name: _abc, target: "127.0.0.1", protocol: UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
-        - {type: SRV, name: _abc, target: "127.0.0.1", protocol: TCP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
-        - {type: SRV, name: _abc, target: "127.0.0.1", protocol: TLS, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc, target: "bigbox", protocol: UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc, target: "smallbox1.example.com.", protocol: TCP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc, target: "smallbox2", protocol: TLS, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
       domain: foo.com
       host: bar
       params: {v1: "1"}
@@ -315,16 +315,16 @@ tests:
       new_count: 3
       delete_count: 0
       records:
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: tcp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: tls, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "bigbox.bar", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "smallbox1.example.com.", protocol: tcp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "smallbox2.bar", protocol: tls, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: srv_remove_underscore_in_protocol
     description: "SRV protocol leading underscore is stripped"
     input:
       zone_records: []
       template_records:
-        - {type: SRV, name: _abc, target: "127.0.0.1", protocol: _UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc, target: "bigbox.example.com.", protocol: _UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
       domain: foo.com
       host: bar
       params: {v1: "1"}
@@ -332,14 +332,14 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "bigbox.example.com.", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: srv_at_name_on_subdomain
     description: "SRV with @ name resolves to host subdomain"
     input:
       zone_records: []
       template_records:
-        - {type: SRV, name: "@", target: "127.0.0.1", protocol: UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: "@", target: "bigbox.example.com.", protocol: UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
       domain: foo.com
       host: bar
       params: {v1: "1"}
@@ -347,15 +347,15 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: bar, data: "127.0.0.1", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: bar, data: "bigbox.example.com.", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: srv_replace
     description: "SRV record replaces existing SRV at same host/protocol/service"
     input:
       zone_records:
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "bigbox.example.com.", protocol: UDP, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
       template_records:
-        - {type: SRV, name: _abc, target: "127.0.0.1", protocol: UDP, service: bar.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc, target: "bigbox.example.com.", protocol: UDP, service: bar.com, priority: 10, weight: 10, port: 5, ttl: 400}
       domain: foo.com
       host: bar
       params: {v1: "1"}
@@ -363,7 +363,7 @@ tests:
       new_count: 1
       delete_count: 1
       records:
-        - {type: SRV, name: _abc.bar, data: "127.0.0.1", protocol: udp, service: bar.com, priority: 10, weight: 10, port: 5, ttl: 400}
+        - {type: SRV, name: _abc.bar, data: "bigbox.example.com.", protocol: udp, service: bar.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   # ---------------------------------------------------------------------------
   # SPFM
@@ -572,9 +572,9 @@ tests:
     description: "NS record cascades to delete all A records under host, but not sibling hosts"
     input:
       zone_records:
-        - {type: A, name: bar,     data: abc, ttl: 500}
-        - {type: A, name: www.bar, data: abc, ttl: 500}
-        - {type: A, name: xbar,    data: abc, ttl: 500}
+        - {type: A, name: bar,     data: 1.1.1.1, ttl: 500}
+        - {type: A, name: www.bar, data: 1.1.1.1, ttl: 500}
+        - {type: A, name: xbar,    data: 1.1.1.1, ttl: 500}
       template_records:
         - {type: NS, host: "@", pointsTo: def.example., ttl: 300}
       domain: foo.com
@@ -585,7 +585,7 @@ tests:
       delete_count: 2
       records:
         - {type: NS, name: bar,  data: def.example., ttl: 300}
-        - {type: A,  name: xbar, data: abc, ttl: 500}
+        - {type: A,  name: xbar, data: 1.1.1.1, ttl: 500}
 
   - id: NS_no_conflict_itself
     description: "NS raises no conflict if 2 NSs with same host generated"
@@ -838,7 +838,7 @@ tests:
       delete_count: 0
       records:
         - {type: A,     name: "@",  data: "127.0.0.1", ttl: 600}
-        - {type: CNAME, name: foo,  data: foo.bar.com, ttl: 600}
+        - {type: CNAME, name: foo,  data: foo.bar.com.foo, ttl: 600}
 
   - id: param_long_domain_fully_qualified
     description: "Fully-qualified long host is trimmed to relative name"
@@ -943,7 +943,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: CNAME, name: bar, data: bar.foo.com, ttl: 400}
+        - {type: CNAME, name: bar, data: bar, ttl: 400}
 
   - id: param_at_in_host_without_host_param
     description: "@ in template host resolves to apex when no host parameter given"
@@ -973,7 +973,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: CNAME, name: bar, data: foo.com, ttl: 400}
+        - {type: CNAME, name: bar, data: "@", ttl: 400}
 
   - id: param_at_in_pointsto_mx_with_host
     description: "@ in MX pointsTo resolves to fqdn when host is set"
@@ -988,7 +988,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: MX, name: bar, data: bar.foo.com, priority: 10, ttl: 400}
+        - {type: MX, name: bar, data: "bar", priority: 10, ttl: 400}
 
   - id: param_at_in_pointsto_mx_without_host
     description: "@ in MX pointsTo resolves to domain when no host parameter given"
@@ -1003,7 +1003,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: MX, name: "@", data: foo.com, priority: 10, ttl: 400}
+        - {type: MX, name: "@", data: "@", priority: 10, ttl: 400}
 
   - id: param_at_in_pointsto_a_with_host
     description: "@ in A pointsTo raises InvalidData — fqdn is not a valid IPv4"
@@ -1164,7 +1164,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: bar, data: bar.foo.com, protocol: tcp,
+        - {type: SRV, name: bar, data: bar, protocol: tcp,
            service: foo.com, priority: 10, weight: 10, port: 80, ttl: 400}
 
   - id: param_at_in_target_srv_without_host
@@ -2055,7 +2055,7 @@ tests:
     input:
       zone_records: []
       template_records:
-        - {type: SRV, name: "_sip_old", target: "127.0.0.1", protocol: UDP, service: foo.com,
+        - {type: SRV, name: "_sip_old", target: "bigbox.example.com.", protocol: UDP, service: foo.com,
            priority: 10, weight: 10, port: 5, ttl: 400}
       domain: foo.com
       host: bar
@@ -2064,7 +2064,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: SRV, name: "_sip_old.bar", data: "127.0.0.1", protocol: udp, service: foo.com,
+        - {type: SRV, name: "_sip_old.bar", data: "bigbox.example.com.", protocol: udp, service: foo.com,
            priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: exception_txt_host_with_space
@@ -2268,7 +2268,7 @@ tests:
     input:
       zone_records: []
       template_records:
-        - {type: CNAME, host: "*", pointsTo: target.example.com, ttl: 300}
+        - {type: CNAME, host: "*", pointsTo: target.example.com., ttl: 300}
       domain: foo.com
       host: bar
       params: {}
@@ -2276,14 +2276,14 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: CNAME, name: "*.bar", data: target.example.com, ttl: 300}
+        - {type: CNAME, name: "*.bar", data: target.example.com., ttl: 300}
 
   - id: cname_wildcard_with_sub_no_host
     description: "CNAME with '*.sub' host at apex adds '*.sub' record"
     input:
       zone_records: []
       template_records:
-        - {type: CNAME, host: "*.sub", pointsTo: target.example.com, ttl: 300}
+        - {type: CNAME, host: "*.sub", pointsTo: target.example.com., ttl: 300}
       domain: foo.com
       host: ""
       params: {}
@@ -2291,14 +2291,14 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: CNAME, name: "*.sub", data: target.example.com, ttl: 300}
+        - {type: CNAME, name: "*.sub", data: target.example.com., ttl: 300}
 
   - id: cname_wildcard_with_sub_and_host
     description: "CNAME with '*.sub' host applied under 'bar' becomes '*.sub.bar'"
     input:
       zone_records: []
       template_records:
-        - {type: CNAME, host: "*.sub", pointsTo: target.example.com, ttl: 300}
+        - {type: CNAME, host: "*.sub", pointsTo: target.example.com., ttl: 300}
       domain: foo.com
       host: bar
       params: {}
@@ -2306,7 +2306,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: CNAME, name: "*.sub.bar", data: target.example.com, ttl: 300}
+        - {type: CNAME, name: "*.sub.bar", data: target.example.com., ttl: 300}
 
   - id: a_wildcard_bare_no_host
     description: "A record with bare '*' host at apex adds wildcard record"
@@ -2463,7 +2463,7 @@ tests:
     input:
       zone_records: []
       template_records:
-        - {type: MX, host: "*", pointsTo: mail.example.com, priority: 10, ttl: 300}
+        - {type: MX, host: "*", pointsTo: mail.example.com., priority: 10, ttl: 300}
       domain: foo.com
       host: bar
       params: {}
@@ -2471,7 +2471,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: MX, name: "*.bar", data: mail.example.com, priority: 10, ttl: 300}
+        - {type: MX, name: "*.bar", data: mail.example.com., priority: 10, ttl: 300}
 
   - id: ns_wildcard_bare_no_host
     description: "NS record with bare '*' host at apex adds wildcard record"
@@ -2493,7 +2493,7 @@ tests:
     input:
       zone_records: []
       template_records:
-        - {type: NS, host: "*", pointsTo: ns.example.com, ttl: 300}
+        - {type: NS, host: "*", pointsTo: ns.example.com., ttl: 300}
       domain: foo.com
       host: bar
       params: {}
@@ -2501,7 +2501,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: NS, name: "*.bar", data: ns.example.com, ttl: 300}
+        - {type: NS, name: "*.bar", data: ns.example.com., ttl: 300}
 
   - id: spfm_wildcard_bare_no_host
     description: "SPFM record with bare '*' host at apex adds wildcard record"

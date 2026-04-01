@@ -165,7 +165,7 @@ tests:
       records:
         - {type: A,     name: bar,     data: "127.0.0.1", ttl: 1800}
         - {type: TXT,   name: bar,     data: foobar,      ttl: 1800}
-        - {type: CNAME, name: whd.bar, data: bar.foo.com, ttl: 600}
+        - {type: CNAME, name: whd.bar, data: bar, ttl: 600}
 
   - id: template_apply_case_insensitive
     description: "Provider/domain/host comparison is case-insensitive"
@@ -183,7 +183,7 @@ tests:
       records:
         - {type: A,     name: bar,     data: "127.0.0.1", ttl: 1800}
         - {type: TXT,   name: bar,     data: foobar,      ttl: 1800}
-        - {type: CNAME, name: whd.bar, data: bar.foo.com, ttl: 600}
+        - {type: CNAME, name: whd.bar, data: bar, ttl: 600}
 
   # ---------------------------------------------------------------------------
   # Redirect template tests
@@ -250,7 +250,7 @@ tests:
       records:
         - {type: A,     name: bar,     data: "132.148.25",           ttl: 1800}
         - {type: TXT,   name: bar,     data: "shm:1551036164:hello", ttl: 1800}
-        - {type: CNAME, name: whd.bar, data: bar.foo.com,            ttl: 600}
+        - {type: CNAME, name: whd.bar, data: bar,            ttl: 600}
 
   # ---------------------------------------------------------------------------
   # hostRequired constraint
@@ -268,7 +268,7 @@ tests:
       new_count: 1
       delete_count: 0
       records:
-        - {type: CNAME, name: bar, data: foo.com, ttl: 1800}
+        - {type: CNAME, name: bar, data: foo.com.bar, ttl: 1800}
 
   - id: exception_template_host_required_missing
     description: "Template with hostRequired=true raises HostRequired when host is absent"

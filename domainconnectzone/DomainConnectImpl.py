@@ -182,19 +182,19 @@ def resolve_variables(input_, domain, host, params, recordKey, record_type):
         # For a pointsTo or target they are never relative; so we fill in the values
         elif recordKey in ['target', 'pointsTo'] and input_ == '@':
             if host:
-                return host + '.' + domain
+                return host
             else:
-                return domain
+                return '@'
 
     # For hostname-typed pointsTo/target fields, a value without a trailing dot
-    # and without dots is a relative label — expand it against the applied host,
+    # is a relative label — expand it against the applied host,
     # just like name/host fields are.  This only applies to record types where
     # pointsTo/target is a hostname (not an IP address).
     if recordKey == 'pointsTo' and record_type in ['CNAME', 'MX', 'NS']:
-        if host and not input_.endswith('.') and '.' not in input_:
+        if host and not input_.endswith('.'):
             return input_ + '.' + host
     elif recordKey == 'target' and record_type == 'SRV':
-        if host and not input_.endswith('.') and '.' not in input_:
+        if host and not input_.endswith('.'):
             return input_ + '.' + host
 
     # If we are processing the name/host field from the template, modify the

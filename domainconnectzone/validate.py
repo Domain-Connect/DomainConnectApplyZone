@@ -25,6 +25,8 @@ def is_valid_pointsTo_host(hostname):
     """
     if len(hostname) > 253:
         return False
+    if (hostname == '@'):
+        return True
     if len(hostname) >= 1 and hostname[-1] == ".":
         hostname = hostname[:-1] # strip exactly one dot from the right, if present
     allowed = re.compile(r"(?!-)[A-Z\d_-]{1,63}(?<!-)$", re.IGNORECASE)
