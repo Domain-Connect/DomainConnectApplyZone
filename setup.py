@@ -51,7 +51,7 @@ class CleanCommand(Command):
 
 setup(
     name='domainconnectzone',
-    version='4.5.0',
+    version='4.7.1',
     description=DESCRIPTION,
     author='domainconnect.org',
     url='https://github.com/Domain-Connect/domainconnectzone',
@@ -59,7 +59,6 @@ setup(
     packages=find_packages(exclude=["test", "test.*"]),
     install_requires=[
         'ipy>=1.1',
-        'six>=1.16.0',
     ],
     extras_require={
         'testing': [
