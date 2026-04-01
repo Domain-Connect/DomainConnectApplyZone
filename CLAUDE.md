@@ -40,7 +40,7 @@ This is a Python library (`domainconnectzone`) implementing the [Domain Connect 
 
 ### Core concepts
 
-- **Zone records**: Dicts with `type`, `name`, `data`, `ttl`, and optional `_dc` (template provenance metadata), `_delete`, `_replace` flags. Types: A, AAAA, CNAME, NS, TXT, MX, SRV.
+- **Zone records**: Dicts with `type`, `name`, `data`, `ttl`, and optional `_dc` (template provenance metadata), `_delete`, `_replace` flags. Types: A, AAAA, CNAME, APEXCNAME, NS, TXT, MX, SRV.
 - **Templates**: JSON files named `{providerId}.{serviceId}.json` stored in `domainconnectzone/templates/`. They contain record definitions with `%variable%` substitution syntax.
 - **Host resolution**: Template record names are relative to the applied host/domain. `@` means the apex. Variables `%domain%`, `%host%`, `%fqdn%` are always available.
 
@@ -79,7 +79,9 @@ Tests live in `test/` and use `unittest`. Test templates are in `test/test_defin
 | `test_qsutils.py` | Query-string utility module |
 | `test_process_records.py` | YAML-driven harness — scans for `suite_type: process_records` files |
 | `test_apply_template.py` | YAML-driven harness — scans for `suite_type: apply_template` files |
-| `test_definitions/process_records_tests.yaml` | 88 language-agnostic process_records compliance tests |
+| `test_definitions/process_records_tests.yaml` | 265 language-agnostic process_records compliance tests |
+| `test_definitions/process_records_apexcname_tests.yaml` | 7 process_records tests for APEXCNAME |
+| `test_definitions/process_records_redir_tests.yaml` | 7 process_records tests for REDIR301/REDIR302 |
 | `test_definitions/apply_template_tests.yaml` | 12 language-agnostic apply_template compliance tests |
 | `harness_utils.py` | Shared helpers for the two YAML harnesses (not a test module) |
 
@@ -92,13 +94,15 @@ The two YAML harnesses scan the test directory for `*.yaml` files matching their
 When applying a template, existing zone records are marked `_delete=1` based on type-specific rules:
 - **A/AAAA**: deletes same-host records of same type
 - **CNAME**: deletes all non-NS records at that host
+- **APEXCNAME**: always targets apex (`@`); deletes A, AAAA, CNAME, MX, TXT, REDIR301, REDIR302 at `@`; uses `pointsTo` field (not `data`) in template records
 - **TXT**: deletes based on `txtConflictMatchingMode` (None/All/Prefix)
-- **MX/SRV/NS**: deletes same-host records of same type
+- **MX/SRV**: deletes same-host records of same type
 - **NS**: conflicts with all records of same host or hosts below the delegation point (zone cut)
 - **Custom/unknown types** (CAA, TYPE256, etc.): no conflict deletion — record is simply added; `data` supports `%variable%` substitution and `@`/empty resolves to fqdn
 
 ### Development rules
 - if asked to check or develop test, look only in the test code and test definition files. NEVER analyse the code to see how the code bahaves. It is ok or even desired for test code to fail after adding or modifying a test (test driven development).
 - if a newly written or modified test fails unexpectedly, do NOT silently correct it — stop and ask the user whether the failure indicates an error in the test itself (wrong expectation) or a real implementation bug that should be fixed. Only correct the test after the user confirms it is wrong.
-- when asked to add a test of a certain pattern add a test for each RR type, incl. custom RR type, unless explicitly asked to only consider one RR type. The full set of RR types is: A, AAAA, CNAME, TXT, MX, NS, SRV, and at least one custom type (e.g. CAA). Note that SRV uses `name` (not `host`) in template_records, and some patterns (e.g. empty name) may be invalid for SRV due to protocol constraints — use `InvalidData` as the expected outcome in those cases rather than skipping the type.
+- when asked to add a test of a certain pattern add a test for each RR type, incl. custom RR type, unless explicitly asked to only consider one RR type. The full set of RR types is: A, AAAA, CNAME, APEXCNAME, TXT, MX, NS, SRV, and at least one custom type (e.g. CAA). Note that SRV uses `name` (not `host`) in template_records, and some patterns (e.g. empty name) may be invalid for SRV due to protocol constraints — use `InvalidData` as the expected outcome in those cases rather than skipping the type.
 - develop code only when asked
+- when adding support for a new RR type, update **both** `process_records` (the processing/conflict logic in `DomainConnectImpl.py`) **and** `get_records_variables` (the variable extraction function in the same file). Omitting either causes runtime errors or silent variable extraction failures for that type.
