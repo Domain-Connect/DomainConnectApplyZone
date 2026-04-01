@@ -1221,7 +1221,7 @@ def get_records_variables(template_records, group=None):
         if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS', 'TXT', 'SPFM', 'REDIR301', 'REDIR302']:
             get_record_variables(template_record, template_record['host'], params)
 
-        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS']:
+        if template_record_type in ['A', 'AAAA', 'MX', 'CNAME', 'NS', 'APEXCNAME']:
             get_record_variables(template_record, template_record['pointsTo'], params)
 
         if template_record_type in ['TXT']:
@@ -1244,7 +1244,7 @@ def get_records_variables(template_records, group=None):
         if template_record_type in ['REDIR301', 'REDIR302']:
             get_record_variables(template_record, template_record['target'], params)
 
-        if (template_record_type not in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV',
+        if (template_record_type not in ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'SRV', 'APEXCNAME',
                                          'SPFM', 'NS', 'REDIR301', 'REDIR302'] and
                 is_custom_record_type(template_record_type)):
             get_record_variables(template_record, template_record['host'], params)

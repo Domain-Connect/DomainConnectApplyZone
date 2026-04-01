@@ -238,6 +238,18 @@ class TestDomainConnectTemplates(unittest.TestCase):
         with self.assertRaises(InvalidTemplate):
             self._dct.validate_template(invalid_template)
 
+    def test_validate_template_apexcname_record(self):
+        # validate_template must succeed for a template containing an APEXCNAME record.
+        # Regression: APEXCNAME was falling into the custom-type branch which accessed
+        # template_record['data'], but APEXCNAME uses 'pointsTo' — causing a KeyError
+        # wrapped as "Template validation error: 'data'".
+        import copy
+        template = copy.deepcopy(self.template_base)
+        template["records"] = [
+            {"type": "APEXCNAME", "host": "@", "pointsTo": "foo.com", "ttl": 3600}
+        ]
+        self._dct.validate_template(template)  # must not raise
+
 
 class TestDomainConnectTemplatesVariableNames(unittest.TestCase):
 
@@ -264,6 +276,14 @@ class TestDomainConnectTemplatesVariableNames(unittest.TestCase):
         variables = {"d": "customdomain.com", "newvar": "value"}
         result = DomainConnectTemplates.get_variable_names(self.template, variables=variables)
         self.assertEqual(result, {"domain": '', "host": '', "group": '', "d": "customdomain.com", "h": None})
+
+    def test_get_variable_names_pointsto_variable_in_apexcname_record(self):
+        # Variables in pointsTo of APEXCNAME must be extracted
+        template = {"records": [
+            {"type": "APEXCNAME", "host": "@", "pointsTo": "%target%", "ttl": 300},
+        ]}
+        result = DomainConnectTemplates.get_variable_names(template)
+        self.assertIn("target", result)
 
     def test_get_variable_names_ttl_variable_in_a_record(self):
         # %variable% in ttl of an A record must be detected
