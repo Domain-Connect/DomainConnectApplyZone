@@ -81,7 +81,7 @@ class InvalidData(Exception):
     pass
 
 
-def resolve_variables(input_, domain, host, params, recordKey):
+def resolve_variables(input_, domain, host, params, recordKey, record_type):
     """
     Handles resolution of the variables in an input string from a template.
 
@@ -186,7 +186,16 @@ def resolve_variables(input_, domain, host, params, recordKey):
             else:
                 return domain
 
-
+    # For hostname-typed pointsTo/target fields, a value without a trailing dot
+    # and without dots is a relative label — expand it against the applied host,
+    # just like name/host fields are.  This only applies to record types where
+    # pointsTo/target is a hostname (not an IP address).
+    if recordKey == 'pointsTo' and record_type in ['CNAME', 'MX', 'NS']:
+        if host and not input_.endswith('.') and '.' not in input_:
+            return input_ + '.' + host
+    elif recordKey == 'target' and record_type == 'SRV':
+        if host and not input_.endswith('.') and '.' not in input_:
+            return input_ + '.' + host
 
     # If we are processing the name/host field from the template, modify the
     # path to be relative to the host being applied, unless it was fully qualified (ends with a .)
@@ -882,7 +891,7 @@ def process_records(template_records, zone_records, domain, host, params,
         # Deal with the host/name
         if template_record_type == 'SRV':
             template_record['name'] = resolve_variables(
-                template_record['name'], domain, host, params, 'name')
+                template_record['name'], domain, host, params, 'name', template_record_type)
 
             if not is_valid_name_srv(template_record['name']):
                 raise InvalidData('Invalid data for SRV name: ' +
@@ -903,7 +912,7 @@ def process_records(template_records, zone_records, domain, host, params,
         else:
             orig_host = template_record['host']
             template_record['host'] = resolve_variables(
-                template_record['host'], domain, host, params, 'host')
+                template_record['host'], domain, host, params, 'host', template_record_type)
 
             err_msg = ('Invalid data for ' + template_record_type +
                        ' host: ' + template_record['host'] +
@@ -933,7 +942,7 @@ def process_records(template_records, zone_records, domain, host, params,
             if template_record_type == 'NS' and orig_pointsto == '@':
                 raise InvalidData('Invalid data for NS pointsTo: @ would create a circular delegation')
             template_record['pointsTo'] = resolve_variables(
-                template_record['pointsTo'], domain, host, params, 'pointsTo')
+                template_record['pointsTo'], domain, host, params, 'pointsTo', template_record_type)
 
             if template_record_type in ['MX', 'CNAME', 'APEXCNAME', 'NS']:
                 if not is_valid_pointsTo_host(
@@ -962,12 +971,12 @@ def process_records(template_records, zone_records, domain, host, params,
                     'Invalid priority value (must be an integer or a single %variable%): ' +
                     raw_priority)
             template_record['priority'] = resolve_variables(
-                raw_priority, domain, host, params, 'priority')
+                raw_priority, domain, host, params, 'priority', template_record_type)
 
         elif template_record_type == 'SRV':
             orig_target = template_record['target']
             template_record['target'] = resolve_variables(
-                template_record['target'], domain, host, params, 'target')
+                template_record['target'], domain, host, params, 'target', template_record_type)
 
             if not is_valid_pointsTo_host(template_record['target']):
                 raise InvalidData('Invalid data for SRV target: ' +
@@ -976,7 +985,7 @@ def process_records(template_records, zone_records, domain, host, params,
         elif template_record_type in ['REDIR301', 'REDIR302']:
             orig_target = template_record['target']
             template_record['target'] = resolve_variables(
-                template_record['target'], domain, host, params, 'target')
+                template_record['target'], domain, host, params, 'target', template_record_type)
             if not is_valid_target_redir(template_record['target']):
                 raise InvalidData('Invalid data for {} '
                                   'target: {} '
@@ -990,13 +999,13 @@ def process_records(template_records, zone_records, domain, host, params,
                 raise InvalidData(
                     'Invalid ttl value (must be an integer or a single %variable%): ' +
                     raw_ttl)
-            template_record['ttl'] = resolve_variables(raw_ttl, domain, host, params, 'ttl')
+            template_record['ttl'] = resolve_variables(raw_ttl, domain, host, params, 'ttl', template_record_type)
 
         # SRV has a few more records that need to be processed and validated
         if template_record_type == 'SRV':
             orig_protocol = template_record['protocol']
             template_record['protocol'] = resolve_variables(
-                template_record['protocol'], domain, host, params, 'protocol')
+                template_record['protocol'], domain, host, params, 'protocol', template_record_type)
 
             protocol = template_record['protocol'].lower()
             if protocol[0] == '_':
@@ -1008,7 +1017,7 @@ def process_records(template_records, zone_records, domain, host, params,
 
             orig_service = template_record['service']
             template_record['service'] = resolve_variables(
-                template_record['service'], domain, host, params, 'service')
+                template_record['service'], domain, host, params, 'service', template_record_type)
             if not is_valid_pointsTo_host(template_record['service']):
                 raise InvalidData('Invalid data for SRV service: ' +
                                   template_record['service'] +
@@ -1021,20 +1030,20 @@ def process_records(template_records, zone_records, domain, host, params,
                         'Invalid {} value (must be an integer or a single %variable%): {}'.format(
                             _field, raw))
                 template_record[_field] = resolve_variables(
-                    raw, domain, host, params, _field)
+                    raw, domain, host, params, _field, template_record_type)
 
         # Handle variables in a TXT and SPFM record
         if template_record_type == 'TXT':
             template_record['data'] = resolve_variables(
-                template_record['data'], domain, host, params, 'data')
+                template_record['data'], domain, host, params, 'data', template_record_type)
 
         if template_record_type == 'SPFM':
             template_record['spfRules'] = resolve_variables(
-                template_record['spfRules'], domain, host, params, 'spfRules')
+                template_record['spfRules'], domain, host, params, 'spfRules', template_record_type)
 
         if is_custom:
             template_record['data'] = resolve_variables(
-                template_record['data'], domain, host, params, 'data')
+                template_record['data'], domain, host, params, 'data', template_record_type)
             if not template_record['data'] or template_record['data'] == '':
                 raise InvalidData(f'Empty data for custom RR type {template_record_type}')
             if template_record['data'] == '@':

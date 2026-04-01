@@ -221,7 +221,22 @@ tests:
       new_count: 1
       delete_count: 4
       records:
-        - {type: CNAME, name: bar, data: abc, ttl: 600}
+        - {type: CNAME, name: bar, data: abc.bar, ttl: 600}
+
+  - id: cname_pointsto_relative_label_expands_with_host
+    description: "CNAME pointsTo bare label (no dots, no trailing dot) is relative to the applied host — must expand to label.host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "@", pointsTo: "foo", ttl: 1800}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: buzz, data: "foo.buzz", ttl: 1800}
 
   - id: cname_trailing_dot_in_pointsto
     description: "CNAME with trailing dot in pointsTo is kept as-is"
@@ -265,8 +280,8 @@ tests:
       new_count: 2
       delete_count: 0
       records:
-        - {type: CNAME, name: sub.blah, data: "abc", ttl: 600}
-        - {type: CNAME, name: varsub.blah, data: "cde", ttl: 600}
+        - {type: CNAME, name: sub.blah, data: "abc.blah", ttl: 600}
+        - {type: CNAME, name: varsub.blah, data: "cde.blah", ttl: 600}
 
   - id: cname_conflict_itself_a
     description: "CNAME raises conflict with A other record on the same host generated"
@@ -543,7 +558,7 @@ tests:
       zone_records:
         - {type: A, name: www.foo.bar, data: abc, ttl: 500}
       template_records:
-        - {type: NS, host: "@", pointsTo: def, ttl: 300}
+        - {type: NS, host: "@", pointsTo: def.example., ttl: 300}
       domain: foo.com
       host: bar
       params: {}
@@ -551,7 +566,7 @@ tests:
       new_count: 1
       delete_count: 1
       records:
-        - {type: NS, name: bar, data: def, ttl: 300}
+        - {type: NS, name: bar, data: def.example., ttl: 300}
 
   - id: ns_cascade_delete_multiple
     description: "NS record cascades to delete all A records under host, but not sibling hosts"
@@ -561,7 +576,7 @@ tests:
         - {type: A, name: www.bar, data: abc, ttl: 500}
         - {type: A, name: xbar,    data: abc, ttl: 500}
       template_records:
-        - {type: NS, host: "@", pointsTo: def, ttl: 300}
+        - {type: NS, host: "@", pointsTo: def.example., ttl: 300}
       domain: foo.com
       host: bar
       params: {}
@@ -569,7 +584,7 @@ tests:
       new_count: 1
       delete_count: 2
       records:
-        - {type: NS, name: bar,  data: def, ttl: 300}
+        - {type: NS, name: bar,  data: def.example., ttl: 300}
         - {type: A,  name: xbar, data: abc, ttl: 500}
 
   - id: NS_no_conflict_itself
