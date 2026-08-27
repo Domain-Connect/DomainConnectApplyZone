@@ -1,0 +1,158 @@
+version: 1
+suite_type: process_records
+description: "SRV owner-name compliance and apex regression tests"
+
+tests:
+  - id: srv_official_example_apex
+    description: "Official apex fields represent _sip._tls.example.com"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_sip", protocol: "_tls",
+           target: "sip.example.net", priority: 10, weight: 20, port: 443, ttl: 3600}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", service: "_sip", protocol: tls,
+           data: "sip.example.net", priority: 10, weight: 20, port: 443, ttl: 3600}
+
+  - id: srv_mailvar_apex
+    description: "Apex fields represent _autodiscover._tcp.example.com"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_autodiscover", protocol: "_tcp",
+           target: "mail.mailvar.az", priority: 0, weight: 1, port: 443, ttl: 3600}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", service: "_autodiscover", protocol: tcp,
+           data: "mail.mailvar.az", priority: 0, weight: 1, port: 443, ttl: 3600}
+
+  - id: srv_official_example_applied_host
+    description: "Official apex fields represent _sip._tls.test.example.com when host=test"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_sip", protocol: "_tls",
+           target: "sip.example.net", priority: 10, weight: 20, port: 443, ttl: 3600}
+      domain: example.com
+      host: test
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: test, service: "_sip", protocol: tls,
+           data: "sip.example.net", priority: 10, weight: 20, port: 443, ttl: 3600}
+
+  - id: srv_mailvar_applied_host
+    description: "Apex fields represent _autodiscover._tcp.test.example.com when host=test"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_autodiscover", protocol: "_tcp",
+           target: "mail.mailvar.az", priority: 0, weight: 1, port: 443, ttl: 3600}
+      domain: example.com
+      host: test
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: test, service: "_autodiscover", protocol: tcp,
+           data: "mail.mailvar.az", priority: 0, weight: 1, port: 443, ttl: 3600}
+
+  - id: srv_non_apex_name
+    description: "A non-apex SRV name preserves existing relative-name semantics"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: voice, service: "_sip", protocol: "_tcp",
+           target: "sip.example.net", priority: 5, weight: 10, port: 5060, ttl: 1800}
+      domain: example.com
+      host: test
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: voice.test, service: "_sip", protocol: tcp,
+           data: "sip.example.net", priority: 5, weight: 10, port: 5060, ttl: 1800}
+
+  - id: srv_protocol_and_service_variables
+    description: "Official SRV protocol and service variable conventions resolve before validation"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_%srvservice%", protocol: "%srvproto%",
+           target: "srv.example.com", priority: 0, weight: 20, port: 443, ttl: 3600}
+      domain: example.com
+      host: ""
+      params: {srvservice: sip, srvproto: "_tls"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", service: "_sip", protocol: tls,
+           data: "srv.example.com", priority: 0, weight: 20, port: 443, ttl: 3600}
+
+  - id: srv_malformed_name_rejected
+    description: "An SRV owner suffix with an empty label is rejected"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "bad..name", service: "_sip", protocol: "_tcp",
+           target: "sip.example.net", priority: 0, weight: 0, port: 5060, ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: srv_malformed_protocol_rejected
+    description: "An unsupported resolved SRV protocol is rejected"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_sip", protocol: "%srvproto%",
+           target: "sip.example.net", priority: 0, weight: 0, port: 5060, ttl: 300}
+      domain: example.com
+      host: ""
+      params: {srvproto: smtp}
+    expect:
+      exception: InvalidData
+
+  - id: srv_empty_protocol_rejected
+    description: "An empty resolved SRV protocol is rejected as invalid data"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_sip", protocol: "%srvproto%",
+           target: "sip.example.net", priority: 0, weight: 0, port: 5060, ttl: 300}
+      domain: example.com
+      host: ""
+      params: {srvproto: ""}
+    expect:
+      exception: InvalidData
+
+  - id: srv_malformed_service_rejected
+    description: "A malformed resolved SRV service is rejected"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "%srvservice%", protocol: "_tcp",
+           target: "sip.example.net", priority: 0, weight: 0, port: 5060, ttl: 300}
+      domain: example.com
+      host: ""
+      params: {srvservice: "bad service"}
+    expect:
+      exception: InvalidData
