@@ -887,10 +887,6 @@ def process_records(template_records, zone_records, domain, host, params,
             if not is_valid_name_srv(template_record['name']):
                 raise InvalidData('Invalid data for SRV name: ' +
                                   template_record['name'])
-            srvhost = "_{}.{}".format(template_record['protocol'].lower(), template_record['name'])
-            if not is_valid_host_srv(srvhost):
-                raise InvalidData('Invalid data for SRV host: ' +
-                                  srvhost)
 
         elif template_record_type == 'APEXCNAME':
             # host is optional for APEXCNAME; if present it must be '@'
@@ -999,7 +995,7 @@ def process_records(template_records, zone_records, domain, host, params,
                 template_record['protocol'], domain, host, params, 'protocol')
 
             protocol = template_record['protocol'].lower()
-            if protocol[0] == '_':
+            if protocol.startswith('_'):
                 protocol = protocol[1:]
             if protocol not in ['tcp', 'udp', 'tls']:
                 raise InvalidData('Invalid data for SRV protocol: ' +
@@ -1013,6 +1009,16 @@ def process_records(template_records, zone_records, domain, host, params,
                 raise InvalidData('Invalid data for SRV service: ' +
                                   template_record['service'] +
                                   ' (from ' + orig_service + ')')
+
+            # Validate the effective SRV owner after all of its variable fields
+            # have been resolved.  The apex marker is a relative-name sentinel,
+            # not a DNS label: _service._protocol.@ means the applied apex and
+            # must therefore be validated as _service._protocol.
+            srv_name = '' if template_record['name'] == '@' else template_record['name']
+            srvhost = '.'.join(filter(None, [
+                template_record['service'], '_' + protocol, srv_name]))
+            if not is_valid_host_srv(srvhost):
+                raise InvalidData('Invalid data for SRV host: ' + srvhost)
 
             for _field in ('priority', 'weight', 'port'):
                 raw = str(template_record[_field])
@@ -1476,4 +1482,3 @@ class DomainConnect(object):
             print('Enter value for ' + param + ':')
             params[param] = raw_input()
         return params
-
