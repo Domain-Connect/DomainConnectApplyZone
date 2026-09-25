@@ -887,7 +887,23 @@ def process_records(template_records, zone_records, domain, host, params,
             if not is_valid_name_srv(template_record['name']):
                 raise InvalidData('Invalid data for SRV name: ' +
                                   template_record['name'])
-            srvhost = "_{}.{}".format(template_record['protocol'].lower(), template_record['name'])
+
+            # Protocol must be resolved before it is used to build the host
+            orig_protocol = template_record['protocol']
+            template_record['protocol'] = resolve_variables(
+                template_record['protocol'], domain, host, params, 'protocol')
+
+            protocol = template_record['protocol'].lower()
+            if protocol.startswith('_'):
+                protocol = protocol[1:]
+            if protocol not in ['tcp', 'udp', 'tls']:
+                raise InvalidData('Invalid data for SRV protocol: ' +
+                                  template_record['protocol'] +
+                                  ' (from ' + orig_protocol + ')')
+
+            srvhost = "_{}".format(protocol)
+            if template_record['name'] != '@':
+                srvhost += "." + template_record['name']
             if not is_valid_host_srv(srvhost):
                 raise InvalidData('Invalid data for SRV host: ' +
                                   srvhost)
@@ -994,18 +1010,6 @@ def process_records(template_records, zone_records, domain, host, params,
 
         # SRV has a few more records that need to be processed and validated
         if template_record_type == 'SRV':
-            orig_protocol = template_record['protocol']
-            template_record['protocol'] = resolve_variables(
-                template_record['protocol'], domain, host, params, 'protocol')
-
-            protocol = template_record['protocol'].lower()
-            if protocol[0] == '_':
-                protocol = protocol[1:]
-            if protocol not in ['tcp', 'udp', 'tls']:
-                raise InvalidData('Invalid data for SRV protocol: ' +
-                                  template_record['protocol'] +
-                                  ' (from ' + orig_protocol + ')')
-
             orig_service = template_record['service']
             template_record['service'] = resolve_variables(
                 template_record['service'], domain, host, params, 'service')

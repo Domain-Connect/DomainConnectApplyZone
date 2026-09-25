@@ -334,6 +334,40 @@ tests:
       records:
         - {type: SRV, name: bar, data: "127.0.0.1", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
+  - id: srv_underscore_service_and_protocol_on_apex
+    description: "SRV at apex with underscore-prefixed service and protocol labels (_sip._tls) is added (from PR #44)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_sip", protocol: "_tls",
+           target: "sip.example.net", priority: 10, weight: 20, port: 443, ttl: 3600}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", service: "_sip", protocol: tls,
+           data: "sip.example.net", priority: 10, weight: 20, port: 443, ttl: 3600}
+
+  - id: srv_protocol_and_service_variables
+    description: "SRV protocol and service support %variable% substitution (from PR #44)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_%srvservice%", protocol: "%srvproto%",
+           target: "srv.example.com", priority: 0, weight: 20, port: 443, ttl: 3600}
+      domain: example.com
+      host: ""
+      params: {srvservice: sip, srvproto: "_tls"}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", service: "_sip", protocol: tls,
+           data: "srv.example.com", priority: 0, weight: 20, port: 443, ttl: 3600}
+
   - id: srv_replace
     description: "SRV record replaces existing SRV at same host/protocol/service"
     input:
@@ -1153,7 +1187,7 @@ tests:
            service: foo.com, priority: 10, weight: 10, port: 80, ttl: 400}
 
   - id: param_at_in_target_srv_without_host
-    description: "@ in SRV target with no host raises InvalidData because _proto.@ is invalid"
+    description: "@ in SRV name and target with no host resolve to apex / domain (issue #29)"
     input:
       zone_records: []
       template_records:
@@ -1163,7 +1197,11 @@ tests:
       host: ""
       params: {}
     expect:
-      exception: InvalidData
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", data: foo.com, protocol: tcp,
+           service: foo.com, priority: 10, weight: 10, port: 80, ttl: 400}
 
   - id: param_at_in_data_txt_with_host
     description: "@ in TXT data is stored as a literal string — TXT content is opaque"
@@ -1753,8 +1791,8 @@ tests:
     expect:
       exception: InvalidData
 
-  - id: exception_srv_at_on_apex
-    description: "SRV with @ name at apex (no host) raises InvalidData"
+  - id: srv_at_name_on_apex
+    description: "SRV with @ name at apex (no host) resolves to apex (issue #29)"
     input:
       zone_records: []
       template_records:
@@ -1763,7 +1801,10 @@ tests:
       host: ""
       params: {}
     expect:
-      exception: InvalidData
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", data: "127.0.0.1", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: exception_a_empty_pointsto
     description: "A record with empty pointsTo raises InvalidData"
@@ -2087,6 +2128,32 @@ tests:
       domain: foo.com
       host: bar
       params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_srv_empty_label_in_name
+    description: "SRV name with an empty label (bad..name) raises InvalidData (from PR #44)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "bad..name", service: "_sip", protocol: "_tcp",
+           target: "sip.example.net", priority: 0, weight: 0, port: 5060, ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_srv_empty_protocol
+    description: "SRV protocol resolving to an empty string raises InvalidData (from PR #44)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "@", service: "_sip", protocol: "%srvproto%",
+           target: "sip.example.net", priority: 0, weight: 0, port: 5060, ttl: 300}
+      domain: example.com
+      host: ""
+      params: {srvproto: ""}
     expect:
       exception: InvalidData
 
@@ -3702,8 +3769,8 @@ tests:
         - {type: NS, name: "_ns.subdomain", data: "ns1.example.com", ttl: 300}
 
   # --- SRV (uses 'name' field instead of 'host') ---
-  - id: param_var_in_host_srv_empty_raises
-    description: "SRV: name '%var%' with var='' would produce '_tcp.@' which is invalid → InvalidData"
+  - id: param_var_in_host_srv_empty_resolves_to_apex
+    description: "SRV: name '%var%' with var='' resolves to apex (@) (issue #29)"
     input:
       zone_records: []
       template_records:
@@ -3713,7 +3780,11 @@ tests:
       host: ""
       params: {var: ""}
     expect:
-      exception: InvalidData
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", data: "sip.example.com", protocol: tcp,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
 
   - id: param_var_in_host_srv_simple
     description: "SRV: name '%var%' with a simple label produces a subdomain SRV"
