@@ -81,7 +81,7 @@ class InvalidData(Exception):
     pass
 
 
-def resolve_variables(input_, domain, host, params, recordKey):
+def resolve_variables(input_, domain, host, params, recordKey, relative_to_host=False):
     """
     Handles resolution of the variables in an input string from a template.
 
@@ -112,6 +112,10 @@ def resolve_variables(input_, domain, host, params, recordKey):
 
     When the value is the pointsTo/target a null or empty value will resolve to the fqdn.
 
+    When relative_to_host is set, a pointsTo/target host name not ending with a period
+    is rendered relative to the host being applied, following the same rules as the
+    host/name field. For example, a host of bar with a pointsTo of xyz converts to xyz.bar.
+
     :param input_: Input string from a template
     :type input_: str
     :param domain: Domain/host the template is being applied to
@@ -122,6 +126,8 @@ def resolve_variables(input_, domain, host, params, recordKey):
     :type params: dict(str, str)
     :param recordKey: Key of the field being processed (e.g. 'name', 'host', etc.)
     :type recordKey: str
+    :param relative_to_host: Whether a pointsTo/target value is a host name relative to the applied host
+    :type relative_to_host: bool
 
     :return: The value of the field after variable substitution and host/name resolution
     :rtype: str
@@ -186,7 +192,11 @@ def resolve_variables(input_, domain, host, params, recordKey):
             else:
                 return domain
 
-
+    # A relative host name in pointsTo/target is relative to the applied host/domain,
+    # unless it is fully qualified (ends with a .)
+    if relative_to_host and recordKey in ['target', 'pointsTo']:
+        if input_ and host and not input_.endswith('.'):
+            input_ = input_ + '.' + host
 
     # If we are processing the name/host field from the template, modify the
     # path to be relative to the host being applied, unless it was fully qualified (ends with a .)
@@ -933,7 +943,8 @@ def process_records(template_records, zone_records, domain, host, params,
             if template_record_type == 'NS' and orig_pointsto == '@':
                 raise InvalidData('Invalid data for NS pointsTo: @ would create a circular delegation')
             template_record['pointsTo'] = resolve_variables(
-                template_record['pointsTo'], domain, host, params, 'pointsTo')
+                template_record['pointsTo'], domain, host, params, 'pointsTo',
+                relative_to_host=template_record_type in ['MX', 'CNAME', 'APEXCNAME', 'NS'])
 
             if template_record_type in ['MX', 'CNAME', 'APEXCNAME', 'NS']:
                 if not is_valid_pointsTo_host(
@@ -967,7 +978,8 @@ def process_records(template_records, zone_records, domain, host, params,
         elif template_record_type == 'SRV':
             orig_target = template_record['target']
             template_record['target'] = resolve_variables(
-                template_record['target'], domain, host, params, 'target')
+                template_record['target'], domain, host, params, 'target',
+                relative_to_host=True)
 
             if not is_valid_pointsTo_host(template_record['target']):
                 raise InvalidData('Invalid data for SRV target: ' +
