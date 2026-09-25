@@ -4299,3 +4299,210 @@ tests:
       records:
         - {type: A, name: "www", data: "5.6.7.8", ttl: 300}
 
+
+  # ---------------------------------------------------------------------------
+  # pointsTo / target rendering relative to the applied host (issue #42)
+  # pointsTo / target follow the same rules as host name rendering
+  # (draft-ietf-dconn-domainconnect-03, section 9.3): a value not ending with
+  # a period is relative to [host.]domain.  Types whose data is not a host
+  # name (A, AAAA, TXT, custom) are left unchanged.
+  # ---------------------------------------------------------------------------
+
+  - id: pointsto_relative_to_host_issue_42
+    description: "Issue #42: CNAME pointsTo 'foo' applied with host 'buzz' resolves to 'foo.buzz'"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "foo", pointsTo: "1.1.1.1", ttl: 1800}
+        - {type: CNAME, host: "@", pointsTo: "foo", ttl: 1800}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 2
+      delete_count: 0
+      records:
+        - {type: A, name: "foo.buzz", data: "1.1.1.1", ttl: 1800}
+        - {type: CNAME, name: "buzz", data: "foo.buzz", ttl: 1800}
+
+  - id: pointsto_relative_to_host_a
+    description: "A: IP address pointsTo is not altered by the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "www", pointsTo: "1.2.3.4", ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: A, name: "www.buzz", data: "1.2.3.4", ttl: 300}
+
+  - id: pointsto_relative_to_host_aaaa
+    description: "AAAA: IP address pointsTo is not altered by the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "www", pointsTo: "2001:db8::1", ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: AAAA, name: "www.buzz", data: "2001:db8::1", ttl: 300}
+
+  - id: pointsto_relative_to_host_cname
+    description: "CNAME: relative pointsTo resolves relative to the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "www", pointsTo: "target", ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "www.buzz", data: "target.buzz", ttl: 300}
+
+  - id: pointsto_relative_to_host_cname_multilabel
+    description: "CNAME: multi-label relative pointsTo resolves relative to the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "www", pointsTo: "a.target", ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "www.buzz", data: "a.target.buzz", ttl: 300}
+
+  - id: pointsto_relative_to_host_cname_fqdn_unchanged
+    description: "CNAME: pointsTo ending with a period is absolute and not altered by the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "www", pointsTo: "target.example.net.", ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "www.buzz", data: "target.example.net.", ttl: 300}
+
+  - id: pointsto_relative_to_host_cname_no_host_unchanged
+    description: "CNAME: relative pointsTo without an applied host stays relative to the domain"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "www", pointsTo: "target", ttl: 300}
+      domain: example.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CNAME, name: "www", data: "target", ttl: 300}
+
+  - id: pointsto_relative_to_host_apexcname
+    description: "APEXCNAME: relative pointsTo resolves relative to the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: APEXCNAME, pointsTo: "target", ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: APEXCNAME, name: "@", data: "target.buzz", ttl: 300}
+
+  - id: pointsto_relative_to_host_txt
+    description: "TXT: data is not a host name and is not altered by the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "www", data: "target", ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: TXT, name: "www.buzz", data: "target", ttl: 300}
+
+  - id: pointsto_relative_to_host_mx
+    description: "MX: relative pointsTo resolves relative to the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "@", pointsTo: "mail", priority: 10, ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: MX, name: "buzz", data: "mail.buzz", priority: 10, ttl: 300}
+
+  - id: pointsto_relative_to_host_ns
+    description: "NS: relative pointsTo resolves relative to the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "sub", pointsTo: "ns1", ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: NS, name: "sub.buzz", data: "ns1.buzz", ttl: 300}
+
+  - id: pointsto_relative_to_host_srv
+    description: "SRV: relative target resolves relative to the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip", target: "sip", protocol: TCP,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "_sip.buzz", data: "sip.buzz", protocol: tcp,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: pointsto_relative_to_host_custom_caa
+    description: "Custom (CAA): data is not a host name and is not altered by the applied host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "www", data: '0 issue "ca"', ttl: 300}
+      domain: example.com
+      host: buzz
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: CAA, name: "www.buzz", data: '0 issue "ca"', ttl: 300}
