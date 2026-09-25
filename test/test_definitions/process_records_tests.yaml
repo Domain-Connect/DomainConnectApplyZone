@@ -1440,11 +1440,11 @@ tests:
           name: "@"
           data: "127.0.0.1"
           ttl: 400
-          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
       template_records:
         - {type: A, host: "@", pointsTo: "127.0.0.2", ttl: 500}
       domain: foo.com
-      host: "@"
+      host: ""
       params: {}
       multi_aware: true
       multi_instance: false
@@ -1459,7 +1459,7 @@ tests:
           name: "@"
           data: "127.0.0.2"
           ttl: 500
-          _dc: {id: def, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: def, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
 
   - id: multi_reapply_txt_without_multi_instance
     description: "Re-applying TXT without multi-instance replaces old TXT record"
@@ -1469,11 +1469,11 @@ tests:
           name: "@"
           data: dataold
           ttl: 400
-          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
       template_records:
         - {type: TXT, host: "@", data: datanew, ttl: 500, txtConflictMatchingMode: None}
       domain: foo.com
-      host: "@"
+      host: ""
       params: {}
       multi_aware: true
       multi_instance: false
@@ -1488,7 +1488,7 @@ tests:
           name: "@"
           data: datanew
           ttl: 500
-          _dc: {id: def, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: def, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
 
   - id: multi_reapply_txt_with_multi_instance
     description: "Re-applying TXT with multi-instance keeps old TXT and adds new one"
@@ -1498,11 +1498,11 @@ tests:
           name: "@"
           data: olddata
           ttl: 400
-          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
       template_records:
         - {type: TXT, host: "@", data: newdata, ttl: 500, txtConflictMatchingMode: None}
       domain: foo.com
-      host: "@"
+      host: ""
       params: {}
       multi_aware: true
       multi_instance: true
@@ -1517,12 +1517,12 @@ tests:
           name: "@"
           data: newdata
           ttl: 500
-          _dc: {id: def, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: def, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
         - type: TXT
           name: "@"
           data: olddata
           ttl: 400          
-          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
   - id: multi_different_template_cascade_delete
     description: "Applying a different template cascades to delete all records from old template"
     input:
@@ -1531,16 +1531,16 @@ tests:
           name: "@"
           data: "127.0.0.1"
           ttl: 400
-          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
         - type: CNAME
           name: www
           data: "@"
           ttl: 500
-          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
       template_records:
         - {type: A, host: "@", pointsTo: "127.0.0.2", ttl: 500}
       domain: foo.com
-      host: "@"
+      host: ""
       params: {}
       multi_aware: true
       multi_instance: false
@@ -1555,7 +1555,7 @@ tests:
           name: "@"
           data: "127.0.0.2"
           ttl: 500
-          _dc: {id: def, providerId: e.d.org, serviceId: t2, host: "@", essential: Always}
+          _dc: {id: def, providerId: e.d.org, serviceId: t2, host: "", essential: Always}
 
   - id: multi_essential_blocks_delete
     description: "Record with essential=Always is not deleted when a different template is applied"
@@ -1565,16 +1565,16 @@ tests:
           name: "@"
           data: "127.0.0.1"
           ttl: 400
-          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "@", essential: OnApply}
+          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "", essential: OnApply}
         - type: CNAME
           name: www
           data: "@"
           ttl: 500
-          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
       template_records:
         - {type: A, host: "@", pointsTo: "127.0.0.2", ttl: 500, essential: OnApply}
       domain: foo.com
-      host: "@"
+      host: ""
       params: {}
       multi_aware: true
       multi_instance: false
@@ -1589,12 +1589,12 @@ tests:
           name: "@"
           data: "127.0.0.2"
           ttl: 500
-          _dc: {id: def, providerId: e.d.org, serviceId: t2, host: "@", essential: OnApply}
+          _dc: {id: def, providerId: e.d.org, serviceId: t2, host: "", essential: OnApply}
         - type: CNAME
           name: www
           data: "@"
           ttl: 500
-          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "@", essential: Always}
+          _dc: {id: abc, providerId: e.d.org, serviceId: t1, host: "", essential: Always}
 
   # ---------------------------------------------------------------------------
   # Exception / validation

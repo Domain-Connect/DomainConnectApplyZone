@@ -845,7 +845,7 @@ def process_records(template_records, zone_records, domain, host, params,
                 
                 if (provider_id and 'providerId' in zone_record['_dc'] and
                     service_id and 'serviceId' in zone_record['_dc'] and
-                    host and 'host' in zone_record['_dc'] and 
+                    host is not None and 'host' in zone_record['_dc'] and
                     provider_id == zone_record['_dc']['providerId'] and
                     service_id == zone_record['_dc']['serviceId'] and
                     host == zone_record['_dc']['host']):
