@@ -12,7 +12,10 @@ tightly coupled to the Python API surface:
   - is_custom_record_type() and get_records_variables() (validator helpers)
 """
 import os
+import shutil
+import stat
 import sys
+import tempfile
 import unittest
 
 from domainconnectzone import *
@@ -71,6 +74,80 @@ class DomainConnectTests(unittest.TestCase):
     def test_DomainConnectClass_not_existing_template_default_dir(self):
         with self.assertRaises(InvalidTemplate):
             DomainConnect('foo', "bar")
+
+    def _write_template_file(self, directory, service_id, content):
+        path = os.path.join(directory, 'foo.' + service_id + '.json')
+        with open(path, 'w') as f:
+            f.write(content)
+        return path
+
+    def test_DomainConnectClass_template_file_loaded(self):
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
+        self._write_template_file(directory, 'bar', '{"providerId": "foo", "serviceId": "bar"}')
+
+        dc = DomainConnect('foo', 'bar', directory)
+
+        self.assertEqual(dc.data, {"providerId": "foo", "serviceId": "bar"})
+        self.assertEqual(dc.provider_id, 'foo')
+        self.assertEqual(dc.service_id, 'bar')
+
+    def test_DomainConnectClass_template_file_name_lowercased(self):
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
+        self._write_template_file(directory, 'bar', '{"providerId": "foo", "serviceId": "bar"}')
+
+        dc = DomainConnect('FOO', 'Bar', directory)
+
+        self.assertEqual(dc.data, {"providerId": "foo", "serviceId": "bar"})
+
+    def test_DomainConnectClass_template_file_missing(self):
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
+        expected_path = os.path.abspath(os.path.join(directory, 'foo.bar.json'))
+
+        with self.assertRaises(InvalidTemplate) as ctx:
+            DomainConnect('foo', 'bar', directory)
+        self.assertIn(expected_path, str(ctx.exception))
+
+    def test_DomainConnectClass_template_dir_missing(self):
+        directory = os.path.join(tempfile.mkdtemp(), 'does_not_exist')
+        self.addCleanup(shutil.rmtree, os.path.dirname(directory))
+
+        with self.assertRaises(InvalidTemplate):
+            DomainConnect('foo', 'bar', directory)
+
+    @unittest.skipIf(os.name == 'nt' or (hasattr(os, 'geteuid') and os.geteuid() == 0),
+                     'file permissions not enforceable on Windows or as root')
+    def test_DomainConnectClass_template_file_unreadable(self):
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
+        path = self._write_template_file(directory, 'bar', '{"providerId": "foo", "serviceId": "bar"}')
+        os.chmod(path, 0)
+        self.addCleanup(os.chmod, path, stat.S_IRUSR | stat.S_IWUSR)
+
+        with self.assertRaises(InvalidTemplate) as ctx:
+            DomainConnect('foo', 'bar', directory)
+        self.assertIn(os.path.abspath(path), str(ctx.exception))
+
+    def test_DomainConnectClass_template_file_is_directory(self):
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
+        path = os.path.join(directory, 'foo.bar.json')
+        os.mkdir(path)
+
+        with self.assertRaises(InvalidTemplate) as ctx:
+            DomainConnect('foo', 'bar', directory)
+        self.assertIn(os.path.abspath(path), str(ctx.exception))
+
+    def test_DomainConnectClass_template_file_malformed_json(self):
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
+        path = self._write_template_file(directory, 'bar', '{"providerId": ')
+
+        with self.assertRaises(InvalidTemplate) as ctx:
+            DomainConnect('foo', 'bar', directory)
+        self.assertIn(os.path.abspath(path), str(ctx.exception))
 
     def test_DomainConnectClass_custom_template(self):
         dc = DomainConnect(None, None, template={"providerId": "foo", 'serviceId': "ser"})
