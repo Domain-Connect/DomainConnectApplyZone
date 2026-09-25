@@ -12,7 +12,10 @@ tightly coupled to the Python API surface:
   - is_custom_record_type() and get_records_variables() (validator helpers)
 """
 import os
+import shutil
+import stat
 import sys
+import tempfile
 import unittest
 
 from domainconnectzone import *
@@ -71,6 +74,88 @@ class DomainConnectTests(unittest.TestCase):
     def test_DomainConnectClass_not_existing_template_default_dir(self):
         with self.assertRaises(InvalidTemplate):
             DomainConnect('foo', "bar")
+
+    PROVIDER_ID = 'provider.example.com'
+    SERVICE_ID = 'service1'
+    TEMPLATE_JSON = '{"providerId": "provider.example.com", "serviceId": "service1"}'
+
+    def _make_template_dir(self):
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
+        return directory
+
+    @staticmethod
+    def _template_path(directory, provider_id, service_id):
+        return os.path.join(directory, provider_id + '.' + service_id + '.json')
+
+    def _write_template_file(self, directory, provider_id, service_id, content):
+        path = self._template_path(directory, provider_id, service_id)
+        with open(path, 'w') as f:
+            f.write(content)
+        return path
+
+    def test_DomainConnectClass_template_file_loaded(self):
+        directory = self._make_template_dir()
+        self._write_template_file(directory, self.PROVIDER_ID, self.SERVICE_ID, self.TEMPLATE_JSON)
+
+        dc = DomainConnect(self.PROVIDER_ID, self.SERVICE_ID, directory)
+
+        self.assertEqual(dc.data, {"providerId": self.PROVIDER_ID, "serviceId": self.SERVICE_ID})
+        self.assertEqual(dc.provider_id, self.PROVIDER_ID)
+        self.assertEqual(dc.service_id, self.SERVICE_ID)
+
+    def test_DomainConnectClass_template_file_lookup_is_case_insensitive(self):
+        # Template files are stored with lowercase names; providerId and serviceId
+        # passed in mixed case must still resolve to that file.
+        directory = self._make_template_dir()
+        self._write_template_file(directory, self.PROVIDER_ID, self.SERVICE_ID, self.TEMPLATE_JSON)
+
+        dc = DomainConnect('Provider.EXAMPLE.com', 'Service1', directory)
+
+        self.assertEqual(dc.data, {"providerId": self.PROVIDER_ID, "serviceId": self.SERVICE_ID})
+
+    def test_DomainConnectClass_template_file_missing(self):
+        directory = self._make_template_dir()
+        expected_path = os.path.abspath(self._template_path(directory, self.PROVIDER_ID, self.SERVICE_ID))
+
+        with self.assertRaises(InvalidTemplate) as ctx:
+            DomainConnect(self.PROVIDER_ID, self.SERVICE_ID, directory)
+        self.assertIn(expected_path, str(ctx.exception))
+
+    def test_DomainConnectClass_template_dir_missing(self):
+        directory = os.path.join(self._make_template_dir(), 'does_not_exist')
+
+        with self.assertRaises(InvalidTemplate):
+            DomainConnect(self.PROVIDER_ID, self.SERVICE_ID, directory)
+
+    @unittest.skipIf(os.name == 'nt' or (hasattr(os, 'geteuid') and os.geteuid() == 0),
+                     'file permissions not enforceable on Windows or as root')
+    def test_DomainConnectClass_template_file_unreadable(self):
+        directory = self._make_template_dir()
+        path = self._write_template_file(directory, self.PROVIDER_ID, self.SERVICE_ID, self.TEMPLATE_JSON)
+        os.chmod(path, 0)
+        self.addCleanup(os.chmod, path, stat.S_IRUSR | stat.S_IWUSR)
+
+        with self.assertRaises(InvalidTemplate) as ctx:
+            DomainConnect(self.PROVIDER_ID, self.SERVICE_ID, directory)
+        self.assertIn(os.path.abspath(path), str(ctx.exception))
+
+    def test_DomainConnectClass_template_file_is_directory(self):
+        directory = self._make_template_dir()
+        path = self._template_path(directory, self.PROVIDER_ID, self.SERVICE_ID)
+        os.mkdir(path)
+
+        with self.assertRaises(InvalidTemplate) as ctx:
+            DomainConnect(self.PROVIDER_ID, self.SERVICE_ID, directory)
+        self.assertIn(os.path.abspath(path), str(ctx.exception))
+
+    def test_DomainConnectClass_template_file_malformed_json(self):
+        directory = self._make_template_dir()
+        path = self._write_template_file(directory, self.PROVIDER_ID, self.SERVICE_ID, '{"providerId": ')
+
+        with self.assertRaises(InvalidTemplate) as ctx:
+            DomainConnect(self.PROVIDER_ID, self.SERVICE_ID, directory)
+        self.assertIn(os.path.abspath(path), str(ctx.exception))
 
     def test_DomainConnectClass_custom_template(self):
         dc = DomainConnect(None, None, template={"providerId": "foo", 'serviceId': "ser"})

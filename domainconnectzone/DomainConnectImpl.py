@@ -1312,11 +1312,25 @@ class DomainConnect(object):
             basename = provider_id.lower() + '.' + service_id.lower() + '.json'
             filepath = os.path.join(directory, basename)
 
-            if not os.path.isfile(filepath) or not os.access(filepath, os.R_OK):
-                raise InvalidTemplate('Template file \'{}\' not found or unreadable'.format(os.path.abspath(filepath)))
-
-            with open(filepath, 'r') as file_:
-                self.data = json.load(file_)
+            try:
+                with open(filepath, 'r') as file_:
+                    self.data = json.load(file_)
+            except FileNotFoundError as e:
+                raise InvalidTemplate(
+                    "Template file '{}' not found".format(os.path.abspath(filepath))
+                ) from e
+            except PermissionError as e:
+                raise InvalidTemplate(
+                    "Template file '{}' is not readable".format(os.path.abspath(filepath))
+                ) from e
+            except OSError as e:
+                raise InvalidTemplate(
+                    "Error loading template file '{}': {}".format(os.path.abspath(filepath), e)
+                ) from e
+            except ValueError as e:
+                raise InvalidTemplate(
+                    "Template file '{}' is not valid JSON: {}".format(os.path.abspath(filepath), e)
+                ) from e
         else:
             self.data = template
             self.provider_id = template['providerId']
