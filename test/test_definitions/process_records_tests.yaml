@@ -1153,7 +1153,7 @@ tests:
            service: foo.com, priority: 10, weight: 10, port: 80, ttl: 400}
 
   - id: param_at_in_target_srv_without_host
-    description: "@ in SRV target with no host raises InvalidData because _proto.@ is invalid"
+    description: "@ in an apex SRV target resolves to the applied domain"
     input:
       zone_records: []
       template_records:
@@ -1163,7 +1163,11 @@ tests:
       host: ""
       params: {}
     expect:
-      exception: InvalidData
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", data: foo.com, protocol: tcp,
+           service: foo.com, priority: 10, weight: 10, port: 80, ttl: 400}
 
   - id: param_at_in_data_txt_with_host
     description: "@ in TXT data is stored as a literal string — TXT content is opaque"
@@ -1753,8 +1757,8 @@ tests:
     expect:
       exception: InvalidData
 
-  - id: exception_srv_at_on_apex
-    description: "SRV with @ name at apex (no host) raises InvalidData"
+  - id: srv_at_on_apex
+    description: "SRV with @ name applies at the domain apex"
     input:
       zone_records: []
       template_records:
@@ -1763,7 +1767,11 @@ tests:
       host: ""
       params: {}
     expect:
-      exception: InvalidData
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", data: "127.0.0.1", protocol: udp,
+           service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
   - id: exception_a_empty_pointsto
     description: "A record with empty pointsTo raises InvalidData"
@@ -3702,8 +3710,8 @@ tests:
         - {type: NS, name: "_ns.subdomain", data: "ns1.example.com", ttl: 300}
 
   # --- SRV (uses 'name' field instead of 'host') ---
-  - id: param_var_in_host_srv_empty_raises
-    description: "SRV: name '%var%' with var='' would produce '_tcp.@' which is invalid → InvalidData"
+  - id: param_var_in_host_srv_empty_resolves_to_apex
+    description: "SRV: name '%var%' with var='' resolves to the applied apex"
     input:
       zone_records: []
       template_records:
@@ -3713,7 +3721,11 @@ tests:
       host: ""
       params: {var: ""}
     expect:
-      exception: InvalidData
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", data: "sip.example.com", protocol: tcp,
+           service: sip.example.com, priority: 10, weight: 20, port: 5060, ttl: 300}
 
   - id: param_var_in_host_srv_simple
     description: "SRV: name '%var%' with a simple label produces a subdomain SRV"
@@ -4298,4 +4310,3 @@ tests:
       delete_count: 2
       records:
         - {type: A, name: "www", data: "5.6.7.8", ttl: 300}
-
