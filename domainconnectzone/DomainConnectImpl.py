@@ -1327,6 +1327,10 @@ class DomainConnect(object):
                 raise InvalidTemplate(
                     "Error loading template file '{}': {}".format(os.path.abspath(filepath), e)
                 ) from e
+            except ValueError as e:
+                raise InvalidTemplate(
+                    "Template file '{}' is not valid JSON: {}".format(os.path.abspath(filepath), e)
+                ) from e
         else:
             self.data = template
             self.provider_id = template['providerId']
