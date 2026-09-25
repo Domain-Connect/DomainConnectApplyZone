@@ -101,7 +101,8 @@ When applying a template, existing zone records are marked `_delete=1` based on 
 - **Custom/unknown types** (CAA, TYPE256, etc.): no conflict deletion — record is simply added; `data` supports `%variable%` substitution and `@`/empty resolves to fqdn
 
 ### Development rules
-- all new development shall happen on a feature branch from a clean "master" branch. Break if anything existing on "master" before starting. Never stash any existing work. Never switch branches if currently not on master.
+- NEVER work directly on `master`. Before making any code or test change, create and switch to a new feature branch (e.g. `fix/issue-<n>-<short-desc>`) — even if nothing will be committed yet.
+- The feature branch must be created from a clean `master`: if `master` has uncommitted changes, stop and ask the user — never stash or discard existing work. If already on a branch other than `master`, continue on it only if it belongs to the issue/task being worked on; otherwise stop and ask the user — never switch branches on your own.
 - TDD: for bug fixes, first cover the bug with a failing test, then fix.
 - TDD: for new functions, first write the interface and a failing test, only then implement.
 - if asked to check or develop test, look only in the test code and test definition files. NEVER analyse the code to see how the code bahaves. It is ok or even desired for test code to fail after adding or modifying a test (test driven development).
