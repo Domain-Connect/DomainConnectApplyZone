@@ -887,7 +887,9 @@ def process_records(template_records, zone_records, domain, host, params,
             if not is_valid_name_srv(template_record['name']):
                 raise InvalidData('Invalid data for SRV name: ' +
                                   template_record['name'])
-            srvhost = "_{}.{}".format(template_record['protocol'].lower(), template_record['name'])
+            srvhost = "_{}".format(template_record['protocol'].lower())
+            if template_record['name'] != '@':
+                srvhost += "." + template_record['name']
             if not is_valid_host_srv(srvhost):
                 raise InvalidData('Invalid data for SRV host: ' +
                                   srvhost)
