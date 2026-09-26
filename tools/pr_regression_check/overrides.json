@@ -1,0 +1,61 @@
+{
+  "840": {
+    "spinlab.studio": {
+      "casino": {
+        "sub": [
+          {
+            "params": {
+              "domain": "example.com",
+              "host": "sub"
+            },
+            "action": "override_expected",
+            "reason": "Wrong handling of host for APEXCNAME on the saved link",
+            "dc_apply_result": {
+              "new_records": [
+                {
+                  "type": "APEXCNAME",
+                  "name": "@",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                },
+                {
+                  "type": "CNAME",
+                  "name": "www.sub",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                },
+                {
+                  "type": "CNAME",
+                  "name": "api.sub",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                }
+              ],
+              "deleted_records": [],
+              "final_records": [
+                {
+                  "type": "APEXCNAME",
+                  "name": "@",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                },
+                {
+                  "type": "CNAME",
+                  "name": "www.sub",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                },
+                {
+                  "type": "CNAME",
+                  "name": "api.sub",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

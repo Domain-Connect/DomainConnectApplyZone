@@ -110,3 +110,6 @@ venv.bak/
 /yarn.lock
 
 .DS_Store
+
+# PR regression check tool cache/reports
+tools/pr_regression_check/.cache/
