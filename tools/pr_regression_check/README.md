@@ -5,6 +5,21 @@ Replays the "Online Editor test results" links recorded in merged
 requests through this repo's `apply_template()`, and flags any pull request
 whose recorded result no longer matches what the library produces today.
 
+## When to run this
+
+Run it after any change to `apply_template`, `process_records`, or
+`resolve_variables` in `DomainConnectImpl.py`, before considering the change
+done:
+
+```bash
+.venv/bin/python tools/pr_regression_check/check_pr_regressions.py
+```
+
+A new failure means the change altered externally-observed behavior for a
+real, previously-tested template. Treat it like an unexpectedly failing
+unit test — stop and ask the user whether it's an intended behavior change
+(record it in `overrides.json`, see below) or a regression to fix.
+
 ## Usage
 
 ```bash
