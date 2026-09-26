@@ -529,9 +529,7 @@ def main():
     if args.refresh:
         rewrite_cache({})
 
-    if args.pr is not None and args.pr in known and not args.refresh:
-        fetched_new = []
-    else:
+    if args.pr is None or args.pr not in known or args.refresh:
         print("Fetching merged PRs from GitHub" +
               (f" (limit {args.limit})" if args.limit else "") + "...")
         fetched_new = []
