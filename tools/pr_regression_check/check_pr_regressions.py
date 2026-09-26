@@ -154,28 +154,68 @@ def fetch_merged_prs(known_numbers, limit=None, stop_at_pr=None):
         cursor = pr_conn["pageInfo"]["endCursor"]
 
 
+def params_key(params):
+    """Canonical, hashable form of a (normalized) params dict for matching/equality."""
+    return json.dumps(params, sort_keys=True)
+
+
+def result_tuple_to_dict(result):
+    """Convert an apply_template() (new, deleted, final) tuple to a named dict."""
+    new_records, deleted_records, final_records = result
+    return {
+        "new_records": new_records,
+        "deleted_records": deleted_records,
+        "final_records": final_records,
+    }
+
+
+def result_dict_to_tuple(result):
+    """Convert a named dc_apply_result dict back to an (new, deleted, final) tuple."""
+    return (
+        result.get("new_records", []),
+        result.get("deleted_records", []),
+        result.get("final_records", []),
+    )
+
+
 def load_overrides(path):
     """
     Load the overrides file. Format:
 
     {
       "<pr_number>": {
-        "<saved_at>": {
-          "action": "ignore",
-          "reason": "..."
-        }
-      },
-      "<pr_number2>": {
-        "<saved_at>": {
-          "action": "override_expected",
-          "reason": "...",
-          "dc_apply_result": [[...new...], [...deleted...], [...final...]]
+        "<providerId>": {
+          "<serviceId>": {
+            "<host>": [
+              {
+                "params": {...},
+                "action": "ignore",
+                "reason": "..."
+              },
+              {
+                "params": {...},
+                "action": "override_expected",
+                "reason": "...",
+                "dc_apply_result": {
+                  "new_records": [...], "deleted_records": [...], "final_records": [...]
+                }
+              }
+            ]
+          }
         }
       }
     }
 
-    Each link within a PR is keyed by its "saved_at" timestamp, which is
-    unique per editor-test link. Returns {} if the file does not exist.
+    PR number stays the top-level key because different PRs can carry
+    different versions of "the same" template (by providerId/serviceId)
+    with legitimately different expected outcomes. Underneath, entries are
+    nested by providerId/serviceId/host since that's how a human identifies
+    a link; a host can hold several entries when multiple links in the same
+    PR share a host but differ in params, so params is part of the match key.
+
+    Returns a dict keyed by (pr_number, providerId, serviceId, host) mapping
+    to a list of (params_dict, entry) pairs. Raises ValueError on malformed
+    entries.
     """
     if not os.path.exists(path):
         return {}
@@ -183,30 +223,50 @@ def load_overrides(path):
         raw = json.load(f)
 
     overrides = {}
-    for pr_number_str, links in raw.items():
+    for pr_number_str, providers in raw.items():
         pr_number = int(pr_number_str)
-        for saved_at, entry in links.items():
-            action = entry.get("action")
-            if action not in ("ignore", "override_expected"):
-                raise ValueError(
-                    f"overrides file: PR #{pr_number} saved_at={saved_at!r} "
-                    f"has unknown action {action!r} (expected 'ignore' or 'override_expected')"
-                )
-            if action == "override_expected" and "dc_apply_result" not in entry:
-                raise ValueError(
-                    f"overrides file: PR #{pr_number} saved_at={saved_at!r} "
-                    f"has action 'override_expected' but no 'dc_apply_result'"
-                )
-            overrides[(pr_number, saved_at)] = entry
+        for provider_id, services in providers.items():
+            for service_id, hosts in services.items():
+                for host, entries in hosts.items():
+                    for entry in entries:
+                        ctx = (f"PR #{pr_number} {provider_id}.{service_id} "
+                               f"host={host!r} params={entry.get('params')}")
+                        action = entry.get("action")
+                        if action not in ("ignore", "override_expected"):
+                            raise ValueError(
+                                f"overrides file: {ctx} has unknown action {action!r} "
+                                f"(expected 'ignore' or 'override_expected')"
+                            )
+                        if action == "override_expected" and "dc_apply_result" not in entry:
+                            raise ValueError(
+                                f"overrides file: {ctx} has action 'override_expected' "
+                                f"but no 'dc_apply_result'"
+                            )
+                        key = (pr_number, provider_id, service_id, host)
+                        overrides.setdefault(key, []).append(
+                            (params_key(entry.get("params", {})), entry)
+                        )
     return overrides
+
+
+def find_override(overrides, pr_number, provider_id, service_id, host, params):
+    entries = overrides.get((pr_number, provider_id, service_id, host))
+    if not entries:
+        return None
+    pkey = params_key(params)
+    for entry_params_key, entry in entries:
+        if entry_params_key == pkey:
+            return entry
+    return None
 
 
 def add_override_entries(path, pr_number, action, reason, results):
     """
     Append override entries for every result in `results` whose status is
     'mismatch' or 'error', to the overrides file at `path`. Existing entries
-    for the same PR are preserved (and overwritten if the same saved_at is
-    added again). Returns the list of saved_at keys written.
+    for the same PR/providerId/serviceId/host/params are overwritten;
+    everything else in the file is preserved. Returns a list of
+    "providerId.serviceId host=... params=..." labels for what was written.
     """
     raw = {}
     if os.path.exists(path):
@@ -214,22 +274,35 @@ def add_override_entries(path, pr_number, action, reason, results):
             raw = json.load(f)
 
     pr_key = str(pr_number)
-    pr_overrides = raw.setdefault(pr_key, {})
+    providers = raw.setdefault(pr_key, {})
 
     written = []
     for res in results:
         if res["status"] not in ("mismatch", "error"):
             continue
-        saved_at = res["saved_at"]
-        entry = {"action": action, "reason": reason}
+
+        template = res["template"]
+        provider_id = template.get("providerId", "?")
+        service_id = template.get("serviceId", "?")
+        host = res["host"] or ""
+        params = normalize_params(res["params"])
+        label = f"{provider_id}.{service_id} host={host!r} params={params}"
+
+        entry = {"params": params, "action": action, "reason": reason}
         if action == "override_expected":
             if res["status"] != "mismatch" or "actual_result" not in res:
-                print(f"  WARNING: skipping saved_at={saved_at!r}: no actual result "
-                      f"available to store (status={res['status']})", file=sys.stderr)
+                print(f"  WARNING: skipping {label}: no actual result available to "
+                      f"store (status={res['status']})", file=sys.stderr)
                 continue
-            entry["dc_apply_result"] = [strip_volatile(recs) for recs in res["actual_result"]]
-        pr_overrides[saved_at] = entry
-        written.append(saved_at)
+            entry["dc_apply_result"] = result_tuple_to_dict(
+                [strip_volatile(recs) for recs in res["actual_result"]]
+            )
+
+        hosts = providers.setdefault(provider_id, {}).setdefault(service_id, {}).setdefault(host, [])
+        pkey = params_key(params)
+        hosts[:] = [e for e in hosts if params_key(e.get("params", {})) != pkey]
+        hosts.append(entry)
+        written.append(label)
 
     with open(path, 'w') as f:
         json.dump(raw, f, indent=2)
@@ -325,10 +398,10 @@ def compare_payload(payload, override=None):
     Returns a dict describing the comparison outcome for one editor-test payload:
       {"status": "match"|"mismatch"|"error"|"ignored", "detail": ...}
 
-    override, if given, is the entry from the overrides file for this exact
-    link (matched by PR number + saved_at). An "ignore" action short-circuits
-    to status "ignored" without replaying the payload at all. An
-    "override_expected" action substitutes its own dc_apply_result for the
+    override, if given, is the entry from the overrides file matching this
+    link's PR/providerId/serviceId/host/params. An "ignore" action
+    short-circuits to status "ignored" without replaying the payload at all.
+    An "override_expected" action substitutes its own dc_apply_result for the
     payload's before comparing.
     """
     if override is not None and override.get("action") == "ignore":
@@ -336,7 +409,7 @@ def compare_payload(payload, override=None):
 
     expected = payload.get("dc_apply_result")
     if override is not None and override.get("action") == "override_expected":
-        expected = override["dc_apply_result"]
+        expected = result_dict_to_tuple(override["dc_apply_result"])
     if not expected or len(expected) != 3:
         return {"status": "skipped", "detail": "no dc_apply_result in payload"}
 
@@ -380,7 +453,12 @@ def check_pr(pr, overrides=None):
     for payload in payloads:
         template = payload.get("template", {})
         saved_at = payload.get("saved_at")
-        override = overrides.get((pr["number"], saved_at))
+        params = normalize_params(payload.get("params", {}))
+        override = find_override(
+            overrides, pr["number"],
+            template.get("providerId", "?"), template.get("serviceId", "?"),
+            payload.get("host", "") or "", params,
+        )
         outcome = compare_payload(payload, override=override)
         results.append({
             "template_id": template_id(template) if template else None,

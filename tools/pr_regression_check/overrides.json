@@ -1,8 +1,61 @@
 {
   "840": {
-    "2026-03-10T11:26:03.520Z": {
-      "action": "ignore",
-      "reason": "Template mixes an APEXCNAME record (always resolves to apex, per spec) with plain CNAME www/api records applied with host='sub'. The library resolves www/api relative to host (www.sub, api.sub) per the documented host-relative resolution rule, which appears spec-compliant; the recorded editor result leaves them unresolved (www, api), matching the apex case exactly. This looks like a bug in the online editor's test tool for this template shape, not a library regression. See https://github.com/Domain-Connect/Templates/pull/840."
+    "spinlab.studio": {
+      "casino": {
+        "sub": [
+          {
+            "params": {
+              "domain": "example.com",
+              "host": "sub"
+            },
+            "action": "override_expected",
+            "reason": "Wrong handling of host for APEXCNAME on the saved link",
+            "dc_apply_result": {
+              "new_records": [
+                {
+                  "type": "APEXCNAME",
+                  "name": "@",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                },
+                {
+                  "type": "CNAME",
+                  "name": "www.sub",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                },
+                {
+                  "type": "CNAME",
+                  "name": "api.sub",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                }
+              ],
+              "deleted_records": [],
+              "final_records": [
+                {
+                  "type": "APEXCNAME",
+                  "name": "@",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                },
+                {
+                  "type": "CNAME",
+                  "name": "www.sub",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                },
+                {
+                  "type": "CNAME",
+                  "name": "api.sub",
+                  "data": "apex.spinlab.studio",
+                  "ttl": 3600
+                }
+              ]
+            }
+          }
+        ]
+      }
     }
   }
 }

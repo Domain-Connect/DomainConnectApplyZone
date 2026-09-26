@@ -49,7 +49,9 @@ Templates repo's own `check_pr_description.py` decodes) containing:
   `apply_template()` inputs used
 - `ignore_signature`, `multi_aware` — `apply_template()` flags
 - `dc_apply_result` — the `(new_records, deleted_records, final_records)`
-  tuple `apply_template()` returned at test time
+  tuple `apply_template()` returned at test time (the tool converts this to
+  a named `{new_records, deleted_records, final_records}` dict internally
+  and whenever it writes one out, so nothing depends on tuple position)
 
 The tool decodes the token (without attempting signature verification —
 the HMAC key is a private secret of the Templates repo's CI, and we trust
@@ -87,27 +89,49 @@ run — e.g. a bug in the online editor's own test tool rather than a real
 library regression, or an expected result you know is stale for reasons
 unrelated to `apply_template()`. These go in `overrides.json`, sitting next
 to the script and committed to git (pass `--overrides` to use a different
-path). Each editor-test link is addressed by PR number and its `saved_at`
-timestamp, which is unique per link — both are printed in the console
-output and included in the JSON report for a mismatch/error:
+path).
+
+The file is keyed `<pr_number> -> <providerId> -> <serviceId> -> <host> -> [entries]`.
+PR number stays the top-level key because different PRs can carry different
+versions of "the same" template (by providerId/serviceId) with legitimately
+different expected outcomes; providerId/serviceId/host is how a human
+identifies a link within a PR. A host can hold several entries when
+multiple links in the same PR share a host but differ in params (e.g. a
+different `domain`), so each entry also carries the `params` it applies to
+— a link only matches an entry when PR number, providerId, serviceId, host,
+*and* params all match.
 
 ```json
 {
   "840": {
-    "2026-03-10T11:26:03.520Z": {
-      "action": "ignore",
-      "reason": "Why this is being ignored, ideally with a link to context."
+    "spinlab.studio": {
+      "casino": {
+        "sub": [
+          {
+            "params": {"domain": "example.com", "host": "sub"},
+            "action": "ignore",
+            "reason": "Why this is being ignored, ideally with a link to context."
+          }
+        ]
+      }
     }
   },
   "1234": {
-    "2026-01-01T00:00:00.000Z": {
-      "action": "override_expected",
-      "reason": "The recorded result predates fix #NN; this is the corrected expectation.",
-      "dc_apply_result": [
-        [],
-        [],
-        []
-      ]
+    "some.provider": {
+      "some-service": {
+        "@": [
+          {
+            "params": {"domain": "example.com", "host": ""},
+            "action": "override_expected",
+            "reason": "The recorded result predates fix #NN; this is the corrected expectation.",
+            "dc_apply_result": {
+              "new_records": [],
+              "deleted_records": [],
+              "final_records": []
+            }
+          }
+        ]
+      }
     }
   }
 }
@@ -144,5 +168,6 @@ Both flags require `--pr` and only ever touch links belonging to that PR.
 Only links currently reporting `mismatch` (or, for `--add-to-override-ignore`,
 also `error`) get an entry; links that already match are left untouched.
 `--add-to-override-result` skips `error` links (there is no actual result to
-store) with a warning. Existing overrides for the same PR are preserved;
-re-running for the same link overwrites its entry.
+store) with a warning. Existing entries elsewhere in the file are preserved;
+re-running for the same providerId/serviceId/host/params overwrites just
+that entry.
