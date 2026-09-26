@@ -42,6 +42,7 @@ from domainconnectzone.DomainConnectImpl import DomainConnect  # noqa: E402
 REPO = "Domain-Connect/Templates"
 CACHE_DIR = os.path.join(os.path.dirname(__file__), '.cache')
 PR_CACHE_FILE = os.path.join(CACHE_DIR, 'prs.jsonl')
+DEFAULT_OVERRIDES_FILE = os.path.join(os.path.dirname(__file__), 'overrides.json')
 
 EDITOR_URL_PATTERN = re.compile(
     r"https://domainconnect\.paulonet\.eu/dc/free/templateedit\?token=([A-Za-z0-9+/=%]+)"
@@ -153,6 +154,90 @@ def fetch_merged_prs(known_numbers, limit=None, stop_at_pr=None):
         cursor = pr_conn["pageInfo"]["endCursor"]
 
 
+def load_overrides(path):
+    """
+    Load the overrides file. Format:
+
+    {
+      "<pr_number>": {
+        "<saved_at>": {
+          "action": "ignore",
+          "reason": "..."
+        }
+      },
+      "<pr_number2>": {
+        "<saved_at>": {
+          "action": "override_expected",
+          "reason": "...",
+          "dc_apply_result": [[...new...], [...deleted...], [...final...]]
+        }
+      }
+    }
+
+    Each link within a PR is keyed by its "saved_at" timestamp, which is
+    unique per editor-test link. Returns {} if the file does not exist.
+    """
+    if not os.path.exists(path):
+        return {}
+    with open(path) as f:
+        raw = json.load(f)
+
+    overrides = {}
+    for pr_number_str, links in raw.items():
+        pr_number = int(pr_number_str)
+        for saved_at, entry in links.items():
+            action = entry.get("action")
+            if action not in ("ignore", "override_expected"):
+                raise ValueError(
+                    f"overrides file: PR #{pr_number} saved_at={saved_at!r} "
+                    f"has unknown action {action!r} (expected 'ignore' or 'override_expected')"
+                )
+            if action == "override_expected" and "dc_apply_result" not in entry:
+                raise ValueError(
+                    f"overrides file: PR #{pr_number} saved_at={saved_at!r} "
+                    f"has action 'override_expected' but no 'dc_apply_result'"
+                )
+            overrides[(pr_number, saved_at)] = entry
+    return overrides
+
+
+def add_override_entries(path, pr_number, action, reason, results):
+    """
+    Append override entries for every result in `results` whose status is
+    'mismatch' or 'error', to the overrides file at `path`. Existing entries
+    for the same PR are preserved (and overwritten if the same saved_at is
+    added again). Returns the list of saved_at keys written.
+    """
+    raw = {}
+    if os.path.exists(path):
+        with open(path) as f:
+            raw = json.load(f)
+
+    pr_key = str(pr_number)
+    pr_overrides = raw.setdefault(pr_key, {})
+
+    written = []
+    for res in results:
+        if res["status"] not in ("mismatch", "error"):
+            continue
+        saved_at = res["saved_at"]
+        entry = {"action": action, "reason": reason}
+        if action == "override_expected":
+            if res["status"] != "mismatch" or "actual_result" not in res:
+                print(f"  WARNING: skipping saved_at={saved_at!r}: no actual result "
+                      f"available to store (status={res['status']})", file=sys.stderr)
+                continue
+            entry["dc_apply_result"] = [strip_volatile(recs) for recs in res["actual_result"]]
+        pr_overrides[saved_at] = entry
+        written.append(saved_at)
+
+    with open(path, 'w') as f:
+        json.dump(raw, f, indent=2)
+        f.write("\n")
+
+    return written
+
+
 def decode_token(token):
     """Decode an editor-link token without verifying its signature."""
     compressed = base64.b64decode(unquote(token))
@@ -235,12 +320,23 @@ def replay_payload(payload):
         return None, e
 
 
-def compare_payload(payload):
+def compare_payload(payload, override=None):
     """
     Returns a dict describing the comparison outcome for one editor-test payload:
-      {"status": "match"|"mismatch"|"error", "detail": ...}
+      {"status": "match"|"mismatch"|"error"|"ignored", "detail": ...}
+
+    override, if given, is the entry from the overrides file for this exact
+    link (matched by PR number + saved_at). An "ignore" action short-circuits
+    to status "ignored" without replaying the payload at all. An
+    "override_expected" action substitutes its own dc_apply_result for the
+    payload's before comparing.
     """
+    if override is not None and override.get("action") == "ignore":
+        return {"status": "ignored", "detail": override.get("reason")}
+
     expected = payload.get("dc_apply_result")
+    if override is not None and override.get("action") == "override_expected":
+        expected = override["dc_apply_result"]
     if not expected or len(expected) != 3:
         return {"status": "skipped", "detail": "no dc_apply_result in payload"}
 
@@ -265,7 +361,7 @@ def compare_payload(payload):
             })
 
     if mismatches:
-        return {"status": "mismatch", "detail": mismatches}
+        return {"status": "mismatch", "detail": mismatches, "actual_result": list(actual)}
     return {"status": "match", "detail": None}
 
 
@@ -273,8 +369,9 @@ def template_id(template):
     return f"{template.get('providerId', '?')}.{template.get('serviceId', '?')}"
 
 
-def check_pr(pr):
+def check_pr(pr, overrides=None):
     """Return a report dict for one cached PR, or None if it has no usable test links."""
+    overrides = overrides or {}
     payloads = get_editor_payloads(pr["body"])
     if not payloads:
         return None
@@ -282,12 +379,14 @@ def check_pr(pr):
     results = []
     for payload in payloads:
         template = payload.get("template", {})
-        outcome = compare_payload(payload)
+        saved_at = payload.get("saved_at")
+        override = overrides.get((pr["number"], saved_at))
+        outcome = compare_payload(payload, override=override)
         results.append({
             "template_id": template_id(template) if template else None,
             "domain": payload.get("domain"),
             "host": payload.get("host"),
-            "saved_at": payload.get("saved_at"),
+            "saved_at": saved_at,
             "template": template,
             "zone_records": payload.get("zone_records", []),
             "params": payload.get("params", {}),
@@ -324,7 +423,29 @@ def main():
     parser.add_argument("--full-report", action="store_true",
                          help="Include PRs/results that matched in the JSON report "
                               "(default: only PRs with a mismatch or error are written)")
+    parser.add_argument("--overrides", default=DEFAULT_OVERRIDES_FILE,
+                         help="Path to the overrides file (default: overrides.json "
+                              "next to this script)")
+    parser.add_argument("--add-to-override-ignore", metavar="REASON", default=None,
+                         help="For every currently-mismatching/erroring link in --pr, "
+                              "add an 'ignore' entry to the overrides file with this reason. "
+                              "Requires --pr.")
+    parser.add_argument("--add-to-override-result", metavar="REASON", default=None,
+                         help="For every currently-mismatching link in --pr, add an "
+                              "'override_expected' entry to the overrides file with this "
+                              "reason, storing the library's current actual output as the "
+                              "new expected result. Requires --pr.")
     args = parser.parse_args()
+
+    if (args.add_to_override_ignore or args.add_to_override_result) and args.pr is None:
+        print("--add-to-override-ignore/--add-to-override-result require --pr", file=sys.stderr)
+        return 1
+    if args.add_to_override_ignore and args.add_to_override_result:
+        print("--add-to-override-ignore and --add-to-override-result are mutually exclusive",
+              file=sys.stderr)
+        return 1
+
+    overrides = load_overrides(args.overrides)
 
     known = {} if args.refresh else load_cache()
     if args.refresh:
@@ -352,9 +473,26 @@ def main():
 
     reports = []
     for pr in prs_to_check:
-        report = check_pr(pr)
+        report = check_pr(pr, overrides=overrides)
         if report is not None:
             reports.append(report)
+
+    if args.add_to_override_ignore or args.add_to_override_result:
+        action = "ignore" if args.add_to_override_ignore else "override_expected"
+        reason = args.add_to_override_ignore or args.add_to_override_result
+        pr_report = next((r for r in reports if r["number"] == args.pr), None)
+        if pr_report is None or not any(res["status"] in ("mismatch", "error")
+                                         for res in pr_report["results"]):
+            print(f"\nNo mismatching/erroring links found for PR #{args.pr}; "
+                  f"nothing added to overrides.")
+        else:
+            written = add_override_entries(args.overrides, args.pr, action, reason,
+                                            pr_report["results"])
+            print(f"\nAdded {len(written)} '{action}' override entry/entries for PR #{args.pr} "
+                  f"to {args.overrides}: {', '.join(written)}")
+            overrides = load_overrides(args.overrides)
+            reports = [check_pr(pr, overrides=overrides) for pr in prs_to_check]
+            reports = [r for r in reports if r is not None]
 
     ok = [r for r in reports if r["overall"] == "ok"]
     failed = [r for r in reports if r["overall"] == "fail"]

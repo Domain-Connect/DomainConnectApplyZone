@@ -22,6 +22,9 @@ whose recorded result no longer matches what the library produces today.
 
 # Include PRs/results that matched in the JSON report too (default: errors only)
 .venv/bin/python tools/pr_regression_check/check_pr_regressions.py --full-report
+
+# Use a different overrides file (default: overrides.json next to this script)
+.venv/bin/python tools/pr_regression_check/check_pr_regressions.py --overrides /path/to/overrides.json
 ```
 
 Requires the `gh` CLI, authenticated with access to
@@ -76,3 +79,70 @@ match what the online editor itself uses as its default fixture.
 A merged PR with no decodable "Online Editor test results" link is skipped
 (not flagged as a failure) but is still cached, so it isn't re-fetched from
 GitHub on the next run.
+
+## Overrides
+
+Some flagged discrepancies are known and not worth re-litigating on every
+run — e.g. a bug in the online editor's own test tool rather than a real
+library regression, or an expected result you know is stale for reasons
+unrelated to `apply_template()`. These go in `overrides.json`, sitting next
+to the script and committed to git (pass `--overrides` to use a different
+path). Each editor-test link is addressed by PR number and its `saved_at`
+timestamp, which is unique per link — both are printed in the console
+output and included in the JSON report for a mismatch/error:
+
+```json
+{
+  "840": {
+    "2026-03-10T11:26:03.520Z": {
+      "action": "ignore",
+      "reason": "Why this is being ignored, ideally with a link to context."
+    }
+  },
+  "1234": {
+    "2026-01-01T00:00:00.000Z": {
+      "action": "override_expected",
+      "reason": "The recorded result predates fix #NN; this is the corrected expectation.",
+      "dc_apply_result": [
+        [],
+        [],
+        []
+      ]
+    }
+  }
+}
+```
+
+- `"ignore"` skips the link entirely (status `ignored` in the report); the
+  payload is not even replayed.
+- `"override_expected"` replaces the token's stored `dc_apply_result` with
+  the one given here before comparing against the library's actual output
+  — use this when you know what the correct expected result should be,
+  rather than just wanting to silence the check.
+
+Unknown `action` values, or an `override_expected` entry missing
+`dc_apply_result`, fail loudly at startup rather than being silently
+ignored.
+
+### Adding overrides from the CLI
+
+Rather than hand-editing `overrides.json`, you can add entries directly for
+a specific PR's currently-failing link(s):
+
+```bash
+# Add an "ignore" entry (with reason) for every mismatching/erroring link in PR #840
+.venv/bin/python tools/pr_regression_check/check_pr_regressions.py --pr 840 \
+    --add-to-override-ignore "Editor tool bug, not a library regression: see PR discussion"
+
+# Add an "override_expected" entry, accepting the library's current output
+# as the new expected result, for every currently-mismatching link in PR #1234
+.venv/bin/python tools/pr_regression_check/check_pr_regressions.py --pr 1234 \
+    --add-to-override-result "Recorded result predates fix #NN; this is the corrected expectation"
+```
+
+Both flags require `--pr` and only ever touch links belonging to that PR.
+Only links currently reporting `mismatch` (or, for `--add-to-override-ignore`,
+also `error`) get an entry; links that already match are left untouched.
+`--add-to-override-result` skips `error` links (there is no actual result to
+store) with a warning. Existing overrides for the same PR are preserved;
+re-running for the same link overwrites its entry.
