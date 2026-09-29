@@ -1989,6 +1989,18 @@ tests:
     expect:
       exception: InvalidData
 
+  - id: exception_a_wildcard_host_absolute_domain_suffix_not_label_boundary
+    description: "A wildcard absolute host ending in the domain string but not on a label boundary (*.www.notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "*.www.notfoo.com.", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
   - id: exception_aaaa_host_absolute_domain_suffix_not_label_boundary
     description: "AAAA absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
     input:
