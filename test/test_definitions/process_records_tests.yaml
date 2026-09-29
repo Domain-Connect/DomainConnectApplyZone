@@ -1977,6 +1977,90 @@ tests:
     expect:
       exception: InvalidData
 
+  - id: exception_a_host_absolute_domain_suffix_not_label_boundary
+    description: "A absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "www.notfoo.com.", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_aaaa_host_absolute_domain_suffix_not_label_boundary
+    description: "AAAA absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "www.notfoo.com.", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_cname_host_absolute_domain_suffix_not_label_boundary
+    description: "CNAME absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "www.notfoo.com.", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_txt_host_absolute_domain_suffix_not_label_boundary
+    description: "TXT absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "www.notfoo.com.", data: "hello", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_mx_host_absolute_domain_suffix_not_label_boundary
+    description: "MX absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "www.notfoo.com.", pointsTo: "mx.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_ns_host_absolute_domain_suffix_not_label_boundary
+    description: "NS absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "sub.notfoo.com.", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_caa_host_absolute_domain_suffix_not_label_boundary
+    description: "CAA (custom) absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "www.notfoo.com.", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
   - id: srv_name_fqdn_without_dot_is_relative
     description: "SRV name spelling out host.domain without trailing dot is relative and gets host.domain appended"
     input:
