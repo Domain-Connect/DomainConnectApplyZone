@@ -212,8 +212,8 @@ def resolve_variables(input_, domain, host, params, recordKey):
                     remainder = remainder + '.' + host if remainder else host
             elif remainder == domain + '.':
                 remainder = '@'
-            elif remainder.endswith(domain + '.'):
-                remainder = remainder[0:len(remainder) - len(domain + '.') - 1]
+            elif remainder.endswith('.' + domain + '.'):
+                remainder = remainder[0:len(remainder) - len('.' + domain + '.')]
             # Re-attach the wildcard prefix.  '@' doesn't make sense under a
             # wildcard so keep the host label instead.
             if not remainder or remainder == '@':
@@ -226,8 +226,8 @@ def resolve_variables(input_, domain, host, params, recordKey):
                     input_ = input_ + '.' + host
             elif input_ == domain + '.':
                 input_ = '@'
-            elif input_.endswith(domain + '.'):
-                input_ = input_[0:len(input_) - len(domain + '.') - 1]
+            elif input_.endswith('.' + domain + '.'):
+                input_ = input_[0:len(input_) - len('.' + domain + '.')]
 
     return input_
 

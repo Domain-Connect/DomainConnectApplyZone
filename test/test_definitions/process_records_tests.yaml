@@ -1806,6 +1806,303 @@ tests:
       records:
         - {type: SRV, name: "@", data: "127.0.0.1", protocol: udp, service: foo.com, priority: 10, weight: 10, port: 5, ttl: 400}
 
+  - id: srv_name_empty_with_host
+    description: "SRV with empty name resolves to the root of the applied scope (host.domain.)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: bar, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: srv_name_relative_with_host
+    description: "SRV name without trailing dot is relative and prepended to host.domain"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: _sip._tcp.bar, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: srv_name_absolute_no_host
+    description: "SRV name with trailing dot is absolute and used as-is (no host)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.foo.com.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: _sip._tcp, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: srv_name_absolute_with_host
+    description: "SRV name with trailing dot is absolute and used as-is, not qualified with host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.bar.foo.com.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: _sip._tcp.bar, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: srv_name_absolute_scope_root_with_host
+    description: "SRV name equal to absolute host.domain. resolves to the root of the applied scope"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "bar.foo.com.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: bar, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: srv_name_absolute_fqdn_var_with_host
+    description: "SRV name '_sip._tcp.%fqdn%.' with trailing dot is absolute and resolves under host"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.%fqdn%.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: _sip._tcp.bar, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: srv_name_absolute_apex_with_host
+    description: "SRV absolute name at the zone apex is placed relative to apex even when host is set"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.foo.com.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: _sip._tcp, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: srv_name_absolute_domain_root_with_host
+    description: "SRV absolute name equal to domain. resolves to apex (@) even when host is set"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "foo.com.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: "@", data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: srv_name_absolute_other_host_with_host
+    description: "SRV absolute name under another host of the domain is placed there even when host is set"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.baz.foo.com.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: _sip._tcp.baz, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: exception_srv_name_absolute_outside_domain_with_host
+    description: "SRV absolute name outside the domain raises InvalidData (host set)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.other.com.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_srv_name_absolute_outside_domain_no_host
+    description: "SRV absolute name outside the domain raises InvalidData (no host)"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.other.com.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_srv_name_absolute_domain_suffix_not_label_boundary
+    description: "SRV absolute name ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.notfoo.com.", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_a_host_absolute_domain_suffix_not_label_boundary
+    description: "A absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "www.notfoo.com.", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_a_wildcard_host_absolute_domain_suffix_not_label_boundary
+    description: "A wildcard absolute host ending in the domain string but not on a label boundary (*.www.notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: A, host: "*.www.notfoo.com.", pointsTo: "127.0.0.1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_aaaa_host_absolute_domain_suffix_not_label_boundary
+    description: "AAAA absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: AAAA, host: "www.notfoo.com.", pointsTo: "::1", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_cname_host_absolute_domain_suffix_not_label_boundary
+    description: "CNAME absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CNAME, host: "www.notfoo.com.", pointsTo: "target.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_txt_host_absolute_domain_suffix_not_label_boundary
+    description: "TXT absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: TXT, host: "www.notfoo.com.", data: "hello", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_mx_host_absolute_domain_suffix_not_label_boundary
+    description: "MX absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: MX, host: "www.notfoo.com.", pointsTo: "mx.example.com", priority: 10, ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_ns_host_absolute_domain_suffix_not_label_boundary
+    description: "NS absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: NS, host: "sub.notfoo.com.", pointsTo: "ns1.example.com", ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: exception_caa_host_absolute_domain_suffix_not_label_boundary
+    description: "CAA (custom) absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: CAA, host: "www.notfoo.com.", data: '0 issue "letsencrypt.org"', ttl: 300}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
+  - id: srv_name_fqdn_without_dot_is_relative
+    description: "SRV name spelling out host.domain without trailing dot is relative and gets host.domain appended"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.bar.foo.com", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: _sip._tcp.bar.foo.com.bar, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
+  - id: srv_name_fqdn_var_without_dot_is_relative
+    description: "SRV name '_sip._tcp.%fqdn%' without trailing dot is relative and gets host.domain appended"
+    input:
+      zone_records: []
+      template_records:
+        - {type: SRV, name: "_sip._tcp.%fqdn%", target: "sip.example.com", protocol: TCP, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+      domain: foo.com
+      host: bar
+      params: {}
+    expect:
+      new_count: 1
+      delete_count: 0
+      records:
+        - {type: SRV, name: _sip._tcp.bar.foo.com.bar, data: "sip.example.com", protocol: tcp, service: sip, priority: 10, weight: 20, port: 5060, ttl: 300}
+
   - id: exception_a_empty_pointsto
     description: "A record with empty pointsTo raises InvalidData"
     input:

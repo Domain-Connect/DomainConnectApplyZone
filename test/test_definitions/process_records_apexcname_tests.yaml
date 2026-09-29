@@ -50,6 +50,18 @@ tests:
     expect:
       exception: InvalidData
 
+  - id: exception_apexcname_host_absolute_domain_suffix_not_label_boundary
+    description: "APEXCNAME absolute host ending in the domain string but not on a label boundary (notfoo.com.) raises InvalidData"
+    input:
+      zone_records: []
+      template_records:
+        - {type: APEXCNAME, host: "notfoo.com.", pointsTo: target.example.com, ttl: 600}
+      domain: foo.com
+      host: ""
+      params: {}
+    expect:
+      exception: InvalidData
+
   - id: apexcname_delete_conflicts
     description: "APEXCNAME deletes conflicting records at @ (A, AAAA, CNAME, MX, TXT)"
     input:
